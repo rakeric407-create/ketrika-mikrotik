@@ -37,8 +37,8 @@ NUMERO_PAIEMENT = "038 28 171 00"
 TARIFS_MODULES = {
     "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6 & Torrents + Wi-Fi 2.4G/5G"},
     "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement Total WireGuard + Wi-Fi 2.4G/5G"},
-    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot + Wi-Fi 2.4G/5G"},
-    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP + Wi-Fi 2.4G/5G"}
+    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot + Wi-Fi + DNS Perso"},
+    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP + DNS Perso"}
 }
 
 MODELES_MIKROTIK = [
@@ -56,54 +56,207 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>KETRIKA MIKROTIK</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>KETRIKA MIKROTIK PRO v2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #090d16;
-            --card-bg: #111827;
+            --bg-dark: #030712;
+            --card-bg: #0b0f19;
             --accent-cyan: #00f2fe;
-            --accent-green: #00ff88;
+            --accent-green: #10b981;
+            --accent-glow: rgba(0, 242, 254, 0.15);
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
-            --border-glow: rgba(0, 242, 254, 0.2);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 15px; }
-        .container { max-width: 820px; margin: auto; }
-        .header { text-align: center; padding: 20px 0; }
-        .header h1 { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .card { background: var(--card-bg); border: 1px solid var(--border-glow); border-radius: 14px; padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
-        .card-title { font-family: 'Orbitron', sans-serif; font-size: 15px; color: var(--accent-cyan); margin-bottom: 12px; }
-        label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-top: 12px; text-transform: uppercase; }
-        input, select { width: 100%; padding: 12px; margin-top: 6px; background: #1a2234; border: 1px solid #2d3748; border-radius: 8px; color: #fff; font-size: 15px; }
-        .btn-primary { width: 100%; padding: 14px; margin-top: 15px; background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Orbitron', sans-serif; text-decoration: none; display: inline-block; text-align: center; }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--bg-dark); 
+            color: var(--text-main); 
+            min-height: 100vh; 
+            padding: 20px; 
+            background-image: radial-gradient(circle at 50% -10%, rgba(0, 242, 254, 0.08), transparent 50%),
+                              radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.03), transparent 30%);
+            background-attachment: fixed;
+        }
+        .container { max-width: 850px; margin: auto; }
+        
+        /* HEADER */
+        .header { text-align: center; padding: 30px 0; position: relative; }
+        .header h1 { 
+            font-family: 'Space Grotesk', sans-serif; 
+            font-size: 34px; 
+            font-weight: 700; 
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .header p { color: var(--text-muted); font-size: 14px; margin-top: 6px; font-weight: 300; }
+
+        /* CARDS */
+        .card { 
+            background: var(--card-bg); 
+            border: 1px solid rgba(255, 255, 255, 0.04); 
+            border-radius: 18px; 
+            padding: 28px; 
+            margin-bottom: 25px; 
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6); 
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), var(--accent-green), transparent);
+        }
+        .card-title { 
+            font-family: 'Space Grotesk', sans-serif; 
+            font-size: 16px; 
+            color: var(--accent-cyan); 
+            margin-bottom: 15px; 
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* FORMS */
+        label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        input, select { 
+            width: 100%; 
+            padding: 14px; 
+            margin-top: 6px; 
+            background: #111524; 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 10px; 
+            color: #fff; 
+            font-size: 15px; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        input:focus, select:focus { 
+            outline: none; 
+            border-color: var(--accent-cyan); 
+            box-shadow: 0 0 15px var(--accent-glow); 
+            background: #151b2e;
+        }
+
+        /* BUTTONS */
+        .btn-primary { 
+            width: 100%; 
+            padding: 16px; 
+            margin-top: 20px; 
+            background: linear-gradient(135deg, #00f2fe, #4facfe); 
+            color: #030712; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 15px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            font-family: 'Space Grotesk', sans-serif; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .btn-primary:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 25px rgba(0, 242, 254, 0.35); 
+        }
         .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
-        .plan-selector { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
-        .plan-option { background: #161f30; border: 2px solid #2d3748; padding: 12px; border-radius: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .plan-option input { width: 20px; height: 20px; accent-color: var(--accent-cyan); margin: 0; }
-        .terminal-box { background: #05080f; border: 1px solid var(--accent-green); color: var(--accent-green); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; word-break: break-all; margin-top: 10px; line-height: 1.5; }
-        .badge { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid var(--accent-cyan); }
-        .alert { padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
-        .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7; }
-        .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
-        .alert-warning { background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fcd34d; }
-        .feature-box { background: #161f30; padding: 15px; border-radius: 10px; margin-top: 10px; line-height: 1.8; font-size: 13px; border-left: 4px solid var(--accent-cyan); }
-        .wifi-box { background: #1a2333; border: 1px dashed var(--accent-cyan); padding: 15px; border-radius: 10px; margin-top: 15px; }
+        .btn-success:hover { box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3); }
+
+        /* PLAN SELECTOR */
+        .plan-selector { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 10px; }
+        .plan-option { 
+            background: #101524; 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            padding: 16px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .plan-option:hover {
+            border-color: var(--accent-cyan);
+            background: #141b2f;
+        }
+        .plan-option input { width: 18px; height: 18px; accent-color: var(--accent-cyan); margin: 0; cursor: pointer; }
+
+        /* PAYMENT BANNER */
+        .payment-banner { 
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03)); 
+            border: 1px solid rgba(245, 158, 11, 0.3); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-top: 20px; 
+            text-align: center; 
+        }
+        .payment-phone { 
+            font-family: 'Space Grotesk', sans-serif; 
+            font-size: 30px; 
+            color: #f59e0b; 
+            margin: 8px 0; 
+            font-weight: 700; 
+            letter-spacing: 2px; 
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+        }
+
+        /* TERMINAL BOX */
+        .terminal-box { 
+            background: #040711; 
+            border: 1px solid var(--accent-green); 
+            color: var(--accent-green); 
+            padding: 18px; 
+            border-radius: 10px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 13px; 
+            word-break: break-all; 
+            margin-top: 12px; 
+            line-height: 1.5; 
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.1);
+        }
+
+        .badge { 
+            background: rgba(0, 242, 254, 0.08); 
+            color: var(--accent-cyan); 
+            padding: 5px 12px; 
+            border-radius: 20px; 
+            font-size: 11px; 
+            font-weight: 600;
+            border: 1px solid rgba(0, 242, 254, 0.25); 
+            letter-spacing: 0.5px;
+        }
+        .alert { padding: 14px; border-radius: 10px; margin-bottom: 15px; font-size: 13px; line-height: 1.5; }
+        .alert-success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #a7f3d0; }
+        .alert-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
+        .alert-warning { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; }
+        
+        .feature-box { background: #101524; padding: 18px; border-radius: 12px; margin-top: 12px; line-height: 2; font-size: 13px; border-left: 4px solid var(--accent-cyan); }
+        .wifi-box { background: #101524; border: 1px dashed rgba(0, 242, 254, 0.2); padding: 18px; border-radius: 12px; margin-top: 15px; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-        table th, table td { padding: 10px; border-bottom: 1px solid #2d3748; text-align: left; }
-        table th { color: var(--accent-cyan); }
+        table th, table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
+        table th { color: var(--accent-cyan); font-family: 'Space Grotesk', sans-serif; font-weight: 600; }
+        
+        .footer { text-align: center; color: var(--text-muted); opacity: 0.8; margin-top: 35px; font-size: 11px; font-weight: 300; letter-spacing: 0.5px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>⚡ KETRIKA MIKROTIK ⚡</h1>
-            <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">Système d'Optimisation Réseau & Starlink</p>
+            <p>Technologie Avancée d'Optimisation Réseau & Protection Starlink</p>
         </div>
         {{ content|safe }}
-        <div style="text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 25px;">
-            KETRIKA MIKROTIK © 2025 • Support : 038 28 171 00
+        <div class="footer">
+            KETRIKA MIKROTIK PRO © 2026 • Ingénierie Réseau Avancée • Support : 038 28 171 00
         </div>
     </div>
 </body>
@@ -118,6 +271,7 @@ def build_raw_script(cfg):
     opt = cfg.get("options", {})
     ssid = opt.get("ssid", "STARLINK-KETRIKA")
     wifi_pass = opt.get("wifi_pass", "ketrika2025")
+    dns_name = opt.get("dns_name", "ketrika.wifi")
     
     s = f"# ==========================================\n# KETRIKA MIKROTIK - {cfg['client']} ({cfg['modele']})\n# Pack Actif : {plan.upper()}\n# ==========================================\n"
     
@@ -127,40 +281,30 @@ def build_raw_script(cfg):
     s += '/ipv6 settings set disable-ipv6=yes\n'
     s += '/ip firewall filter remove [find comment="KETRIKA-P2P"]\n/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-P2P"\n'
     
-    # 2. GESTION ULTRA-PRÉCISE WI-FI DUAL-BAND (2.4 GHz + 5 GHz AX/AC)
+    # 2. GESTION WI-FI DUAL-BAND (2.4 GHz + 5 GHz)
     s += f"""
 # --- CONFIGURATION WI-FI DUAL BAND (2.4 GHz & 5 GHz) ---
 :do {{
-    # 1. ARCHITECTURE WI-FI 6 MODERNE (RouterOS v7 Wifi)
     /interface wifi security remove [find comment="KETRIKA-SEC"]
     /interface wifi security add name=ketrika-sec authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}" comment="KETRIKA-SEC"
     
-    # Configuration 2.4 GHz (Longue Portée)
     /interface wifi configuration remove [find name="cfg-2ghz"]
     /interface wifi configuration add name=cfg-2ghz ssid="{ssid}" security=ketrika-sec chains=0,1 channel.band=2ghz-ax
     
-    # Configuration 5 GHz (Ultra Débit Starlink)
     /interface wifi configuration remove [find name="cfg-5ghz"]
     /interface wifi configuration add name=cfg-5ghz ssid="{ssid}" security=ketrika-sec chains=0,1 channel.band=5ghz-ax channel.width=20/40/80mhz
     
-    # Application automatique sur chaque interface respective
     /interface wifi set [find channel.band~"2ghz" or name~"wifi2"] configuration=cfg-2ghz disabled=no
     /interface wifi set [find channel.band~"5ghz" or name~"wifi1"] configuration=cfg-5ghz disabled=no
     /interface wifi set [find] configuration.ssid="{ssid}" security=ketrika-sec disabled=no
 }} on-error={{}};
 
 :do {{
-    # 2. ARCHITECTURE WI-FI CLASSIQUE (RouterOS Wireless n/ac)
     /interface wireless security-profiles remove [find name="ketrika-sec"]
     /interface wireless security-profiles add name=ketrika-sec mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
     
-    # Applique le SSID et sécurité à toutes les cartes sans fil
     /interface wireless set [find] ssid="{ssid}" security-profile=ketrika-sec disabled=no
-    
-    # Réglage précis 2.4 GHz (Canal 20/40 MHz)
     /interface wireless set [find band~"2ghz"] band=2ghz-b/g/n channel-width=20/40mhz-XX country="madagascar"
-    
-    # Réglage précis 5 GHz (Canal 20/40/80 MHz Ultra Vitesse)
     /interface wireless set [find band~"5ghz"] band=5ghz-a/n/ac channel-width=20/40/80mhz-XXXX country="madagascar"
 }} on-error={{}};
 """
@@ -179,11 +323,11 @@ def build_raw_script(cfg):
 /ip route add dst-address=0.0.0.0/0 gateway=warp-ketrika distance=1 comment="KETRIKA-ROUTE"
 """
 
-    # 4. HOTSPOT WI-FI ZONE (30k, 50k)
+    # 4. HOTSPOT WI-FI ZONE AVEC DNS PERSONNALISABLE (30k, 50k)
     if plan in ["hotspot", "pro"]:
-        s += """/ip pool add name=ketrika-hs-pool ranges=10.5.50.10-10.5.50.254
+        s += f"""/ip pool add name=ketrika-hs-pool ranges=10.5.50.10-10.5.50.254
 /ip dhcp-server add name=ketrika-hs-dhcp interface=bridge address-pool=ketrika-hs-pool disabled=no
-/ip hotspot profile add name=ketrika-hs hotspot-address=10.5.50.1 dns-name=ketrika.wifi
+/ip hotspot profile add name=ketrika-hs hotspot-address=10.5.50.1 dns-name={dns_name}
 /ip hotspot add name=hs-ketrika interface=bridge address-pool=ketrika-hs-pool profile=ketrika-hs disabled=no
 """
 
@@ -221,31 +365,31 @@ def home():
     
     content = f"""
     <div class="card">
-        <div class="card-title">🛒 1. CHOISIR VOTRE PACK DE CONFIGURATION</div>
+        <div class="card-title">🛒 1. CHOISIR VOTRE CONFIGURATION</div>
         <form method="POST" action="/commander">
             <div class="plan-selector">{plans_html}</div>
-            <div style="background:#161f30; padding:15px; border-radius:10px; margin-top:15px; border-left:4px solid #ffaa00;">
-                <b style="color:#ffaa00; font-size:13px;">📱 PAIEMENT MOBILE MONEY</b>
-                <div style="font-size:13px; color:#fff; margin-top:4px;">Envoyez le montant correspondant au :</div>
-                <div style="font-size:22px; font-weight:bold; color:#ffaa00; font-family:'Orbitron'; margin:5px 0;">{NUMERO_PAIEMENT}</div>
+            <div style="background:#111524; padding:18px; border-radius:12px; margin-top:15px; border-left:4px solid #f59e0b; border-right:1px solid rgba(245, 158, 11, 0.15); border-top:1px solid rgba(245, 158, 11, 0.15); border-bottom:1px solid rgba(245, 158, 11, 0.15);">
+                <b style="color:#f59e0b; font-size:13px; font-family:'Space Grotesk';">📱 DEBITEZ ET ENVOYEZ LE PAIEMENT</b>
+                <div style="font-size:13px; color:#fff; margin-top:4px;">Versez la somme correspondante au numéro :</div>
+                <div class="payment-phone">{NUMERO_PAIEMENT}</div>
                 <small style="color:var(--text-muted);">Mvola / Orange Money / Airtel Money</small>
             </div>
             <label>Votre Nom complet :</label>
-            <input type="text" name="nom" placeholder="Ex: Jean Rakoto" required>
+            <input type="text" name="nom" placeholder="Ex: Rakoto Jean" required>
             <label>Votre Numéro de Téléphone :</label>
-            <input type="text" name="tel" placeholder="Ex: 034 XX XXX XX" required>
-            <label>Référence du SMS de Paiement :</label>
-            <input type="text" name="ref_paiement" placeholder="Ex: Réf Mvola / Orange / Airtel" required>
+            <input type="text" name="tel" placeholder="Ex: 034 00 000 00" required>
+            <label>Référence de la transaction :</label>
+            <input type="text" name="ref_paiement" placeholder="Ex: Code de transaction reçu par SMS" required>
             <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
         </form>
     </div>
 
     <div class="card">
-        <div class="card-title">🔐 2. DÉJÀ UNE CLÉ ? ACTIVEZ VOTRE ROUTEUR</div>
+        <div class="card-title">🔐 2. ACCÉDER AU SYSTÈME D'ACTIVATION</div>
         <form method="POST" action="/login">
-            <label>Votre Clé de Licence :</label>
-            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase;">
-            <button type="submit" class="btn-primary btn-success">OUVRIR LE GÉNÉRATEUR</button>
+            <label>Clé de Licence :</label>
+            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase; letter-spacing:1px;">
+            <button type="submit" class="btn-primary btn-success">DÉVERROUILLER LE GÉNÉRATEUR</button>
         </form>
     </div>
     """
@@ -268,12 +412,12 @@ def commander():
 
     content = f"""
     <div class="card">
-        <div class="alert alert-success"><b>✅ Commande enregistrée avec succès !</b></div>
-        <p style="font-size:14px; line-height:1.6;">
-            Merci <b>{nom}</b> ! Votre paiement pour le pack <b>{TARIFS_MODULES[formule]['nom']}</b> ({montant:,} Ar) est en cours de validation.<br><br>
-            Votre clé vous sera expédiée par SMS au <b>{tel}</b> d'ici quelques minutes.
+        <div class="alert alert-success"><b>✅ Demande de commande soumise !</b></div>
+        <p style="font-size:14px; line-height:1.6; color:var(--text-muted);">
+            Merci <b style="color:#fff;">{nom}</b>. Votre demande d'activation pour le pack <b style="color:#fff;">{TARIFS_MODULES[formule]['nom']}</b> ({montant:,} Ar) est enregistrée.<br><br>
+            Notre équipe valide la référence de paiement <code style="color:var(--accent-cyan);">{ref}</code> et vous envoie la clé par SMS au <b style="color:#fff;">{tel}</b> d'ici quelques instants.
         </p>
-        <a href="/" class="btn-primary" style="margin-top:20px;">RETOUR À L'ACCUEIL</a>
+        <a href="/" class="btn-primary">RETOUR À L'ACCUEIL</a>
     </div>
     """
     return render(content)
@@ -283,7 +427,7 @@ def login():
     cle = request.form.get("licence", "").strip().upper()
     result = verifier_licence(cle)
     if not result or not result["valide"]:
-        return render('<div class="card"><div class="alert alert-error">❌ Clé invalide ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
+        return render('<div class="card"><div class="alert alert-error">❌ Clé de licence incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
     
     session["authenticated"] = True
     session["licence"] = cle
@@ -305,45 +449,55 @@ def dashboard():
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["base"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
 
-    feat_html = "<div>✅ Masquage TTL = 64 (Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Blocage IPv6 & Torrents</div><div style='color:var(--accent-cyan);'>✅ Wi-Fi Dual Band 2.4 GHz + 5 GHz (Canaux Ultra Vitesse 80MHz)</div>"
+    feat_html = "<div>✅ Masquage TTL = 64 (Optimisé Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Bloqueur IPv6 & Anti-Fuite</div><div>✅ Wi-Fi Dual Band Haute Performance</div>"
+    
+    dns_input_html = ""
     if plan_key in ["warp", "hotspot", "pro"]:
-        feat_html += "<div style='color:var(--accent-green);'>✅ Tunnel Cloudflare WARP VPN Unique (WireGuard)</div>"
+        feat_html += "<div style='color:var(--accent-green);'>✅ Tunnel Crypté WireGuard Cloudflare WARP</div>"
     if plan_key in ["hotspot", "pro"]:
-        feat_html += "<div style='color:var(--accent-green);'>✅ Système Hotspot Wi-Fi Zone (Tickets)</div>"
+        feat_html += "<div style='color:var(--accent-green);'>✅ Portail Captif Hotspot (Wi-Fi Zone)</div>"
+        # Ajout du champ dynamique pour choisir l'adresse DNS du Hotspot !
+        dns_input_html = """
+        <label>🔗 Adresse DNS / Page de connexion du Hotspot :</label>
+        <input type="text" name="dns_name" value="wifizone.wifi" placeholder="Ex: wifizone.wifi ou monwifi.net" required>
+        <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:4px;">C'est l'adresse que vos clients tapent pour se connecter (ex: wifizone.wifi).</small>
+        """
     if plan_key == "pro":
-        feat_html += "<div style='color:var(--accent-green);'>✅ Fournisseur PPPoE + Gestion Débit PCQ QoS</div>"
+        feat_html += "<div style='color:var(--accent-green);'>✅ Serveur d'abonnements PPPoE + PCQ Bandwidth QoS</div>"
 
     content = f"""
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <span class="badge">Pack Actif : {plan_info['nom']}</span>
-        <a href="/logout" style="color:#ef4444; font-size:12px; text-decoration:none;">Déconnexion</a>
+        <span class="badge">Niveau : {plan_info['nom']}</span>
+        <a href="/logout" style="color:#ef4444; font-size:12px; text-decoration:none;">Fermer Session</a>
     </div>
 
     <div class="card">
         <div class="card-title">⚙️ GÉNÉRATEUR MIKROTIK - {session['client']}</div>
         <form method="POST" action="/generate">
-            <label>1. Modèle de votre équipement MikroTik :</label>
+            <label>1. Modèle de matériel MikroTik :</label>
             <select name="modele" required>{modeles_opt}</select>
 
-            <label>2. Nom de l'équipement / Client :</label>
-            <input type="text" name="client_final" placeholder="Ex: Client_Starlink_01" required>
+            <label>2. Identifiant du client final :</label>
+            <input type="text" name="client_final" placeholder="Ex: Boutique_Rasoa" required>
 
             <div class="wifi-box">
-                <div style="font-size:13px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">📶 PARAMÈTRES DUAL-BAND WI-FI (2.4 GHz + 5 GHz)</div>
+                <div style="font-size:13px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">📶 PARAMÈTRES WI-FI (2.4 GHz + 5 GHz)</div>
                 
-                <label>Nom du Réseau Wi-Fi (SSID) :</label>
+                <label>Nom du Wi-Fi (SSID) :</label>
                 <input type="text" name="ssid" value="STARLINK-KETRIKA" required>
 
-                <label>Mot de Passe du Wi-Fi :</label>
+                <label>Mot de passe Wi-Fi :</label>
                 <input type="text" name="wifi_pass" value="ketrika2025" placeholder="Minimum 8 caractères" required>
+                
+                {dns_input_html}
             </div>
 
-            <label style="margin-top:15px;">3. Fonctionnalités incluses dans votre formule :</label>
+            <label style="margin-top:15px;">3. Modules inclus dans votre clé :</label>
             <div class="feature-box">
                 {feat_html}
             </div>
 
-            <button type="submit" class="btn-primary">GÉNÉRER L'INJECTION DU PACK ({plan_info['prix']:,} Ar)</button>
+            <button type="submit" class="btn-primary">GÉNÉRER LE SCRIPT UNIQUE ({plan_info['prix']:,} Ar)</button>
         </form>
     </div>
     """
@@ -359,8 +513,9 @@ def generate():
     client_final = request.form.get("client_final").replace(" ", "_")
     ssid = request.form.get("ssid", "STARLINK-KETRIKA")
     wifi_pass = request.form.get("wifi_pass", "ketrika2025")
+    dns_name = request.form.get("dns_name", "ketrika.wifi")
     
-    options = {"ssid": ssid, "wifi_pass": wifi_pass}
+    options = {"ssid": ssid, "wifi_pass": wifi_pass, "dns_name": dns_name}
     warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     
@@ -376,9 +531,9 @@ def generate():
 
     content = f"""
     <div class="card">
-        <div class="alert alert-success"><b>✅ Injection Dual-Band prête pour : {client_final} ({modele})</b></div>
+        <div class="alert alert-success"><b>✅ Script généré pour : {client_final} ({modele})</b></div>
         <div class="alert alert-warning">
-            📶 <b>Wi-Fi 2.4G & 5G activés :</b> Nom: <b>{ssid}</b> | Mot de passe: <b>{wifi_pass}</b><br>
+            📶 <b>Wi-Fi Configuration :</b> Nom: <b>{ssid}</b> | Mot de passe: <b>{wifi_pass}</b><br>
             <i>Conseil : Connectez-vous sur l'adresse MAC dans Winbox pour éviter la déconnexion !</i>
         </div>
 
@@ -393,7 +548,7 @@ def generate():
 
         <hr style="border-color:#2d3748; margin:20px 0;">
 
-        <div class="card-title">MÉTHODE 3 : SI DÉJÀ CONNECTÉ À INTERNET</div>
+        <div class="card-title">MÉTHODE 3 : SI LE ROUTEUR EST DÉJÀ EN LIGNE</div>
         <div class="terminal-box">{online_cmd}</div>
 
         <a href="/dashboard" class="btn-primary" style="margin-top:20px;">NOUVELLE CONFIGURATION</a>
@@ -450,7 +605,7 @@ def admin_dashboard():
         rows_html += f"""
         <tr>
             <td><b>{cmd[1]}</b><br><small>{cmd[2]}</small></td>
-            <td>{cmd[3]}<br><b>{cmd[4]:,} Ar</b></td>
+            <td>{cmd[3].upper()}<br><b>{cmd[4]:,} Ar</b></td>
             <td><code>{cmd[5]}</code></td>
             <td>
                 <form method="POST" action="/admin/valider/{cmd[0]}">
