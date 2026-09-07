@@ -35,17 +35,17 @@ init_commandes_table()
 NUMERO_PAIEMENT = "038 28 171 00"
 
 TARIFS_MODULES = {
-    "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6 & Torrents"},
-    "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement Total WireGuard"},
-    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot"},
-    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP"}
+    "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6 & Torrents + Wi-Fi"},
+    "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement Total WireGuard + Wi-Fi"},
+    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot + Wi-Fi"},
+    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP + Wi-Fi"}
 }
 
 MODELES_MIKROTIK = [
-    "hAP ax2", "hAP ax3", "hAP ac2", "hAP ac3", "hAP lite",
-    "RB750Gr3 (hEX)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
+    "hAP ax2 (Wi-Fi 6)", "hAP ax3 (Wi-Fi 6)", "hAP ac2", "hAP ac3", "hAP lite",
+    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s", "LHG 5", "SXTsq",
+    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
     "CCR1009", "CCR2004", "CCR2116",
-    "mANTBox ax 15s", "mANTBox 19s", "LHG 5", "SXTsq",
     "Chateau LTE/5G", "Autre RouterOS v7"
 ]
 
@@ -88,6 +88,7 @@ HTML_BASE = """
         .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
         .alert-warning { background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fcd34d; }
         .feature-box { background: #161f30; padding: 15px; border-radius: 10px; margin-top: 10px; line-height: 1.8; font-size: 13px; border-left: 4px solid var(--accent-cyan); }
+        .wifi-box { background: #1a2333; border: 1px dashed var(--accent-cyan); padding: 15px; border-radius: 10px; margin-top: 15px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         table th, table td { padding: 10px; border-bottom: 1px solid #2d3748; text-align: left; }
         table th { color: var(--accent-cyan); }
@@ -113,15 +114,37 @@ def render(content):
 
 def build_raw_script(cfg):
     plan = cfg["type"]
+    opt = cfg.get("options", {})
+    ssid = opt.get("ssid", "STARLINK-KETRIKA")
+    wifi_pass = opt.get("wifi_pass", "ketrika2025")
+    
     s = f"# ==========================================\n# KETRIKA MIKROTIK - {cfg['client']} ({cfg['modele']})\n# Pack Actif : {plan.upper()}\n# ==========================================\n"
     
-    # 1. TOUS LES PACKS ONT LE SOCLE ANTI-BRIDAGE (10k, 20k, 30k, 50k)
+    # 1. SOCLE ANTI-BRIDAGE STARLINK
     s += '/ip firewall mangle remove [find comment="KETRIKA-TTL"]\n/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:64 passthrough=yes comment="KETRIKA-TTL"\n'
     s += '/ip dns set use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no allow-remote-requests=yes\n/ip firewall nat remove [find comment="KETRIKA-DNS"]\n/ip firewall nat add chain=dstnat protocol=udp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"\n/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"\n'
     s += '/ipv6 settings set disable-ipv6=yes\n'
     s += '/ip firewall filter remove [find comment="KETRIKA-P2P"]\n/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-P2P"\n'
     
-    # 2. SEULS LES PACKS WARP (20k), HOTSPOT (30k) ET PRO (50k) ONT LE VPN WARP
+    # 2. ACTIVATION UNIVERSELLE DU WI-FI (AX + ANCIENS + BYPASS ROUTEURS SANS WIFI)
+    s += f"""
+# --- CONFIGURATION WI-FI AUTOMATIQUE ---
+:do {{
+    # Pour les modeles recents Wi-Fi 6 (ex: hAP ax2, ax3, mANTBox ax)
+    /interface wifi security remove [find comment="KETRIKA-SEC"]
+    /interface wifi security add name=ketrika-sec authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}" comment="KETRIKA-SEC"
+    /interface wifi set [find] configuration.ssid="{ssid}" security=ketrika-sec disabled=no
+}} on-error={{}};
+
+:do {{
+    # Pour les modeles classiques (ex: hAP lite, hAP ac2, ac3)
+    /interface wireless security-profiles remove [find name="ketrika-sec"]
+    /interface wireless security-profiles add name=ketrika-sec mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}"
+    /interface wireless set [find] ssid="{ssid}" security-profile=ketrika-sec disabled=no
+}} on-error={{}};
+"""
+
+    # 3. VPN WARP (20k, 30k, 50k)
     if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
         s += f"""/interface wireguard remove [find name="warp-ketrika"]
 /interface wireguard add name=warp-ketrika listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
@@ -135,7 +158,7 @@ def build_raw_script(cfg):
 /ip route add dst-address=0.0.0.0/0 gateway=warp-ketrika distance=1 comment="KETRIKA-ROUTE"
 """
 
-    # 3. SEULS LES PACKS HOTSPOT (30k) ET PRO (50k) ONT LE SERVEUR HOTSPOT
+    # 4. HOTSPOT WI-FI ZONE (30k, 50k)
     if plan in ["hotspot", "pro"]:
         s += """/ip pool add name=ketrika-hs-pool ranges=10.5.50.10-10.5.50.254
 /ip dhcp-server add name=ketrika-hs-dhcp interface=bridge address-pool=ketrika-hs-pool disabled=no
@@ -143,7 +166,7 @@ def build_raw_script(cfg):
 /ip hotspot add name=hs-ketrika interface=bridge address-pool=ketrika-hs-pool profile=ketrika-hs disabled=no
 """
 
-    # 4. SEUL LE PACK PRO (50k) A LE PPPOE ET LA GESTION DE BANDE PASSANTE
+    # 5. PACK PRO (50k)
     if plan == "pro":
         s += """/ip pool add name=ketrika-ppp-pool ranges=10.10.10.2-10.10.10.254
 /ppp profile add name=ketrika-ppp local-address=10.10.10.1 remote-address=ketrika-ppp-pool dns-server=1.1.1.1
@@ -261,8 +284,7 @@ def dashboard():
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["base"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
 
-    # Affichage des fonctionnalités selon le pack débloqué
-    feat_html = "<div>✅ Masquage TTL = 64 (Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Blocage IPv6 & Torrents</div>"
+    feat_html = "<div>✅ Masquage TTL = 64 (Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Blocage IPv6 & Torrents</div><div>✅ Configuration & Activation Wi-Fi Automatique</div>"
     if plan_key in ["warp", "hotspot", "pro"]:
         feat_html += "<div style='color:var(--accent-green);'>✅ Tunnel Cloudflare WARP VPN Unique (WireGuard)</div>"
     if plan_key in ["hotspot", "pro"]:
@@ -282,10 +304,20 @@ def dashboard():
             <label>1. Modèle de votre équipement MikroTik :</label>
             <select name="modele" required>{modeles_opt}</select>
 
-            <label>2. Nom de l'équipement / Client final :</label>
+            <label>2. Nom de l'équipement / Client :</label>
             <input type="text" name="client_final" placeholder="Ex: Client_Starlink_01" required>
 
-            <label>3. Fonctionnalités incluses dans votre formule :</label>
+            <div class="wifi-box">
+                <div style="font-size:13px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">📶 PARAMÈTRES DU RÉSEAU WI-FI MIKROTIK</div>
+                
+                <label>Nom du Wi-Fi diffusé (SSID) :</label>
+                <input type="text" name="ssid" value="STARLINK-KETRIKA" required>
+
+                <label>Mot de passe du Wi-Fi :</label>
+                <input type="text" name="wifi_pass" value="ketrika2025" placeholder="Minimum 8 caractères" required>
+            </div>
+
+            <label style="margin-top:15px;">3. Fonctionnalités incluses dans votre formule :</label>
             <div class="feature-box">
                 {feat_html}
             </div>
@@ -304,12 +336,14 @@ def generate():
     modele = request.form.get("modele")
     plan_key = session.get("type_abo", "base")
     client_final = request.form.get("client_final").replace(" ", "_")
+    ssid = request.form.get("ssid", "STARLINK-KETRIKA")
+    wifi_pass = request.form.get("wifi_pass", "ketrika2025")
     
-    # Seuls les packs éligibles génèrent une clé WARP
+    options = {"ssid": ssid, "wifi_pass": wifi_pass}
     warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     
-    sauvegarder_config(session["licence"], client_final, modele, plan_key, {}, warp_data, config_id)
+    sauvegarder_config(session["licence"], client_final, modele, plan_key, options, warp_data, config_id)
     incrementer_utilisation(session["licence"])
     
     host = request.host_url.replace("http://", "https://")
@@ -323,7 +357,8 @@ def generate():
     <div class="card">
         <div class="alert alert-success"><b>✅ Injection prête pour : {client_final} ({modele})</b></div>
         <div class="alert alert-warning">
-            💡 <b>Conseil Pro :</b> Dans Winbox, connectez-vous toujours sur l'<b>Adresse MAC</b> pour éviter toute déconnexion !
+            💡 <b>Wi-Fi Configuré :</b> Nom: <b>{ssid}</b> | Mot de passe: <b>{wifi_pass}</b><br>
+            <i>Conseil : Connectez-vous sur l'adresse MAC dans Winbox pour éviter la déconnexion !</i>
         </div>
 
         <div class="card-title">MÉTHODE 1 (RECOMMANDÉE) : COMMANDE UNIQUE (ANTI-DÉCONNEXION)</div>
