@@ -87,7 +87,6 @@ HTML_BASE = """
         }
         .container { max-width: 860px; margin: auto; }
 
-        /* TOP NAV */
         .top-nav { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 12px; padding: 10px 14px; 
@@ -101,7 +100,6 @@ HTML_BASE = """
         .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 12px; background: linear-gradient(135deg, #1877f2, #0d6efd); border-radius: 10px; transition: 0.2s; }
         .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-        /* HEADER */
         .header { text-align: center; padding: 14px 5px 20px; }
         .logo-wrapper {
             position: relative; width: 80px; height: 80px; margin: 0 auto 10px;
@@ -136,7 +134,6 @@ HTML_BASE = """
         }
         .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
 
-        /* CARDS */
         .card { 
             background: var(--bg-card); border: 1px solid var(--border-light); 
             border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; 
@@ -147,7 +144,6 @@ HTML_BASE = """
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
         @media (min-width: 500px) { .card-title { font-size: 15px; } }
 
-        /* HERO POURQUOI NOUS */
         .hero-card {
             background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
             color: #fff; padding: 20px 16px; border-radius: 18px; margin-bottom: 14px;
@@ -164,7 +160,6 @@ HTML_BASE = """
         .feature-detail-box .fd-title { font-family: 'Space Grotesk'; font-size: 12px; font-weight: 800; margin-bottom: 3px; }
         .feature-detail-box .fd-desc { font-size: 11px; opacity: 0.9; line-height: 1.4; }
 
-        /* AVANTAGES & ÉTAPES */
         .advantages-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         @media (min-width: 500px) { .advantages-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; } }
         .adv-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 6px; border-radius: 10px; text-align: center; border: 1px solid var(--border-light); }
@@ -179,7 +174,6 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
-        /* FORMULAIRES TEXTUELS SEULEMENT (NE TOUCHE PAS AUX RADIOS) */
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
         input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
             width: 100%; padding: 12px 14px; margin-top: 4px; 
@@ -191,7 +185,6 @@ HTML_BASE = """
         .ip-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
         .ip-chip { background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #bae6fd; font-family: 'Courier New', monospace; }
 
-        /* BOUTONS */
         .btn-primary { 
             width: 100%; padding: 14px; margin-top: 12px; 
             background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; 
@@ -203,7 +196,6 @@ HTML_BASE = """
         .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
         .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
 
-        /* PLANS */
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 6px; }
         .plan-option { 
             background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); 
@@ -215,6 +207,7 @@ HTML_BASE = """
         .plan-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; cursor: pointer; }
         .plan-info { flex: 1; min-width: 0; }
         .plan-info b { font-size: 13px; display: block; }
+        @media (min-width: 500px) { .plan-info b { font-size: 14px; } }
         .plan-info div { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
         .plan-price { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .plan-price b { color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }
@@ -223,7 +216,6 @@ HTML_BASE = """
         .badge-best { background: #db2777; }
         .badge-pro { background: #059669; }
 
-        /* SECTEUR BANDE PASSANTE ULTRA-TACTILE (100% CLIQUABLE) */
         .bw-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
         @media (min-width: 500px) { .bw-grid { grid-template-columns: 1fr 1fr; } }
         .bw-card {
@@ -241,7 +233,6 @@ HTML_BASE = """
         .bw-card-text b { font-size: 12px; color: var(--text-dark); display: block; }
         .bw-card-text span { font-size: 10px; color: var(--text-muted); }
 
-        /* PAIEMENT */
         .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center; }
         .payment-title { color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; }
         .payment-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
@@ -259,7 +250,6 @@ HTML_BASE = """
         .alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
         .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
 
-        /* AVIS */
         .rating-summary { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; margin-bottom: 10px; }
         .rating-big { font-family: 'Space Grotesk'; font-size: 32px; font-weight: 900; color: #b45309; }
         .stars-gold { color: var(--accent-gold); font-size: 12px; letter-spacing: 2px; }
@@ -269,7 +259,6 @@ HTML_BASE = """
         .rating-input label { font-size: 26px; color: #cbd5e1; cursor: pointer; }
         .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label { color: var(--accent-gold); }
 
-        /* FAQ */
         .faq-item { border-bottom: 1px solid var(--border-light); padding: 10px 0; }
         .faq-item:last-child { border-bottom: none; }
         .faq-question { font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
@@ -289,7 +278,6 @@ HTML_BASE = """
     <a href="https://wa.me/261382817100?text=Bonjour%20KETRIKA%2C%20je%20souhaite%20une%20assistance" target="_blank" class="whatsapp-float">💬 <span>WhatsApp</span></a>
 
     <div class="container">
-        <!-- TOP NAV -->
         <div class="top-nav">
             <div class="nav-brand">
                 <div class="nav-logo-icon">⚡</div>
@@ -301,7 +289,6 @@ HTML_BASE = """
             </div>
         </div>
 
-        <!-- HEADER -->
         <div class="header">
             <div class="logo-wrapper">
                 <div class="logo-aura"></div>
@@ -566,7 +553,7 @@ def home():
     conn.close()
     reviews_html = ""
     for a in liste_avis:
-        reviews_html += f'<div class="review-card"><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><b style="font-size:12px;">{a[0]} <span style="color:var(--text-muted); font-size:10px;">({a[1] or "MG"})</span></b><span class="stars-gold">{"⭐" * a[2]}</span></div><div style="font-size:11px; color:var(--text-body);">"{a[3]}"</div></div>'
+        reviews_html += f'<div class="review-card"><div class="review-header"><span class="review-name">{a[0]} <span class="review-city">({a[1] or "MG"})</span></span><span class="stars-gold">{"⭐" * a[2]}</span></div><div class="review-text">"{a[3]}"</div></div>'
     
     plans_html = ""
     for k, v in TARIFS_MODULES.items():
@@ -694,7 +681,7 @@ def home():
         <div class="rating-summary">
             <div class="rating-big">{avg_note}</div>
             <div style="text-align:center;">
-                <div class="stars-gold" style="font-size:16px;">{"⭐" * int(round(avg_note))}</div>
+                <div class="stars-gold" style="font-size:18px;">{"⭐" * int(round(avg_note))}</div>
                 <div style="font-size:11px; font-weight:700; margin-top:2px;">Avis Vérifiés</div>
                 <div style="color:var(--text-muted); font-size:10px;">Basé sur {total_avis} retours</div>
             </div>
@@ -755,7 +742,7 @@ def home():
         </div>
         <div class="faq-item">
             <div class="faq-question"><span>Que faire si ma clé n'arrive pas après 15 min ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>038 28 171 00</b> (Jean Eric)<br>2. Écrivez-nous sur notre page <a href="{fb_link}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
+            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>038 28 171 00</b> (Jean Eric)<br>2. Écrivez-nous sur notre page <a href="{FB_LINK}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
         </div>
     </div>
     """
@@ -1019,7 +1006,7 @@ def admin_creer():
     if request.method == "POST":
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
-    return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
+    return render('<div class="card"><div class="card-title">Créer Clé (1 Routeur)</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
