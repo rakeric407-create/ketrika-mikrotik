@@ -1,7 +1,7 @@
 from flask import Flask, request, Response, render_template_string, session, redirect, url_for, send_file
 from database import *
 from warp_api import creer_config_warp_complete
-import sqlite3, secrets, string, random, io
+import sqlite3, secrets, string, random, io, traceback
 from datetime import datetime
 
 app = Flask(__name__)
@@ -9,6 +9,9 @@ app.secret_key = secrets.token_hex(32)
 init_db()
 
 FB_LINK = "https://www.facebook.com/loza.nama.376"
+NUMERO_MVOLA = "038 28 171 00"
+NUMERO_ORANGE = "037 39 755 72"
+NOM_COMPTE = "Jean Eric"
 
 def init_extra_tables():
     conn = sqlite3.connect("ketrika.db")
@@ -78,7 +81,6 @@ HTML_BASE = """
             --border-light: #e2e8f0;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 100%);
@@ -173,6 +175,12 @@ HTML_BASE = """
         .step-num { width: 30px; height: 30px; margin: 0 auto 6px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; font-weight: 900; font-size: 15px; }
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+
+        /* GUIDES ÉTAPE PAR ÉTAPE (MÉTHODES 1, 2, 3) */
+        .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 12px; margin-top: 8px; }
+        .step-guide ol { padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }
+        .step-guide li { margin-bottom: 4px; }
+        .step-guide b { color: var(--accent-cyan); }
 
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
         input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
@@ -278,6 +286,7 @@ HTML_BASE = """
     <a href="https://wa.me/261382817100?text=Bonjour%20KETRIKA%2C%20je%20souhaite%20une%20assistance" target="_blank" class="whatsapp-float">💬 <span>WhatsApp</span></a>
 
     <div class="container">
+        <!-- TOP NAV -->
         <div class="top-nav">
             <div class="nav-brand">
                 <div class="nav-logo-icon">⚡</div>
@@ -289,6 +298,7 @@ HTML_BASE = """
             </div>
         </div>
 
+        <!-- HEADER -->
         <div class="header">
             <div class="logo-wrapper">
                 <div class="logo-aura"></div>
@@ -327,7 +337,7 @@ HTML_BASE = """
             document.querySelectorAll('.txt-mg').forEach(e => e.style.display = currentLang === 'mg' ? '' : 'none'); 
         }
         function copyText(elemId, btnId) { 
-            const text = document.getElementById(elemId).innerText; 
+            const text = document.getElementById(elemId).innerText || document.getElementById(elemId).value; 
             navigator.clipboard.writeText(text).then(() => { 
                 const btn = document.getElementById(btnId); 
                 const o = btn.innerHTML; 
@@ -543,6 +553,7 @@ def clean_script_for_oneliner(raw_script):
 def home():
     if session.get("authenticated"):
         return redirect(url_for("dashboard"))
+    
     conn = sqlite3.connect("ketrika.db")
     c = conn.cursor()
     c.execute("SELECT AVG(etoiles), COUNT(*) FROM avis")
@@ -551,6 +562,7 @@ def home():
     c.execute("SELECT nom, ville, etoiles, commentaire, date_avis FROM avis ORDER BY id DESC LIMIT 5")
     liste_avis = c.fetchall()
     conn.close()
+    
     reviews_html = ""
     for a in liste_avis:
         reviews_html += f'<div class="review-card"><div class="review-header"><span class="review-name">{a[0]} <span class="review-city">({a[1] or "MG"})</span></span><span class="stars-gold">{"⭐" * a[2]}</span></div><div class="review-text">"{a[3]}"</div></div>'
@@ -591,7 +603,7 @@ def home():
             <div class="feature-detail-box">
                 <span class="fd-icon">⚡</span>
                 <div class="fd-title">TUNNEL ULTRA-RAPIDE</div>
-                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence < 2ms. Votre débit reste maximal en toutes circonstances.</div>
+                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Votre débit reste maximal en toutes circonstances.</div>
             </div>
             <div class="feature-detail-box">
                 <span class="fd-icon">🌐</span>
@@ -630,7 +642,7 @@ def home():
         <div class="card-title">🚀 COMMENT ÇA MARCHE ?</div>
         <div class="steps-grid">
             <div class="step-box"><div class="step-num">1</div><div class="step-title">Choisir le Pack</div><div class="step-desc">Sélectionnez la formule adaptée à vos besoins</div></div>
-            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer & Recevoir</div><div class="step-desc">Mobile Money → Clé par SMS en 15 min max</div></div>
+            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money → Clé par SMS en 15 min max</div></div>
             <div class="step-box"><div class="step-num">3</div><div class="step-title">Configurer</div><div class="step-desc">1 commande dans Winbox = Config complète</div></div>
         </div>
     </div>
@@ -645,17 +657,17 @@ def home():
                 <div class="payment-grid">
                     <div class="payment-box">
                         <div class="method">🟠 Orange Money</div>
-                        <div class="number">037 39 755 72</div>
-                        <div class="name">Au nom de : Jean Eric</div>
+                        <div class="number">{NUMERO_ORANGE}</div>
+                        <div class="name">Au nom de : {NOM_COMPTE}</div>
                     </div>
                     <div class="payment-box">
                         <div class="method">🟡 Mvola</div>
-                        <div class="number">038 28 171 00</div>
-                        <div class="name">Au nom de : Jean Eric</div>
+                        <div class="number">{NUMERO_MVOLA}</div>
+                        <div class="name">Au nom de : {NOM_COMPTE}</div>
                     </div>
                 </div>
                 <div class="payment-warning">
-                    ⏰ Clé non reçue après <b>15 minutes</b> ?<br>Appelez directement : <b>038 28 171 00</b>
+                    ⏰ Clé non reçue après <b>15 minutes</b> ?<br>Appelez directement : <b>{NUMERO_MVOLA}</b>
                 </div>
             </div>
             <label>Nom complet :</label>
@@ -738,11 +750,11 @@ def home():
         </div>
         <div class="faq-item">
             <div class="faq-question"><span>Comment payer et recevoir ma clé ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Paiement Mobile Money au nom de <b>Jean Eric</b> :<br>🟠 Orange Money : <b>037 39 755 72</b><br>🟡 Mvola : <b>038 28 171 00</b><br>Votre clé est envoyée par SMS après validation (max 15 min).</div>
+            <div class="faq-answer">Paiement Mobile Money au nom de <b>{NOM_COMPTE}</b> :<br>🟠 Orange Money : <b>{NUMERO_ORANGE}</b><br>🟡 Mvola : <b>{NUMERO_MVOLA}</b><br>Votre clé est envoyée par SMS après validation (max 15 min).</div>
         </div>
         <div class="faq-item">
             <div class="faq-question"><span>Que faire si ma clé n'arrive pas après 15 min ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>038 28 171 00</b> (Jean Eric)<br>2. Écrivez-nous sur notre page <a href="{FB_LINK}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
+            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>{NUMERO_MVOLA}</b> ({NOM_COMPTE})<br>2. Écrivez-nous sur notre page <a href="{FB_LINK}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
         </div>
     </div>
     """
@@ -752,7 +764,10 @@ def home():
 def ajouter_avis():
     nom = request.form.get("nom", "").strip()
     ville = request.form.get("ville", "").strip()
-    etoiles = int(request.form.get("etoiles", 5))
+    try:
+        etoiles = int(request.form.get("etoiles", 5))
+    except:
+        etoiles = 5
     commentaire = request.form.get("commentaire", "").strip()
     if nom and commentaire:
         conn = sqlite3.connect("ketrika.db")
@@ -774,7 +789,7 @@ def commander():
     c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
     conn.close()
-    return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES[formule]["nom"]}</b> ({montant:,} Ar).<br>Clé envoyée par SMS au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le 038 28 171 00</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
+    return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES[formule]["nom"]}</b> ({montant:,} Ar).<br>Clé envoyée par SMS au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -804,6 +819,7 @@ def dashboard():
     if not result or result.get("utilisations", 0) >= 1:
         session.clear()
         return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
+    
     plan_key = session.get("type_abo", "basic")
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
@@ -895,9 +911,10 @@ def generate():
     if not result or result.get("utilisations", 0) >= 1:
         session.clear()
         return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
+    
     modele = request.form.get("modele")
     plan_key = session.get("type_abo", "basic")
-    client_final = request.form.get("client_final").replace(" ", "_")
+    client_final = request.form.get("client_final", "Client").replace(" ", "_")
     ssid = request.form.get("ssid", "KETRIKA-NET")
     wifi_pass = request.form.get("wifi_pass", "ketrika2025")
     dns_name = request.form.get("dns_name", "ketrika.wifi")
@@ -910,42 +927,80 @@ def generate():
         bp = BANDWIDTH_PROFILES.get(bw_choice, BANDWIDTH_PROFILES["illimite"])
         bw_down = bp["down"]
         bw_up = bp["up"]
+    
     options = {"ssid": ssid, "wifi_pass": wifi_pass, "dns_name": dns_name, "bw_down": bw_down, "bw_up": bw_up, "router_ip": router_ip}
     warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    
     sauvegarder_config(cle, client_final, modele, plan_key, options, warp_data, config_id)
     incrementer_utilisation(cle)
+    
     conn = sqlite3.connect("ketrika.db")
     c = conn.cursor()
     c.execute("UPDATE licences SET actif=0, nb_utilisations=1 WHERE cle=?", (cle,))
     conn.commit()
     conn.close()
     session.clear()
+    
     host = request.host_url.replace("http://", "https://")
     online_cmd = f'/tool fetch url="{host}config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
     cfg = get_config_by_id(config_id)
     raw_s = build_raw_script(cfg)
     clean_s = clean_script_for_oneliner(raw_s)
     one_liner = f'/system script add name=ketrika_run source="{clean_s}"; /system script run ketrika_run; /system script remove ketrika_run'
+    
     content = f"""
     <div class="card">
         <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
         <div class="alert-warning">
-            📍 <b>Branchement :</b> WAN sur <b>Port 1</b> | PC sur <b>autres ports</b><br>
-            📶 Wi-Fi: <b>{ssid}</b> | 🔑 Mot de passe: <b>{wifi_pass}</b> | 🌐 IP: <b>{router_ip}</b><br>
-            🔒 <i>Clé définitivement consommée.</i>
+            📍 <b>Branchement Physique :</b> Câble Internet / Starlink sur le <b>Port 1 (ether1)</b> | PC / Switch sur les <b>autres ports</b>.<br>
+            📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
+            🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
-        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE)</div>
+
+        <!-- METHODE 1 : ONE-LINER -->
+        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE &amp; ULTRA-RAPIDE)</div>
+        <div class="step-guide">
+            <b>📖 Mode d'emploi pas-à-pas :</b>
+            <ol>
+                <li>Ouvrez <b>Winbox</b> et connectez-vous sur votre MikroTik en cliquant sur l'<b>Adresse MAC</b> (onglet <i>Neighbors</i>).</li>
+                <li>Cliquez sur <b>New Terminal</b> dans le menu de gauche.</li>
+                <li>Cliquez sur le bouton violet ci-dessous pour copier la commande, puis <b>collez-la (Clic droit &gt; Paste)</b> dans le terminal.</li>
+                <li>Appuyez sur la touche <b>Entrée</b> : en 5 secondes, le routeur applique toute la configuration sans redémarrer !</li>
+            </ol>
+        </div>
         <div class="terminal-box" id="cmd1">{one_liner}</div>
-        <button class="btn-copy" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE</button>
+        <button class="btn-copy" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE UNIQUE</button>
+
         <hr>
-        <div class="card-title">MÉTHODE 2 : FICHIER .RSC</div>
-        <a href="/download/{config_id}.rsc" class="btn-primary btn-success">📥 TÉLÉCHARGER LE FICHIER</a>
+
+        <!-- METHODE 2 : FICHIER .RSC ET TEXTE BRUT -->
+        <div class="card-title">MÉTHODE 2 : FICHIER SCRIPT (.RSC) OU CODE BRUT COMPLET</div>
+        <div class="step-guide">
+            <b>📖 Mode d'emploi pas-à-pas :</b>
+            <ol>
+                <li>Téléchargez le fichier <b>ketrika.rsc</b> avec le bouton vert, OU copiez tout le texte brut ci-dessous.</li>
+                <li>Dans Winbox, cliquez sur le menu <b>Files</b> à gauche, puis glissez-déposez le fichier <b>ketrika.rsc</b> dedans.</li>
+                <li>Ouvrez <b>New Terminal</b> et tapez : <code>/import file-name=ketrika.rsc</code> puis Entrée.</li>
+            </ol>
+        </div>
+        <a href="/download/{config_id}.rsc" class="btn-primary btn-success" style="margin-top:10px;">📥 TÉLÉCHARGER LE FICHIER KETRIKA.RSC</a>
+        
+        <label style="margin-top:12px;">📄 OU COPIEZ LE SCRIPT BRUT MULTI-LIGNES CI-DESSOUS :</label>
+        <textarea id="raw_script_box" style="height:140px; font-family:'Courier New', monospace; font-size:11px; background:#0f172a; color:#4ade80; border:1px solid #334155;" readonly>{raw_s}</textarea>
+        <button class="btn-copy" id="b_raw" onclick="copyText('raw_script_box','b_raw')" style="background:#475569;">📋 COPIER LE SCRIPT BRUT COMPLET</button>
+
         <hr>
-        <div class="card-title">MÉTHODE 3 : SI ROUTEUR DÉJÀ EN LIGNE</div>
+
+        <!-- METHODE 3 : IMPORTATION DIRECTE CLOUD -->
+        <div class="card-title">MÉTHODE 3 : IMPORTATION DIRECTE (SI ROUTEUR DÉJÀ CONNECTÉ AU WEB)</div>
+        <div class="step-guide">
+            <b>📖 Mode d'emploi :</b> Si le port 1 de votre routeur a déjà accès à Internet, collez simplement cette commande dans le terminal Winbox :
+        </div>
         <div class="terminal-box" id="cmd2">{online_cmd}</div>
-        <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER</button>
-        <a href="/" class="btn-primary" style="margin-top:14px;">🏠 RETOUR À L'ACCUEIL</a>
+        <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER LA COMMANDE CLOUD</button>
+
+        <a href="/" class="btn-primary" style="margin-top:18px;">🏠 TERMINER &amp; RETOUR À L'ACCUEIL</a>
     </div>
     """
     return render(content)
@@ -1007,6 +1062,10 @@ def admin_creer():
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé (1 Routeur)</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
+
+@app.errorhandler(500)
+def server_error(e):
+    return f"<h1>Erreur 500</h1><pre>{traceback.format_exc()}</pre>", 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
