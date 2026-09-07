@@ -35,18 +35,19 @@ init_commandes_table()
 NUMERO_PAIEMENT = "038 28 171 00"
 
 TARIFS_MODULES = {
-    "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6 & Torrents + Wi-Fi"},
-    "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement Total WireGuard + Wi-Fi"},
-    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot + Wi-Fi"},
-    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP + Wi-Fi"}
+    "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6 & Torrents + Wi-Fi 2.4G/5G"},
+    "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement Total WireGuard + Wi-Fi 2.4G/5G"},
+    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot + Wi-Fi 2.4G/5G"},
+    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP + Wi-Fi 2.4G/5G"}
 }
 
 MODELES_MIKROTIK = [
-    "hAP ax2 (Wi-Fi 6)", "hAP ax3 (Wi-Fi 6)", "hAP ac2", "hAP ac3", "hAP lite",
-    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s", "LHG 5", "SXTsq",
+    "hAP ax2 (Dual Band Wi-Fi 6 2.4G/5G)", "hAP ax3 (Dual Band Wi-Fi 6 2.4G/5G)",
+    "hAP ac2 (Dual Band 2.4G/5G)", "hAP ac3 (Dual Band 2.4G/5G)",
+    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (5GHz)", "LHG 5 (5GHz)", "SXTsq (5GHz)", "hAP lite (2.4GHz)",
     "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
     "CCR1009", "CCR2004", "CCR2116",
-    "Chateau LTE/5G", "Autre RouterOS v7"
+    "Chateau LTE/5G (Dual Band)", "Autre RouterOS v7"
 ]
 
 HTML_BASE = """
@@ -126,21 +127,41 @@ def build_raw_script(cfg):
     s += '/ipv6 settings set disable-ipv6=yes\n'
     s += '/ip firewall filter remove [find comment="KETRIKA-P2P"]\n/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-P2P"\n'
     
-    # 2. ACTIVATION UNIVERSELLE DU WI-FI (AX + ANCIENS + BYPASS ROUTEURS SANS WIFI)
+    # 2. GESTION ULTRA-PRÉCISE WI-FI DUAL-BAND (2.4 GHz + 5 GHz AX/AC)
     s += f"""
-# --- CONFIGURATION WI-FI AUTOMATIQUE ---
+# --- CONFIGURATION WI-FI DUAL BAND (2.4 GHz & 5 GHz) ---
 :do {{
-    # Pour les modeles recents Wi-Fi 6 (ex: hAP ax2, ax3, mANTBox ax)
+    # 1. ARCHITECTURE WI-FI 6 MODERNE (RouterOS v7 Wifi)
     /interface wifi security remove [find comment="KETRIKA-SEC"]
     /interface wifi security add name=ketrika-sec authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}" comment="KETRIKA-SEC"
+    
+    # Configuration 2.4 GHz (Longue Portée)
+    /interface wifi configuration remove [find name="cfg-2ghz"]
+    /interface wifi configuration add name=cfg-2ghz ssid="{ssid}" security=ketrika-sec chains=0,1 channel.band=2ghz-ax
+    
+    # Configuration 5 GHz (Ultra Débit Starlink)
+    /interface wifi configuration remove [find name="cfg-5ghz"]
+    /interface wifi configuration add name=cfg-5ghz ssid="{ssid}" security=ketrika-sec chains=0,1 channel.band=5ghz-ax channel.width=20/40/80mhz
+    
+    # Application automatique sur chaque interface respective
+    /interface wifi set [find channel.band~"2ghz" or name~"wifi2"] configuration=cfg-2ghz disabled=no
+    /interface wifi set [find channel.band~"5ghz" or name~"wifi1"] configuration=cfg-5ghz disabled=no
     /interface wifi set [find] configuration.ssid="{ssid}" security=ketrika-sec disabled=no
 }} on-error={{}};
 
 :do {{
-    # Pour les modeles classiques (ex: hAP lite, hAP ac2, ac3)
+    # 2. ARCHITECTURE WI-FI CLASSIQUE (RouterOS Wireless n/ac)
     /interface wireless security-profiles remove [find name="ketrika-sec"]
-    /interface wireless security-profiles add name=ketrika-sec mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}"
+    /interface wireless security-profiles add name=ketrika-sec mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
+    
+    # Applique le SSID et sécurité à toutes les cartes sans fil
     /interface wireless set [find] ssid="{ssid}" security-profile=ketrika-sec disabled=no
+    
+    # Réglage précis 2.4 GHz (Canal 20/40 MHz)
+    /interface wireless set [find band~"2ghz"] band=2ghz-b/g/n channel-width=20/40mhz-XX country="madagascar"
+    
+    # Réglage précis 5 GHz (Canal 20/40/80 MHz Ultra Vitesse)
+    /interface wireless set [find band~"5ghz"] band=5ghz-a/n/ac channel-width=20/40/80mhz-XXXX country="madagascar"
 }} on-error={{}};
 """
 
@@ -284,7 +305,7 @@ def dashboard():
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["base"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
 
-    feat_html = "<div>✅ Masquage TTL = 64 (Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Blocage IPv6 & Torrents</div><div>✅ Configuration & Activation Wi-Fi Automatique</div>"
+    feat_html = "<div>✅ Masquage TTL = 64 (Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Blocage IPv6 & Torrents</div><div style='color:var(--accent-cyan);'>✅ Wi-Fi Dual Band 2.4 GHz + 5 GHz (Canaux Ultra Vitesse 80MHz)</div>"
     if plan_key in ["warp", "hotspot", "pro"]:
         feat_html += "<div style='color:var(--accent-green);'>✅ Tunnel Cloudflare WARP VPN Unique (WireGuard)</div>"
     if plan_key in ["hotspot", "pro"]:
@@ -308,12 +329,12 @@ def dashboard():
             <input type="text" name="client_final" placeholder="Ex: Client_Starlink_01" required>
 
             <div class="wifi-box">
-                <div style="font-size:13px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">📶 PARAMÈTRES DU RÉSEAU WI-FI MIKROTIK</div>
+                <div style="font-size:13px; font-weight:bold; color:var(--accent-cyan); margin-bottom:8px;">📶 PARAMÈTRES DUAL-BAND WI-FI (2.4 GHz + 5 GHz)</div>
                 
-                <label>Nom du Wi-Fi diffusé (SSID) :</label>
+                <label>Nom du Réseau Wi-Fi (SSID) :</label>
                 <input type="text" name="ssid" value="STARLINK-KETRIKA" required>
 
-                <label>Mot de passe du Wi-Fi :</label>
+                <label>Mot de Passe du Wi-Fi :</label>
                 <input type="text" name="wifi_pass" value="ketrika2025" placeholder="Minimum 8 caractères" required>
             </div>
 
@@ -355,9 +376,9 @@ def generate():
 
     content = f"""
     <div class="card">
-        <div class="alert alert-success"><b>✅ Injection prête pour : {client_final} ({modele})</b></div>
+        <div class="alert alert-success"><b>✅ Injection Dual-Band prête pour : {client_final} ({modele})</b></div>
         <div class="alert alert-warning">
-            💡 <b>Wi-Fi Configuré :</b> Nom: <b>{ssid}</b> | Mot de passe: <b>{wifi_pass}</b><br>
+            📶 <b>Wi-Fi 2.4G & 5G activés :</b> Nom: <b>{ssid}</b> | Mot de passe: <b>{wifi_pass}</b><br>
             <i>Conseil : Connectez-vous sur l'adresse MAC dans Winbox pour éviter la déconnexion !</i>
         </div>
 
