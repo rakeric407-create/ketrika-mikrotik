@@ -1,4 +1,4 @@
-from flask import Flask, request, Response, render_template_string, session, redirect, url_for, jsonify
+from flask import Flask, request, Response, render_template_string, session, redirect, url_for
 from database import *
 from warp_api import creer_config_warp_complete
 import secrets
@@ -9,172 +9,161 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 
-# Initialisation base de données
 init_db()
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
 NUMERO_PAIEMENT = "038 28 171 00"
 
-TARIFS = {
-    "jour": {"prix": 5000, "nom": "1 Jour", "duree": "24h"},
-    "semaine": {"prix": 20000, "nom": "1 Semaine", "duree": "7 jours"},
-    "mois": {"prix": 50000, "nom": "1 Mois", "duree": "30 jours"},
-    "annee": {"prix": 300000, "nom": "1 An", "duree": "365 jours"},
-    "vie": {"prix": 800000, "nom": "À VIE", "duree": "Illimité"}
+TARIFS_MODULES = {
+    "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage Standard)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6/Torrent"},
+    "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN Unique)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement WireGuard 100%"},
+    "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot"},
+    "pro": {"nom": "🏢 Pack Pro Business (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "La totale pour revendeurs et petits WISP"}
 }
 
 MODELES_MIKROTIK = [
     "hAP ax2", "hAP ax3", "hAP ac2", "hAP ac3", "hAP lite",
-    "RB750Gr3", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011",
+    "RB750Gr3 (hEX)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011",
     "CCR1009", "CCR2004", "CCR2116",
     "mANTBox ax 15s", "mANTBox 19s", "LHG 5", "SXTsq",
-    "Chateau LTE", "Chateau 5G", "Autre RouterOS v7"
+    "Chateau LTE/5G", "Autre RouterOS v7"
 ]
 
-# ==========================================
-# TEMPLATES HTML
-# ==========================================
 HTML_BASE = """
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>KETRIKA MIKROTIK - {{ title }}</title>
+    <title>KETRIKA MIKROTIK - Starlink Optimizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: #111827;
+            --accent-cyan: #00f2fe;
+            --accent-blue: #4facfe;
+            --accent-green: #00ff88;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-glow: rgba(0, 242, 254, 0.2);
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); min-height: 100vh; color: #333; padding: 15px; }
-        .container { max-width: 800px; margin: auto; }
-        .logo { text-align: center; color: white; margin-bottom: 25px; padding: 20px; }
-        .logo h1 { font-size: 36px; letter-spacing: 3px; text-shadow: 2px 2px 8px rgba(0,0,0,0.5); }
-        .logo p { opacity: 0.9; margin-top: 8px; font-size: 14px; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); margin-bottom: 20px; }
-        h2 { color: #0f2027; margin-bottom: 20px; border-bottom: 3px solid #2c5364; padding-bottom: 10px; }
-        h3 { color: #203a43; margin: 15px 0 10px; }
-        label { display: block; margin-top: 15px; font-weight: bold; color: #444; }
-        input, select { width: 100%; padding: 13px; margin-top: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: 0.3s; }
-        input:focus, select:focus { outline: none; border-color: #2c5364; box-shadow: 0 0 10px rgba(44,83,100,0.2); }
-        button, .btn { width: 100%; padding: 15px; margin-top: 20px; background: linear-gradient(135deg, #0f2027, #2c5364); color: white; border: none; border-radius: 8px; font-size: 17px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; transition: 0.3s; }
-        button:hover, .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-        .btn-danger { background: linear-gradient(135deg, #dc3545, #a71d2a); }
-        .btn-success { background: linear-gradient(135deg, #28a745, #1e7e34); }
-        .checkbox-group { padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 10px; border-left: 4px solid #2c5364; }
-        .checkbox-group label { display: flex; align-items: center; margin-top: 10px; font-weight: normal; cursor: pointer; }
-        .checkbox-group input { width: auto; margin-right: 10px; transform: scale(1.3); }
-        .command-box { background: linear-gradient(135deg, #1a1a2e, #0f0f1e); color: #00ff88; padding: 20px; border-radius: 10px; margin-top: 15px; font-family: 'Courier New', monospace; word-break: break-all; font-size: 13px; border: 1px solid #00ff88; }
-        .payment-box { background: linear-gradient(135deg, #fff3cd, #ffe69c); border-left: 5px solid #ffc107; padding: 20px; border-radius: 10px; margin-top: 20px; }
-        .payment-box b { color: #d9534f; font-size: 26px; display: block; margin: 10px 0; }
-        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .info { background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .tarifs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px; }
-        .tarif-card { background: #f8f9fa; border: 2px solid #ddd; padding: 15px; border-radius: 10px; text-align: center; transition: 0.3s; }
-        .tarif-card:hover { border-color: #2c5364; transform: scale(1.05); }
-        .tarif-card b { color: #0f2027; font-size: 18px; }
-        .tarif-card .prix { color: #dc3545; font-size: 22px; font-weight: bold; margin: 10px 0; }
-        .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .nav a { flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.2); color: white; text-decoration: none; border-radius: 8px; }
-        .nav a:hover { background: rgba(255,255,255,0.3); }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }
-        .stat-card { background: linear-gradient(135deg, #2c5364, #203a43); color: white; padding: 20px; border-radius: 10px; text-align: center; }
-        .stat-card b { font-size: 28px; display: block; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        table th, table td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 13px; }
-        table th { background: #2c5364; color: white; }
-        .footer { text-align: center; color: white; opacity: 0.7; margin-top: 30px; font-size: 12px; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 20px; background-image: radial-gradient(circle at top right, rgba(0, 242, 254, 0.05), transparent 400px); }
+        .container { max-width: 850px; margin: auto; }
+        
+        /* HEADER */
+        .header { text-align: center; padding: 25px 0; }
+        .header h1 { font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 900; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; }
+        .header p { color: var(--text-muted); font-size: 14px; margin-top: 5px; }
+
+        /* CARDS */
+        .card { background: var(--card-bg); border: 1px solid var(--border-glow); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); }
+        .card-title { font-family: 'Orbitron', sans-serif; font-size: 18px; color: var(--accent-cyan); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+
+        /* FORMS */
+        label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-top: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, select { width: 100%; padding: 14px; margin-top: 8px; background: #1a2234; border: 1px solid #2d3748; border-radius: 10px; color: #fff; font-size: 15px; transition: 0.3s; }
+        input:focus, select:focus { outline: none; border-color: var(--accent-cyan); box-shadow: 0 0 12px rgba(0, 242, 254, 0.3); }
+
+        /* BUTTONS */
+        .btn-primary { width: 100%; padding: 15px; margin-top: 20px; background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.3s; font-family: 'Orbitron', sans-serif; letter-spacing: 1px; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 242, 254, 0.4); }
+
+        /* PRICING GRID */
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 15px; }
+        .pricing-card { background: #161f30; border: 1px solid #2d3748; border-radius: 12px; padding: 18px; text-align: center; transition: 0.3s; position: relative; }
+        .pricing-card:hover { border-color: var(--accent-cyan); transform: translateY(-3px); }
+        .pricing-card b { font-size: 15px; color: #fff; display: block; }
+        .pricing-card .price { font-family: 'Orbitron', sans-serif; font-size: 22px; color: var(--accent-green); margin: 10px 0; }
+        .pricing-card small { color: var(--text-muted); font-size: 12px; display: block; line-height: 1.4; }
+
+        /* PAYMENT BOX */
+        .payment-banner { background: linear-gradient(135deg, rgba(255, 170, 0, 0.1), rgba(255, 115, 0, 0.05)); border: 1px solid #ffaa00; border-radius: 12px; padding: 20px; margin-top: 20px; text-align: center; }
+        .payment-phone { font-family: 'Orbitron', sans-serif; font-size: 28px; color: #ffaa00; margin: 10px 0; font-weight: bold; letter-spacing: 2px; }
+
+        /* TERMINAL BOX */
+        .terminal-box { background: #05080f; border: 1px solid var(--accent-green); color: var(--accent-green); padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 13px; word-break: break-all; margin-top: 15px; position: relative; box-shadow: 0 0 15px rgba(0, 255, 136, 0.15); }
+
+        /* CHECKBOXES */
+        .options-list { background: #161f30; padding: 15px; border-radius: 10px; margin-top: 10px; }
+        .option-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #232d42; }
+        .option-item:last-child { border-bottom: none; }
+        .option-item input { width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer; }
+
+        .badge { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); padding: 4px 10px; border-radius: 20px; font-size: 12px; border: 1px solid var(--accent-cyan); }
+        .alert { padding: 15px; border-radius: 10px; margin-bottom: 15px; font-size: 14px; }
+        .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
+        .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">
+        <div class="header">
             <h1>⚡ KETRIKA MIKROTIK ⚡</h1>
-            <p>Solution Anti-Bridage Starlink & Automatisation Pro</p>
+            <p>Système Professionnel d'Optimisation & Anti-Bridage Starlink</p>
         </div>
         {{ content|safe }}
-        <div class="footer">© 2025 KETRIKA MIKROTIK | Contact: 038 28 171 00</div>
+        <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 30px;">
+            KETRIKA MIKROTIK PRO © 2025 • Ingénierie Réseau Avancée
+        </div>
     </div>
 </body>
 </html>
 """
 
-def render(title, content):
-    return render_template_string(HTML_BASE, title=title, content=content)
+def render(content):
+    return render_template_string(HTML_BASE, content=content)
 
-# ==========================================
-# ROUTES CLIENT
-# ==========================================
 @app.route("/")
 def home():
     if session.get("authenticated"):
         return redirect(url_for("dashboard"))
     
-    tarifs_html = ""
-    for key, t in TARIFS.items():
-        tarifs_html += f"""
-        <div class="tarif-card">
-            <b>{t['nom']}</b>
-            <div class="prix">{t['prix']:,} Ar</div>
-            <small>{t['duree']}</small>
+    cards_html = ""
+    for k, v in TARIFS_MODULES.items():
+        cards_html += f"""
+        <div class="pricing-card">
+            <b>{v['nom']}</b>
+            <div class="price">{v['prix']:,} Ar</div>
+            <small>{v['desc']}</small>
         </div>"""
     
     content = f"""
     <div class="card">
-        <h2>🔐 Connexion</h2>
+        <div class="card-title">🔐 ESPACE D'ACTIVATION</div>
         <form method="POST" action="/login">
-            <label>Clé de licence :</label>
-            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase;">
-            <button type="submit">Se connecter</button>
+            <label>Entrez votre Clé de Licence reçue par SMS :</label>
+            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase; letter-spacing: 2px;">
+            <button type="submit" class="btn-primary">ACCÉDER AU SYSTÈME</button>
         </form>
     </div>
-    
+
     <div class="card">
-        <h2>💰 Nos Tarifs</h2>
-        <div class="tarifs">{tarifs_html}</div>
-        <div class="payment-box">
-            <p><b style="color:#333; font-size:16px;">📱 Pour obtenir votre clé :</b></p>
-            <p>1. Envoyez le montant via Mobile Money au numéro :</p>
-            <b>{NUMERO_PAIEMENT}</b>
-            <p>2. Envoyez votre référence de paiement par SMS</p>
-            <p>3. Recevez votre clé de licence en quelques minutes</p>
-            <p style="margin-top:10px;">✅ Mvola | ✅ Orange Money | ✅ Airtel Money</p>
+        <div class="card-title">💰 TARIFS SELON LA CONFIGURATION</div>
+        <div class="pricing-grid">{cards_html}</div>
+        
+        <div class="payment-banner">
+            <div style="font-size: 14px; color: #ffaa00; font-weight: bold;">POUR OBTENIR VOTRE CLÉ IMMÉDIATEMENT :</div>
+            <p style="margin-top: 5px; font-size: 13px; color: var(--text-muted);">Envoyez le montant correspondant par Mobile Money au :</p>
+            <div class="payment-phone">{NUMERO_PAIEMENT}</div>
+            <p style="font-size: 13px; color: #fff;">✅ Mvola | ✅ Orange Money | ✅ Airtel Money</p>
+            <small style="display:block; margin-top: 8px; color: var(--text-muted);">Envoyez votre SMS de transfert, votre clé est expédiée en 2 minutes.</small>
         </div>
     </div>
-    
-    <div class="card">
-        <h2>🎯 Fonctionnalités</h2>
-        <ul style="line-height:2; padding-left:20px;">
-            <li>✅ Configuration automatique pour tous MikroTik</li>
-            <li>✅ Anti-bridage Starlink (TTL, DNS, IPv6)</li>
-            <li>✅ VPN Cloudflare WARP unique par client</li>
-            <li>✅ Hotspot avec tickets Wi-Fi</li>
-            <li>✅ Serveur PPPoE pour abonnements</li>
-            <li>✅ Installation en 5 secondes</li>
-            <li>✅ Support technique inclus</li>
-        </ul>
-    </div>
     """
-    return render("Accueil", content)
+    return render(content)
 
 @app.route("/login", methods=["POST"])
 def login():
     cle = request.form.get("licence", "").strip().upper()
     result = verifier_licence(cle)
-    
-    if not result:
-        content = '<div class="card"><div class="error">❌ Clé introuvable !</div><a href="/" class="btn">Retour</a></div>'
-        return render("Erreur", content)
-    
-    if not result["valide"]:
-        content = f'<div class="card"><div class="error">❌ {result["raison"]}</div><a href="/" class="btn">Retour</a></div>'
-        return render("Erreur", content)
+    if not result or not result["valide"]:
+        return render('<div class="card"><div class="alert alert-error">❌ Clé de licence introuvable ou expirée.</div><a href="/" class="btn-primary" style="text-decoration:none; display:block; text-align:center;">Retour</a></div>')
     
     session["authenticated"] = True
     session["licence"] = cle
     session["client"] = result["client"]
     session["type_abo"] = result["type"]
-    session["expiration"] = result["expiration"]
     return redirect(url_for("dashboard"))
 
 @app.route("/logout")
@@ -188,377 +177,204 @@ def dashboard():
         return redirect(url_for("home"))
     
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
-    expiration = datetime.fromisoformat(session["expiration"]).strftime("%d/%m/%Y %H:%M")
     
     content = f"""
-    <div class="nav">
-        <a href="/dashboard">🏠 Générateur</a>
-        <a href="/mes-configs">📋 Mes Configs</a>
-        <a href="/logout">🚪 Déconnexion</a>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <span class="badge">Session : {session['client']}</span>
+        <a href="/logout" style="color:#ef4444; font-size:13px; text-decoration:none;">Déconnexion</a>
     </div>
-    
+
     <div class="card">
-        <div class="info">
-            ✅ <b>{session['client']}</b> | Abonnement : <b>{session['type_abo']}</b> | Expire : <b>{expiration}</b>
-        </div>
-        
-        <h2>⚙️ Générer une Configuration</h2>
+        <div class="card-title">⚙️ GÉNÉRATEUR DE CONFIGURATION MIKROTIK</div>
         <form method="POST" action="/generate">
-            <label>1️⃣ Modèle MikroTik :</label>
+            <label>1. Modèle exact de votre équipement :</label>
             <select name="modele" required>{modeles_opt}</select>
-            
-            <label>2️⃣ Type de configuration :</label>
+
+            <label>2. Architecture réseau désirée :</label>
             <select name="type_config" required>
-                <option value="base">🌐 Base (Internet Simple)</option>
-                <option value="hotspot">🎫 Hotspot (Tickets Wi-Fi)</option>
-                <option value="pppoe">🔑 PPPoE (Abonnements)</option>
+                <option value="base">🌐 Simple Débridage & Partage LAN</option>
+                <option value="hotspot">🎫 Hotspot Wi-Fi Zone (Tickets)</option>
+                <option value="pppoe">🔑 Fournisseur PPPoE (Abonnements fixes)</option>
             </select>
-            
-            <label>3️⃣ Nom du client final :</label>
-            <input type="text" name="client_final" placeholder="Ex: Boutique_Rakoto" required>
-            
-            <label>4️⃣ Nom du réseau Wi-Fi (SSID) :</label>
-            <input type="text" name="ssid" placeholder="Ex: KETRIKA-NET" value="KETRIKA-NET">
-            
-            <label>5️⃣ Mot de passe Wi-Fi :</label>
-            <input type="text" name="wifi_pass" placeholder="Min. 8 caractères" value="ketrika2025">
-            
-            <label>6️⃣ Options Anti-Bridage :</label>
-            <div class="checkbox-group">
-                <label><input type="checkbox" name="ttl" checked> ✅ Masquage TTL (obligatoire)</label>
-                <label><input type="checkbox" name="dns" checked> ✅ DNS chiffré Cloudflare (DoH)</label>
-                <label><input type="checkbox" name="ipv6" checked> ✅ Blocage IPv6 (anti-fuite)</label>
-                <label><input type="checkbox" name="torrent" checked> ✅ Blocage Torrent/P2P</label>
-                <label><input type="checkbox" name="warp" checked> 🛡️ Cloudflare WARP VPN (unique)</label>
-                <label><input type="checkbox" name="queue"> 📊 Limitation débit par client (5 Mbps)</label>
-                <label><input type="checkbox" name="security" checked> 🔒 Sécurité renforcée</label>
+
+            <label>3. Identifiant du client final :</label>
+            <input type="text" name="client_final" placeholder="Ex: Client_Starlink_01" required>
+
+            <label>4. Modules de Sécurité & Anti-Bridage :</label>
+            <div class="options-list">
+                <div class="option-item">
+                    <input type="checkbox" name="ttl" id="ttl" checked>
+                    <label for="ttl" style="margin:0; text-transform:none; color:#fff;">🛡️ <b>Mangle TTL = 64</b> (Masquage multi-appareils Starlink)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" name="dns" id="dns" checked>
+                    <label for="dns" style="margin:0; text-transform:none; color:#fff;">🔒 <b>DNS Cloudflare DoH</b> (Requêtes web 100% chiffrées)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" name="ipv6" id="ipv6" checked>
+                    <label for="ipv6" style="margin:0; text-transform:none; color:#fff;">🚫 <b>Bloqueur IPv6</b> (Supprime les fuites de paquets Starlink)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" name="torrent" id="torrent" checked>
+                    <label for="torrent" style="margin:0; text-transform:none; color:#fff;">⛔ <b>Filtre Anti-P2P / Torrent</b> (Évite les alertes de bande passante)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" name="warp" id="warp" checked>
+                    <label for="warp" style="margin:0; text-transform:none; color:#00ff88;">⚡ <b>Cloudflare WARP Tunnel</b> (Clé WireGuard dédiée invisible)</label>
+                </div>
             </div>
-            
-            <button type="submit">🚀 Générer la Configuration Unique</button>
+
+            <button type="submit" class="btn-primary">GÉNÉRER L'INJECTION MIKROTIK</button>
         </form>
     </div>
     """
-    return render("Dashboard", content)
+    return render(content)
 
 @app.route("/generate", methods=["POST"])
 def generate():
     if not session.get("authenticated"):
         return redirect(url_for("home"))
     
-    # Récupérer les options
     modele = request.form.get("modele")
     type_config = request.form.get("type_config")
     client_final = request.form.get("client_final").replace(" ", "_")
-    ssid = request.form.get("ssid", "KETRIKA-NET")
-    wifi_pass = request.form.get("wifi_pass", "ketrika2025")
     
     options = {
         "ttl": request.form.get("ttl") == "on",
         "dns": request.form.get("dns") == "on",
         "ipv6": request.form.get("ipv6") == "on",
         "torrent": request.form.get("torrent") == "on",
-        "warp": request.form.get("warp") == "on",
-        "queue": request.form.get("queue") == "on",
-        "security": request.form.get("security") == "on",
-        "ssid": ssid,
-        "wifi_pass": wifi_pass
+        "warp": request.form.get("warp") == "on"
     }
     
-    # Générer clés WARP uniques si demandé
-    warp_data = {}
-    if options["warp"]:
-        warp_data = creer_config_warp_complete()
+    warp_data = creer_config_warp_complete() if options["warp"] else {}
+    config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     
-    # ID unique de configuration
-    config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=12))
-    
-    # Sauvegarder en base
     sauvegarder_config(session["licence"], client_final, modele, type_config, options, warp_data, config_id)
     incrementer_utilisation(session["licence"])
     
-    # Commande d'injection
     host = request.host_url.replace("http://", "https://")
     command = f'/tool fetch url="{host}config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
     
     content = f"""
-    <div class="nav">
-        <a href="/dashboard">🏠 Générateur</a>
-        <a href="/mes-configs">📋 Mes Configs</a>
-        <a href="/logout">🚪 Déconnexion</a>
-    </div>
-    
     <div class="card">
-        <div class="success">
-            <h3>✅ Configuration Générée avec Succès !</h3>
-            <p>Client : <b>{client_final}</b> | Modèle : <b>{modele}</b></p>
+        <div class="alert alert-success">
+            <b>✅ Script d'Injection Prêt pour : {client_final} ({modele})</b>
         </div>
+
+        <div class="card-title">📋 COMMANDE À INJECTER DANS LE MIKROTIK</div>
+        <p style="font-size:13px; color:var(--text-muted);">Copiez cette ligne et collez-la directement dans <b>Winbox ➡️ New Terminal</b> :</p>
         
-        <h2>📋 Commande à copier dans le MikroTik :</h2>
-        <div class="command-box">{command}</div>
-        
-        <div class="info" style="margin-top:20px;">
-            <b>📖 Instructions :</b><br>
-            1. Ouvrez Winbox et connectez-vous au MikroTik du client<br>
-            2. Cliquez sur "New Terminal"<br>
-            3. Collez la commande ci-dessus<br>
-            4. Appuyez sur Entrée<br>
-            5. Attendez 5 secondes ✅ Configuration terminée !
+        <div class="terminal-box">{command}</div>
+
+        <div style="margin-top:20px; font-size:13px; color:var(--text-muted); line-height: 1.6;">
+            <b>Instructions rapides :</b><br>
+            1. Connectez-vous au routeur client via Winbox.<br>
+            2. Ouvrez le Terminal et collez la commande ci-dessus.<br>
+            3. Appuyez sur Entrée : l'optimisation s'applique en 3 secondes chrono.
         </div>
-        
-        <a href="/dashboard" class="btn">➕ Générer une autre config</a>
+
+        <a href="/dashboard" class="btn-primary" style="text-decoration:none; display:block; text-align:center; margin-top:20px;">CRÉER UNE AUTRE CONFIGURATION</a>
     </div>
     """
-    return render("Config générée", content)
+    return render(content)
 
 @app.route("/config/<config_id>.rsc")
 def get_config(config_id):
-    """Retourne le script RouterOS complet"""
     cfg = get_config_by_id(config_id)
     if not cfg:
-        return Response("# Configuration introuvable", mimetype="text/plain")
+        return Response("# Invalide", mimetype="text/plain")
     
     opt = cfg["options"]
-    script = f"""# ================================================
-# KETRIKA MIKROTIK - Configuration Professionnelle
-# Client: {cfg['client']} | Modèle: {cfg['modele']}
-# Généré: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-# ================================================
-:log info "KETRIKA: Debut installation"
-:put "=== KETRIKA MIKROTIK - Installation en cours ==="
-"""
+    script = f"# KETRIKA MIKROTIK PRO - {cfg['client']} ({cfg['modele']})\n"
     
     if opt.get("ttl"):
-        script += """
-# --- ANTI-BRIDAGE : TTL Fix ---
-/ip firewall mangle
-remove [find comment~"KETRIKA-TTL"]
-add chain=postrouting action=change-ttl new-ttl=set:64 passthrough=yes comment="KETRIKA-TTL"
-:put "[OK] TTL configure a 64"
-"""
-    
+        script += '/ip firewall mangle remove [find comment="KETRIKA-TTL"]\n/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:64 passthrough=yes comment="KETRIKA-TTL"\n'
     if opt.get("dns"):
-        script += """
-# --- DNS Cloudflare DoH ---
-/ip dns set use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no allow-remote-requests=yes servers=1.1.1.1,1.0.0.1
-/ip firewall nat
-remove [find comment~"KETRIKA-DNS"]
-add chain=dstnat protocol=udp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS-UDP"
-add chain=dstnat protocol=tcp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS-TCP"
-:put "[OK] DNS chiffre active"
-"""
-    
+        script += '/ip dns set use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no allow-remote-requests=yes\n/ip firewall nat remove [find comment="KETRIKA-DNS"]\n/ip firewall nat add chain=dstnat protocol=udp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"\n/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"\n'
     if opt.get("ipv6"):
-        script += """
-# --- Blocage IPv6 ---
-/ipv6 settings set disable-ipv6=yes
-:put "[OK] IPv6 desactive"
-"""
-    
+        script += '/ipv6 settings set disable-ipv6=yes\n'
     if opt.get("torrent"):
-        script += """
-# --- Blocage Torrent/P2P ---
-/ip firewall filter
-remove [find comment~"KETRIKA-P2P"]
-add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P-TCP"
-add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P-UDP"
-add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-P2P-Flood"
-:put "[OK] Torrent bloque"
-"""
-    
-    if opt.get("warp"):
-        script += f"""
-# --- Cloudflare WARP VPN (Cle UNIQUE) ---
-/interface wireguard
-remove [find name="warp-ketrika"]
-add name=warp-ketrika listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
-/interface wireguard peers
-add interface=warp-ketrika public-key="{cfg.get('warp_public', 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=')}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
-/ip address
-add address={cfg.get('warp_ip', '172.16.0.2')}/32 interface=warp-ketrika
-/ip firewall nat
-add chain=srcnat out-interface=warp-ketrika action=masquerade comment="KETRIKA-WARP-NAT"
-/ip route
-add dst-address=0.0.0.0/0 gateway=warp-ketrika distance=1 comment="KETRIKA-WARP-Route"
-:put "[OK] Cloudflare WARP active"
-"""
-    
-    if opt.get("queue"):
-        script += """
-# --- Limitation de bande passante ---
-/queue type
-add name=pcq-download kind=pcq pcq-rate=5M pcq-classifier=dst-address
-add name=pcq-upload kind=pcq pcq-rate=2M pcq-classifier=src-address
-/queue simple
-add name=KETRIKA-Limit target=192.168.88.0/24 queue=pcq-upload/pcq-download comment="KETRIKA-Queue"
-:put "[OK] Limitation debit active (5M/2M par client)"
-"""
-    
-    if opt.get("security"):
-        script += """
-# --- Sécurité renforcée ---
-/ip firewall filter
-add chain=input action=drop connection-state=invalid comment="KETRIKA-SEC-Invalid"
-add chain=input action=accept connection-state=established,related comment="KETRIKA-SEC-Established"
-add chain=input action=drop in-interface-list=WAN comment="KETRIKA-SEC-WAN-Drop"
-/ip service disable telnet,ftp,www,api
-:put "[OK] Securite renforcee"
-"""
-    
-    if cfg["type"] == "hotspot":
-        script += f"""
-# --- Configuration Hotspot ---
-/ip pool add name=ketrika-hs-pool ranges=10.5.50.10-10.5.50.254
-/ip dhcp-server add name=ketrika-hs-dhcp interface=bridge address-pool=ketrika-hs-pool disabled=no
-/ip hotspot profile add name=ketrika-hs hotspot-address=10.5.50.1 dns-name=ketrika.wifi
-/ip hotspot add name=hs-ketrika interface=bridge address-pool=ketrika-hs-pool profile=ketrika-hs disabled=no
-:put "[OK] Hotspot cree - Utilisez Mikhmon pour les tickets"
-"""
-    
-    if cfg["type"] == "pppoe":
-        script += """
-# --- Serveur PPPoE ---
-/ip pool add name=ketrika-ppp-pool ranges=10.10.10.2-10.10.10.254
-/ppp profile add name=ketrika-ppp local-address=10.10.10.1 remote-address=ketrika-ppp-pool dns-server=1.1.1.1
-/interface pppoe-server server add service-name=KETRIKA-NET interface=bridge default-profile=ketrika-ppp disabled=no
-:put "[OK] PPPoE cree - Ajoutez les users dans PPP > Secrets"
-"""
-    
-    # Wi-Fi si SSID fourni
-    if opt.get("ssid"):
-        script += f"""
-# --- Configuration Wi-Fi ---
-/interface wifi security
-add name=ketrika-sec authentication-types=wpa2-psk,wpa3-psk passphrase="{opt['wifi_pass']}"
-/interface wifi
-set [find] ssid="{opt['ssid']}" security=ketrika-sec disabled=no
-:put "[OK] Wi-Fi configure: {opt['ssid']}"
-"""
-    
-    script += """
-:put "==============================================="
-:put "  KETRIKA MIKROTIK - Installation TERMINEE !"
-:put "  Contact: 038 28 171 00"
-:put "==============================================="
-:log info "KETRIKA: Installation terminee avec succes"
+        script += '/ip firewall filter remove [find comment="KETRIKA-P2P"]\n/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-P2P"\n'
+    if opt.get("warp") and cfg.get("warp_private"):
+        script += f"""/interface wireguard remove [find name="warp-ketrika"]
+/interface wireguard add name=warp-ketrika listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
+/interface wireguard peers remove [find interface="warp-ketrika"]
+/interface wireguard peers add interface=warp-ketrika public-key="{cfg['warp_public']}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
+/ip address remove [find interface="warp-ketrika"]
+/ip address add address={cfg['warp_ip']}/32 interface=warp-ketrika
+/ip firewall nat remove [find comment="KETRIKA-WARP"]
+/ip firewall nat add chain=srcnat out-interface=warp-ketrika action=masquerade comment="KETRIKA-WARP"
+/ip route remove [find comment="KETRIKA-ROUTE"]
+/ip route add dst-address=0.0.0.0/0 gateway=warp-ketrika distance=1 comment="KETRIKA-ROUTE"
 """
     return Response(script, mimetype="text/plain")
 
-# ==========================================
-# ADMIN
-# ==========================================
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if request.method == "POST":
         if verifier_admin(request.form.get("username"), request.form.get("password")):
             session["admin"] = True
             return redirect(url_for("admin_dashboard"))
-        content = '<div class="card"><div class="error">❌ Identifiants incorrects</div></div>'
-        return render("Admin", content)
-    
-    content = """
-    <div class="card">
-        <h2>🔐 Administration</h2>
-        <form method="POST">
-            <label>Utilisateur :</label>
-            <input type="text" name="username" required>
-            <label>Mot de passe :</label>
-            <input type="password" name="password" required>
-            <button type="submit">Connexion Admin</button>
-        </form>
-    </div>
-    """
-    return render("Admin", content)
+    return render('<div class="card"><div class="card-title">🔐 ACCÈS ADMINISTRATEUR</div><form method="POST"><label>Utilisateur :</label><input type="text" name="username" required><label>Mot de passe :</label><input type="password" name="password" required><button type="submit" class="btn-primary">CONNEXION</button></form></div>')
 
 @app.route("/admin/dashboard")
 def admin_dashboard():
     if not session.get("admin"):
         return redirect(url_for("admin"))
-    
     stats = get_stats()
-    
-    dernieres_html = ""
-    for lic in stats["dernieres_licences"]:
-        dernieres_html += f"<tr><td>{lic[1]}</td><td>{lic[2]}</td><td>{lic[3]}</td><td>{lic[4]}</td><td>{lic[9]:,} Ar</td></tr>"
-    
-    content = f"""
-    <div class="nav">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/admin/creer-licence">➕ Créer Licence</a>
-        <a href="/admin/logout">🚪 Déconnexion</a>
-    </div>
-    
+    return render(f"""
     <div class="card">
-        <h2>📊 Statistiques</h2>
-        <div class="stat-grid">
-            <div class="stat-card"><b>{stats['total_clients']}</b>Clients actifs</div>
-            <div class="stat-card"><b>{stats['revenu_total']:,.0f} Ar</b>Revenu total</div>
-            <div class="stat-card"><b>{stats['nb_configs']}</b>Configs générées</div>
+        <div class="card-title">📊 TABLEAU DE BORD BUSINESS</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin:20px 0;">
+            <div style="background:#161f30; padding:15px; border-radius:10px; text-align:center;">
+                <b style="font-size:26px; color:var(--accent-cyan);">{stats["total_clients"]}</b>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Clients Total</div>
+            </div>
+            <div style="background:#161f30; padding:15px; border-radius:10px; text-align:center;">
+                <b style="font-size:26px; color:var(--accent-green);">{stats["nb_configs"]}</b>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Configs Injectées</div>
+            </div>
         </div>
-        
-        <h3>📋 Dernières licences</h3>
-        <table>
-            <tr><th>Clé</th><th>Client</th><th>Téléphone</th><th>Type</th><th>Prix</th></tr>
-            {dernieres_html}
-        </table>
+        <a href="/admin/creer" class="btn-primary" style="text-decoration:none; display:block; text-align:center;">➕ CRÉER UNE NOUVELLE CLÉ CLIENT</a>
     </div>
-    """
-    return render("Admin Dashboard", content)
+    """)
 
-@app.route("/admin/creer-licence", methods=["GET", "POST"])
-def admin_creer_licence():
+@app.route("/admin/creer", methods=["GET", "POST"])
+def admin_creer():
     if not session.get("admin"):
         return redirect(url_for("admin"))
-    
     if request.method == "POST":
-        client = request.form.get("client")
-        telephone = request.form.get("telephone")
-        type_abo = request.form.get("type_abo")
-        prix = TARIFS[type_abo]["prix"]
-        
-        cle = creer_licence(client, telephone, type_abo, prix)
-        
-        content = f"""
+        type_formule = request.form.get("type")
+        prix = TARIFS_MODULES.get(type_formule, {}).get("prix", 10000)
+        cle = creer_licence(request.form.get("client"), request.form.get("tel"), type_formule, prix)
+        return render(f"""
         <div class="card">
-            <div class="success">
-                <h3>✅ Licence créée avec succès !</h3>
-                <p>Envoyez cette clé au client :</p>
-            </div>
-            <div class="command-box">{cle}</div>
-            <p style="margin-top:15px;">Client: <b>{client}</b> | Tél: <b>{telephone}</b> | Type: <b>{type_abo}</b> | Prix: <b>{prix:,} Ar</b></p>
-            <a href="/admin/creer-licence" class="btn">➕ Créer une autre</a>
-            <a href="/admin/dashboard" class="btn">📊 Dashboard</a>
+            <div class="alert alert-success">✅ Nouvelle clé générée !</div>
+            <div class="terminal-box">{cle}</div>
+            <p style="margin-top:15px; font-size:14px;">Envoyez cette clé par SMS au client : <b>{request.form.get('client')}</b> ({request.form.get('tel')})</p>
+            <a href="/admin/dashboard" class="btn-primary" style="text-decoration:none; display:block; text-align:center; margin-top:20px;">RETOUR DASHBOARD</a>
         </div>
-        """
-        return render("Licence créée", content)
-    
-    tarifs_opt = "".join([f'<option value="{k}">{t["nom"]} - {t["prix"]:,} Ar</option>' for k, t in TARIFS.items()])
-    
-    content = f"""
-    <div class="nav">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/admin/creer-licence">➕ Créer Licence</a>
-        <a href="/admin/logout">🚪 Déconnexion</a>
-    </div>
-    
+        """)
+    return render("""
     <div class="card">
-        <h2>➕ Créer une nouvelle licence</h2>
+        <div class="card-title">➕ ÉMISSION D'UNE CLÉ CLIENT</div>
         <form method="POST">
             <label>Nom du client :</label>
-            <input type="text" name="client" required>
-            <label>Téléphone :</label>
-            <input type="text" name="telephone" placeholder="034 XX XXX XX" required>
-            <label>Type d'abonnement :</label>
-            <select name="type_abo" required>{tarifs_opt}</select>
-            <button type="submit">Générer la clé</button>
+            <input type="text" name="client" placeholder="Ex: Jean Rakoto" required>
+            <label>Numéro de téléphone :</label>
+            <input type="text" name="tel" placeholder="034 XX XXX XX" required>
+            <label>Formule choisie :</label>
+            <select name="type">
+                <option value="base">🛡️ Pack Essentiel (10 000 Ar)</option>
+                <option value="warp">🚀 Pack Blindé VPN (20 000 Ar)</option>
+                <option value="hotspot">🎫 Pack Hotspot Wi-Fi (30 000 Ar)</option>
+                <option value="pro">🏢 Pack Pro WISP (50 000 Ar)</option>
+            </select>
+            <button type="submit" class="btn-primary">GÉNÉRER LA CLÉ DE LICENCE</button>
         </form>
     </div>
-    """
-    return render("Créer licence", content)
-
-@app.route("/admin/logout")
-def admin_logout():
-    session.pop("admin", None)
-    return redirect(url_for("admin"))
+    """)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000)
