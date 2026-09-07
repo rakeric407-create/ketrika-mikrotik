@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
-init_db()
+app.url_map.strict_slashes = False
 
 FB_LINK = "https://www.facebook.com/loza.nama.376"
 NUMERO_MVOLA = "038 28 171 00"
@@ -34,6 +34,7 @@ def init_extra_tables():
     conn.close()
 
 init_extra_tables()
+init_db()
 
 TARIFS_MODULES = {
     "basic": {"nom": "🛡️ Basic", "prix": 10000, "desc": "Config complète A à Z + Wi-Fi + Optimisation", "badge": ""},
@@ -178,6 +179,30 @@ HTML_BASE = """
         .step-num { width: 30px; height: 30px; margin: 0 auto 6px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; font-weight: 900; font-size: 15px; }
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+
+        .visual-container {
+            background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0;
+            border: 1px solid #334155; color: #fff; text-align: center;
+        }
+        .ports-bar { display: flex; justify-content: center; gap: 6px; margin: 14px 0; flex-wrap: wrap; }
+        .port-indicator { background: #1e293b; border: 2px solid #475569; border-radius: 8px; padding: 8px 12px; font-family: 'Space Grotesk'; font-size: 11px; min-width: 70px; }
+        .port-indicator.wan { border-color: #0284c7; background: rgba(2,132,199,0.2); }
+        .port-indicator.wan b { color: #38bdf8; display: block; }
+        .port-indicator.lan { border-color: #10b981; background: rgba(16,185,129,0.15); }
+        .port-indicator.lan b { color: #4ade80; display: block; }
+
+        .winbox-mockup {
+            background: #1e293b; border-radius: 8px; border: 1px solid #475569;
+            text-align: left; overflow: hidden; margin: 10px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .winbox-top { background: #334155; padding: 6px 12px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #cbd5e1; }
+        .winbox-body { padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; }
+        .winbox-item { background: rgba(2,132,199,0.25); border: 1px solid #0284c7; padding: 6px 10px; border-radius: 4px; display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; margin-top: 6px; }
+
+        .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-top: 10px; }
+        .step-guide ol { padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }
+        .step-guide li { margin-bottom: 4px; }
+        .step-guide b { color: var(--accent-cyan); }
 
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
         input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
@@ -406,7 +431,6 @@ def build_raw_script(cfg):
 /interface list member remove [find interface=bridge-lan]
 /interface list member add interface=bridge-lan list=LAN
 
-# Ajout dynamique des ports physiques restants au Bridge
 :foreach i in=[/interface ethernet find where name!="ether1"] do={{
     :if ([:len [/interface bridge port find interface=$i]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$i comment="LAN-PORT" }}
 }}
@@ -457,7 +481,6 @@ def build_raw_script(cfg):
 /ip service disable telnet,ftp,api
 """
 
-    # --- 8. WI-FI DÉDIÉ SANS CONFLIT ---
     if is_wifi6:
         s += f"""
 # --- 8. WI-FI 6 DEDIE (ROUTEROS V7 WIFI WAVE2) ---
@@ -477,7 +500,6 @@ def build_raw_script(cfg):
 :foreach w in=[/interface wireless find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
 """
 
-    # --- 9. TUNNEL WIREGUARD VPN SÉCURISÉ AVEC PBR (Packs 20k, 30k, 50k) ---
     if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
         s += f"""
 # --- 9. TUNNEL WIREGUARD VPN AVEC ROUTAGE PBR SÉCURISÉ ---
@@ -506,7 +528,6 @@ def build_raw_script(cfg):
 /ip firewall mangle add chain=prerouting in-interface-list=LAN dst-address-list=!CONNECTED-NETS dst-address-type=!local action=mark-routing new-routing-mark=to-warp passthrough=yes comment="MARK-ROUTING-WARP"
 """
 
-    # --- 10. SERVEUR HOTSPOT WI-FI ZONE PARFAITEMENT ALIGNÉ (Packs 30k, 50k) ---
     if plan in ["hotspot", "pro"]:
         s += f"""
 # --- 10. SERVEUR HOTSPOT WI-FI ZONE SUR LE RESEAU LOCAL ---
@@ -518,7 +539,6 @@ def build_raw_script(cfg):
 /ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=dhcp-pool profile=hs-prof disabled=no
 """
 
-    # --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE (Pack 50k) ---
     if plan == "pro":
         s += f"""
 # --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE ---
@@ -549,372 +569,25 @@ def clean_script_for_oneliner(raw_script):
         lines.append(line)
     return " ".join(lines).replace('"', '\\"')
 
-# GESTION PROPRE DES REQUÊTES (GET ET POST SUPPORTÉS PARTOUT)
-@app.route("/tuto", methods=["GET", "POST"])
-def tuto():
-    content = f"""
-    <div class="card">
-        <div class="card-title">📖 GUIDE D'INSTALLATION MIKROTIK (PAS-À-PAS)</div>
-        <p style="font-size:13px; color:var(--text-body); line-height:1.6;">
-            Suivez ce guide simple avec schémas visuels pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
-        </p>
+# GESTION DES CONFIGURATIONS SANS RISQUE DE 404
+@app.route("/config/<path:config_id>")
+def get_config(config_id):
+    cid = config_id.replace('.rsc', '').strip()
+    cfg = get_config_by_id(cid)
+    if not cfg:
+        return Response("# Invalide ou introuvable", mimetype="text/plain")
+    return Response(build_raw_script(cfg), mimetype="text/plain")
 
-        <!-- ETAPE 1 : BRANCHEMENT VISUEL -->
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT DES CÂBLES RÉSEAU</div>
-            <ol>
-                <li>Prenez le câble venant de votre antenne <b>Starlink / Box Internet</b> et branchez-le sur le <b>PORT 1 (ether1)</b>.</li>
-                <li>Prenez un 2ème câble réseau et reliez votre <b>Ordinateur / Switch</b> sur les <b>PORTS 2 à 13</b>.</li>
-                <li>Branchez l'alimentation du MikroTik.</li>
-            </ol>
-            
-            <div class="visual-container">
-                <div style="font-size:12px; font-weight:bold; color:#94a3b8; margin-bottom:6px;">📍 SCHÉMA DES PORTS SUR LE MIKROTIK :</div>
-                <div class="ports-bar">
-                    <div class="port-indicator wan">
-                        <b>PORT 1</b>
-                        <span>Starlink (WAN)</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 2</b>
-                        <span>PC / LAN</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 3</b>
-                        <span>Switch</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 4</b>
-                        <span>Access Point</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 5</b>
-                        <span>LAN</span>
-                    </div>
-                </div>
-                <div style="font-size:11px; color:#a7f3d0; margin-top:8px;">
-                    📶 Le <b>Wi-Fi Dual Band 2.4G &amp; 5G</b> diffuse automatiquement dès l'injection du script !
-                </div>
-            </div>
-        </div>
-
-        <!-- ETAPE 2 : WINBOX VISUEL -->
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX ET SE CONNECTER EN MAC</div>
-            <ol>
-                <li>Téléchargez Winbox officiel : <a href="https://mikrotik.com/download" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Télécharger Winbox (MikroTik)</a></li>
-                <li>Ouvrez Winbox et cliquez sur l'onglet <b>Neighbors</b> (Voisins).</li>
-                <li><b>Astuce Pro Cruciale :</b> Cliquez sur la ligne affichant l'<b>Adresse MAC</b> (ex: <code>CC:2D:E0:...</code>) et JAMAIS sur l'adresse IP !</li>
-            </ol>
-
-            <div class="winbox-mockup">
-                <div class="winbox-top">
-                    <span>Winbox v3.41 - Neighbors Table</span>
-                    <span>_ □ ✕</span>
-                </div>
-                <div class="winbox-body">
-                    <div style="color:#94a3b8; margin-bottom:6px;">IP Address | MAC Address | Identity | Board Name</div>
-                    <div class="winbox-item">
-                        <span>0.0.0.0</span>
-                        <span>👉 CC:2D:E0:4F:92:1A (CLIQUEZ ICI !)</span>
-                        <span>MikroTik</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ETAPE 3 : TERMINAL VISUEL -->
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE ET VALIDER</div>
-            <ol>
-                <li>Dans Winbox, cliquez sur le menu <b>New Terminal</b> dans la colonne de gauche.</li>
-                <li>Générez votre configuration sur notre site, puis cliquez sur <b>📋 COPIER LA COMMANDE</b>.</li>
-                <li>Dans la fenêtre noire du Terminal Winbox, faites <b>Clic Droit ➔ Paste (Coller)</b>.</li>
-                <li>Appuyez sur la touche <b>Entrée</b> de votre clavier : en 5 secondes, l'installation se termine sans redémarrage !</li>
-            </ol>
-
-            <div class="terminal-box" style="margin-top:8px;">
-                <span style="color:#94a3b8;">[admin@MikroTik] &gt; </span><span style="color:#38bdf8;">/system script add name=ketrika_run...</span><br>
-                <span style="color:#4ade80;">=== KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE ! ===</span>
-            </div>
-        </div>
-
-        <div class="alert-warning" style="margin-top:15px; font-size:12px; line-height:1.6;">
-            💡 <b>Vous voulez réinitialiser le routeur à zéro avant de commencer ?</b><br>
-            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Notre script KETRIKA recréera tout de A à Z !
-        </div>
-
-        <div style="text-align:center; margin-top:20px;">
-            <a href="/" class="btn-primary" style="display:inline-block; width:auto; padding:12px 25px;">🛒 COMMANDER UNE CLÉ OU ACTIVER MON ROUTEUR</a>
-        </div>
-    </div>
-    """
-    return render(content)
-
-@app.route("/ajouter-avis", methods=["GET", "POST"])
-def ajouter_avis():
-    if request.method == "POST":
-        nom = request.form.get("nom", "").strip()
-        ville = request.form.get("ville", "").strip()
-        try:
-            etoiles = int(request.form.get("etoiles", 5))
-        except:
-            etoiles = 5
-        commentaire = request.form.get("commentaire", "").strip()
-        if nom and commentaire:
-            conn = sqlite3.connect("ketrika.db")
-            c = conn.cursor()
-            c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
-            conn.commit()
-            conn.close()
-    return redirect(url_for("home"))
-
-@app.route("/commander", methods=["GET", "POST"])
-def commander():
-    if request.method == "POST":
-        nom = request.form.get("nom", "").strip()
-        tel = request.form.get("tel", "").strip()
-        formule = request.form.get("formule", "basic")
-        ref = request.form.get("ref_paiement", "").strip()
-        montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
-        if nom and tel and ref:
-            conn = sqlite3.connect("ketrika.db")
-            c = conn.cursor()
-            c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
-            conn.commit()
-            conn.close()
-            return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES.get(formule, {}).get("nom", "Basic")}</b> ({montant:,} Ar).<br>Clé envoyée par SMS au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
-    return redirect(url_for("home"))
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        cle = request.form.get("licence", "").strip().upper()
-        result = verifier_licence(cle)
-        if not result or not result["valide"]:
-            return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
-        if result.get("utilisations", 0) >= 1:
-            return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
-        session["authenticated"] = True
-        session["licence"] = cle
-        session["client"] = result["client"]
-        session["type_abo"] = result["type"]
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("home"))
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("home"))
-
-@app.route("/dashboard", methods=["GET", "POST"])
-def dashboard():
-    if not session.get("authenticated"):
-        return redirect(url_for("home"))
-    cle = session.get("licence")
-    result = verifier_licence(cle)
-    if not result or result.get("utilisations", 0) >= 1:
-        session.clear()
-        return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
-    
-    plan_key = session.get("type_abo", "basic")
-    plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
-    modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
-    ip_chips = "".join([f'<span class="ip-chip" onclick="setIP(\'{ip}\')">{ip}</span>' for ip in IP_SUGGESTIONS])
-    feat_html = "<div>✅ Bridge + Ports auto-détectés</div><div>✅ Port 1 WAN (DHCP-Client)</div><div>✅ DHCP + NAT + IP personnalisée</div><div>✅ Firewall Stateful Pro</div><div>✅ Optimisation Réseau + DNS DoH</div>"
-    dns_input_html = ""
-    bandwidth_html = ""
-    if plan_key in ["warp", "hotspot", "pro"]:
-        feat_html += "<div style='color:var(--accent-green);'>✅ WireGuard VPN (gratuit à vie)</div>"
-    if plan_key in ["hotspot", "pro"]:
-        feat_html += "<div style='color:var(--accent-green);'>✅ Hotspot Wi-Fi Zone</div>"
-        dns_input_html = '<label>🔗 Adresse Hotspot :</label><input type="text" name="dns_name" value="wifizone.wifi" required>'
-        
-        bw_cards_html = ""
-        for k, v in BANDWIDTH_PROFILES.items():
-            ck = "checked" if k == "illimite" else ""
-            active_class = "active" if k == "illimite" else ""
-            bw_cards_html += f"""
-            <div class="bw-card {active_class}" id="card_{k}" onclick="selectBW('{k}')">
-                <input type="radio" name="bandwidth" id="bw_{k}" value="{k}" {ck}>
-                <div class="bw-card-text">
-                    <b>{v['nom']}</b>
-                    <span>{v['desc']}</span>
-                </div>
-            </div>
-            """
-        
-        bandwidth_html = f"""
-        <div class="wifi-box" style="border-color:rgba(124,58,237,0.3); margin-top:10px;">
-            <div style="font-size:11px; font-weight:800; color:var(--accent-purple); margin-bottom:6px;">📊 LIMITATION DU DÉBIT PAR CLIENT (CLIQUEZ SUR VOTRE CHOIX) :</div>
-            <div class="bw-grid">
-                {bw_cards_html}
-            </div>
-            <div id="custom-bw-box" style="display:none; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
-                <input type="text" name="custom_down" value="3M" placeholder="Download (ex: 5M)">
-                <input type="text" name="custom_up" value="1M" placeholder="Upload (ex: 2M)">
-            </div>
-        </div>
-        """
-        
-    if plan_key == "pro":
-        feat_html += "<div style='color:var(--accent-green);'>✅ PPPoE + QoS Bandwidth</div>"
-        
-    content = f"""
-    <div class="top-nav" style="margin-bottom:10px;">
-        <span class="badge">{plan_info['nom']} • 1 Clé = 1 Routeur</span>
-        <a href="/logout" style="color:var(--accent-red); font-size:11px; text-decoration:none; font-weight:700;">Fermer Session</a>
-    </div>
-    <div class="card">
-        <div class="card-title">⚙️ CONFIGURATION A à Z - {session['client']}</div>
-        <div class="alert-warning">⚠️ Cette clé sera <b>définitivement consommée</b> après génération.</div>
-        <form method="POST" action="/generate">
-            <label>1. Modèle MikroTik :</label>
-            <select name="modele" required>{modeles_opt}</select>
-
-            <label>2. Nom du client / Routeur :</label>
-            <input type="text" name="client_final" placeholder="Boutique_Rasoa" required>
-
-            <label>3. Adresse IP du Routeur (Champ libre) :</label>
-            <input type="text" name="router_ip" id="router_ip" value="192.168.88.1" placeholder="Tapez votre IP ou cliquez ci-dessous" required>
-            <div class="ip-suggestions">{ip_chips}</div>
-            <small style="color:var(--text-muted); font-size:10px; display:block; margin-top:4px;">💡 Cliquez sur une IP suggérée ou tapez la vôtre. Le DHCP s'adapte automatiquement.</small>
-
-            <div class="wifi-box">
-                <div class="wifi-box-title">📶 WI-FI (SSID + MOT DE PASSE)</div>
-                <label style="margin-top:0;">Nom du Wi-Fi (SSID) :</label>
-                <input type="text" name="ssid" value="KETRIKA-NET" required>
-                <label>Mot de passe Wi-Fi :</label>
-                <input type="text" name="wifi_pass" value="ketrika2025" required>
-                {dns_input_html}
-            </div>
-            
-            {bandwidth_html}
-            
-            <label>4. Fonctionnalités incluses :</label>
-            <div class="feature-box">{feat_html}</div>
-            <button type="submit" class="btn-primary">🚀 GÉNÉRER LA CONFIG A à Z</button>
-        </form>
-    </div>
-    """
-    return render(content)
-
-@app.route("/generate", methods=["GET", "POST"])
-def generate():
-    if request.method == "GET":
-        return redirect(url_for("dashboard"))
-    if not session.get("authenticated"):
-        return redirect(url_for("home"))
-    cle = session.get("licence")
-    result = verifier_licence(cle)
-    if not result or result.get("utilisations", 0) >= 1:
-        session.clear()
-        return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
-    
-    modele = request.form.get("modele", "")
-    plan_key = session.get("type_abo", "basic")
-    client_final = request.form.get("client_final", "Client").replace(" ", "_")
-    ssid = request.form.get("ssid", "KETRIKA-NET")
-    wifi_pass = request.form.get("wifi_pass", "ketrika2025")
-    dns_name = request.form.get("dns_name", "ketrika.wifi")
-    router_ip = request.form.get("router_ip", "192.168.88.1")
-    bw_choice = request.form.get("bandwidth", "illimite")
-    if bw_choice == "custom":
-        bw_down = request.form.get("custom_down", "3M")
-        bw_up = request.form.get("custom_up", "1M")
-    else:
-        bp = BANDWIDTH_PROFILES.get(bw_choice, BANDWIDTH_PROFILES["illimite"])
-        bw_down = bp["down"]
-        bw_up = bp["up"]
-    
-    options = {"ssid": ssid, "wifi_pass": wifi_pass, "dns_name": dns_name, "bw_down": bw_down, "bw_up": bw_up, "router_ip": router_ip}
-    warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
-    config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    
-    sauvegarder_config(cle, client_final, modele, plan_key, options, warp_data, config_id)
-    incrementer_utilisation(cle)
-    
-    conn = sqlite3.connect("ketrika.db")
-    c = conn.cursor()
-    c.execute("UPDATE licences SET actif=0, nb_utilisations=1 WHERE cle=?", (cle,))
-    conn.commit()
-    conn.close()
-    session.clear()
-    
-    host = request.host_url.rstrip('/').replace("http://", "https://")
-    online_cmd = f'/tool fetch url="{host}/config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
-    cfg = get_config_by_id(config_id)
-    raw_s = build_raw_script(cfg)
-    clean_s = clean_script_for_oneliner(raw_s)
-    one_liner = f'/system script add name=ketrika_run source="{clean_s}"; /system script run ketrika_run; /system script remove ketrika_run'
-    
-    content = f"""
-    <div class="card">
-        <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
-        <div class="alert-warning">
-            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | Ordinateur sur les <b>autres ports</b>.<br>
-            📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
-            🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
-        </div>
-
-        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE &amp; ULTRA-RAPIDE)</div>
-        <div class="step-guide">
-            <b>📖 Mode d'emploi pas-à-pas :</b>
-            <ol>
-                <li>Ouvrez <b>Winbox</b> et connectez-vous sur votre MikroTik en cliquant sur l'<b>Adresse MAC</b> (onglet <i>Neighbors</i>).</li>
-                <li>Cliquez sur <b>New Terminal</b> dans le menu de gauche.</li>
-                <li>Cliquez sur le bouton violet ci-dessous pour copier la commande, puis <b>collez-la (Clic droit &gt; Paste)</b> dans le terminal.</li>
-                <li>Appuyez sur la touche <b>Entrée</b> : en 5 secondes, le routeur applique toute la configuration sans redémarrer !</li>
-            </ol>
-        </div>
-        <div class="terminal-box" id="cmd1">{one_liner}</div>
-        <button class="btn-copy" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE UNIQUE</button>
-
-        <hr>
-
-        <div class="card-title">MÉTHODE 2 : FICHIER SCRIPT (.RSC) OU CODE BRUT COMPLET</div>
-        <div class="step-guide">
-            <b>📖 Mode d'emploi pas-à-pas :</b>
-            <ol>
-                <li>Téléchargez le fichier <b>ketrika.rsc</b> avec le bouton vert, OU copiez tout le texte brut ci-dessous.</li>
-                <li>Dans Winbox, cliquez sur le menu <b>Files</b> à gauche, puis glissez-déposez le fichier <b>ketrika.rsc</b> dedans.</li>
-                <li>Ouvrez <b>New Terminal</b> et tapez : <code>/import file-name=ketrika.rsc</code> puis Entrée.</li>
-            </ol>
-        </div>
-        <a href="/download/{config_id}.rsc" class="btn-primary btn-success" style="margin-top:10px;">📥 TÉLÉCHARGER LE FICHIER KETRIKA.RSC</a>
-        
-        <label style="margin-top:12px;">📄 OU COPIEZ LE SCRIPT BRUT MULTI-LIGNES CI-DESSOUS :</label>
-        <textarea id="raw_script_box" style="height:140px; font-family:'Courier New', monospace; font-size:11px; background:#0f172a; color:#4ade80; border:1px solid #334155;" readonly>{raw_s}</textarea>
-        <button class="btn-copy" id="b_raw" onclick="copyText('raw_script_box','b_raw')" style="background:#475569;">📋 COPIER LE SCRIPT BRUT COMPLET</button>
-
-        <hr>
-
-        <div class="card-title">MÉTHODE 3 : IMPORTATION DIRECTE (SI ROUTEUR DÉJÀ CONNECTÉ AU WEB)</div>
-        <div class="step-guide">
-            <b>📖 Mode d'emploi :</b> Si le port 1 de votre routeur a déjà accès à Internet, collez simplement cette commande dans le terminal Winbox :
-        </div>
-        <div class="terminal-box" id="cmd2">{online_cmd}</div>
-        <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER LA COMMANDE CLOUD</button>
-
-        <a href="/" class="btn-primary" style="margin-top:18px;">🏠 TERMINER &amp; RETOUR À L'ACCUEIL</a>
-    </div>
-    """
-    return render(content)
-
-@app.route("/download/<config_id>.rsc")
+@app.route("/download/<path:config_id>")
 def download_config(config_id):
-    cfg = get_config_by_id(config_id)
-    if not cfg: return Response("Introuvable", mimetype="text/plain")
+    cid = config_id.replace('.rsc', '').strip()
+    cfg = get_config_by_id(cid)
+    if not cfg:
+        return redirect(url_for("home"))
     mem = io.BytesIO()
     mem.write(build_raw_script(cfg).encode('utf-8'))
     mem.seek(0)
     return send_file(mem, mimetype="text/plain", as_attachment=True, download_name="ketrika.rsc")
-
-@app.route("/config/<config_id>.rsc")
-def get_config(config_id):
-    cfg = get_config_by_id(config_id)
-    if not cfg: return Response("# Invalide", mimetype="text/plain")
-    return Response(build_raw_script(cfg), mimetype="text/plain")
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
@@ -959,14 +632,14 @@ def admin_creer():
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
-# GESTIONNAIRES D'ERREURS PROPRES (ZÉRO ÉCRAN BRISÉ)
+# GESTIONNAIRES D'ERREURS TRANSPARENTS
 @app.errorhandler(404)
 def not_found(e):
-    return render('<div class="card"><div class="alert alert-warning"><b>🔍 Page introuvable</b><br>L\'adresse demandée n\'existe pas ou a été déplacée.</div><a href="/" class="btn-primary">🏠 RETOUR À L\'ACCUEIL</a></div>'), 404
+    return redirect(url_for("home"))
 
 @app.errorhandler(500)
 def server_error(e):
-    return render('<div class="card"><div class="alert alert-error"><b>⚠️ Erreur Temporaire</b><br>Une erreur est survenue lors du traitement. Veuillez réessayer.</div><a href="/" class="btn-primary">🏠 RETOUR À L\'ACCUEIL</a></div>'), 500
+    return f"<h1>Erreur 500</h1><pre>{traceback.format_exc()}</pre>", 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
