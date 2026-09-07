@@ -40,7 +40,7 @@ TARIFS_MODULES = {
     "standard": {"nom": "⭐ Standard", "prix": 15000, "desc": "Basic + Wi-Fi Dual Band 5G + Sécurité+", "badge": "POPULAIRE"},
     "warp": {"nom": "🚀 Premium VPN", "prix": 20000, "desc": "Standard + Tunnel WireGuard confidentiel gratuit", "badge": "MEILLEUR CHOIX"},
     "hotspot": {"nom": "🎫 Wi-Fi Zone", "prix": 30000, "desc": "Premium + Portail Hotspot + Contrôle Débit", "badge": ""},
-    "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Studio Total : Multi-WAN + PPPoE + QoS + Toutes Options", "badge": "STUDIO PRO"}
+    "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Solution intégrale + PPPoE + QoS avancé", "badge": "PRO"}
 }
 
 MODELES_MIKROTIK = [
@@ -69,7 +69,7 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>KETRIKA MIKROTIK STUDIO • Générateur RouterOS v7</title>
+    <title>KETRIKA MIKROTIK PRO • Optimisation Réseau Professionnelle</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -114,47 +114,102 @@ HTML_BASE = """
 
         /* HEADER */
         .header { text-align: center; padding: 14px 5px 20px; }
-        .logo-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; }
-        .logo-aura { position: absolute; inset: -3px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink)); filter: blur(8px); opacity: 0.7; }
-        .logo-box { position: relative; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #0f172a, #1e293b); border: 2px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; }
+        .logo-wrapper {
+            position: relative; width: 80px; height: 80px; margin: 0 auto 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .logo-aura {
+            position: absolute; inset: -3px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink));
+            filter: blur(8px); opacity: 0.7;
+        }
+        .logo-box {
+            position: relative; width: 100%; height: 100%; border-radius: 50%;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            border: 2px solid rgba(255,255,255,0.9);
+            display: flex; align-items: center; justify-content: center;
+        }
         .logo-box svg { width: 42px; height: 42px; }
-        .header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); background-size: 300% 100%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px; line-height: 1.2; }
+
+        .header h1 { 
+            font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 900; 
+            background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+            letter-spacing: 1px; line-height: 1.2;
+        }
         @media (min-width: 500px) { .header h1 { font-size: 34px; } }
         .header .tagline { color: var(--text-body); font-size: 13px; margin-top: 6px; font-weight: 600; }
-        .stats-live { display: inline-flex; gap: 6px; margin-top: 10px; padding: 5px 12px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; align-items: center; }
+        .header .stats-live { 
+            display: inline-flex; gap: 6px; margin-top: 10px; padding: 5px 12px; 
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; 
+            border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; 
+            align-items: center;
+        }
         .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
 
         /* CARDS */
-        .card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(15,23,42,0.05); position: relative; overflow: hidden; }
+        .card { 
+            background: var(--bg-card); border: 1px solid var(--border-light); 
+            border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; 
+            box-shadow: 0 4px 15px rgba(15,23,42,0.05); position: relative; overflow: hidden;
+        }
         @media (min-width: 500px) { .card { padding: 22px; } }
         .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink), var(--accent-green)); }
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
         @media (min-width: 500px) { .card-title { font-size: 15px; } }
 
-        /* ACCORDÉONS STUDIO (MODULES DÉROULANTS) */
-        .module-card {
-            background: #f8fafc; border: 1px solid var(--border-light); border-radius: 12px;
-            margin-bottom: 10px; overflow: hidden; transition: 0.3s;
+        /* DASHBOARD LIVE */
+        .live-dashboard {
+            background: #0f172a; border: 1px solid #334155; border-radius: 14px;
+            padding: 16px; margin: 12px 0; color: #fff;
         }
-        .module-header {
-            padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); font-weight: 800; font-size: 13px; font-family: 'Space Grotesk';
-        }
-        .module-header span { display: flex; align-items: center; gap: 8px; }
-        .module-body { padding: 14px; display: none; background: #ffffff; border-top: 1px solid var(--border-light); }
-        .module-card.open .module-body { display: block; }
-        .module-card.open .module-arrow { transform: rotate(180deg); color: var(--accent-cyan); }
-        .module-arrow { transition: 0.3s; font-size: 14px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        @media (min-width: 600px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
+        .dash-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; }
+        .dash-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
+        .dash-value { font-family: 'Space Grotesk'; font-size: 16px; font-weight: 900; color: #38bdf8; margin-top: 2px; }
+        .dash-value.green { color: #4ade80; }
 
-        /* CHECKBOXES & TOGGLES */
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light); }
-        .toggle-row:last-child { border-bottom: none; }
-        .toggle-label { font-size: 12px; font-weight: 700; color: var(--text-dark); }
-        .toggle-desc { font-size: 10px; color: var(--text-muted); }
-        .switch-input { width: 20px !important; height: 20px !important; accent-color: var(--accent-cyan); margin: 0; cursor: pointer; }
+        /* TRUST BADGES */
+        .trust-badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        @media (min-width: 600px) { .trust-badges-grid { grid-template-columns: repeat(4, 1fr); } }
+        .trust-badge-card { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid var(--border-light); padding: 10px 8px; border-radius: 10px; text-align: center; }
+        .trust-badge-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+        .trust-badge-title { font-size: 11px; font-weight: 800; color: var(--text-dark); }
+        .trust-badge-desc { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+        .hero-card {
+            background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
+            color: #fff; padding: 20px 16px; border-radius: 18px; margin-bottom: 14px;
+            box-shadow: 0 10px 30px rgba(2,132,199,0.25);
+        }
+        @media (min-width: 500px) { .hero-card { padding: 24px; } }
+        .hero-card h2 { font-family: 'Space Grotesk'; font-size: 19px; font-weight: 900; margin-bottom: 6px; }
+        .hero-card > p { font-size: 12px; opacity: 0.95; margin-bottom: 12px; line-height: 1.5; }
+        .features-detail { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+        @media (min-width: 500px) { .features-detail { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 800px) { .features-detail { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+        .feature-detail-box { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }
+        .feature-detail-box .fd-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+        .feature-detail-box .fd-title { font-family: 'Space Grotesk'; font-size: 12px; font-weight: 800; margin-bottom: 3px; }
+        .feature-detail-box .fd-desc { font-size: 11px; opacity: 0.9; line-height: 1.4; }
+
+        .advantages-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        @media (min-width: 500px) { .advantages-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; } }
+        .adv-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 6px; border-radius: 10px; text-align: center; border: 1px solid var(--border-light); }
+        .adv-icon { font-size: 22px; display: block; margin-bottom: 3px; }
+        .adv-title { font-family: 'Space Grotesk'; font-size: 11px; color: var(--text-dark); font-weight: 800; }
+        .adv-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+        .steps-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+        @media (min-width: 500px) { .steps-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+        .step-box { background: linear-gradient(135deg, #f0fdfa, #eff6ff); border: 1px solid #bae6fd; padding: 12px 10px; border-radius: 12px; text-align: center; }
+        .step-num { width: 30px; height: 30px; margin: 0 auto 6px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; font-weight: 900; font-size: 15px; }
+        .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
+        .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
-        input[type="text"], input[type="tel"], input[type="password"], input[type="number"], select, textarea { 
+        input[type="text"], input[type="tel"], select, textarea { 
             width: 100%; padding: 12px 14px; margin-top: 4px; 
             background: #f8fafc; border: 1px solid var(--border-light); 
             border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit;
@@ -163,17 +218,29 @@ HTML_BASE = """
         .ip-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
         .ip-chip { background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #bae6fd; font-family: 'Courier New', monospace; }
 
-        .btn-primary { width: 100%; padding: 14px; margin-top: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: block; text-align: center; }
+        .btn-primary { 
+            width: 100%; padding: 14px; margin-top: 12px; 
+            background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; 
+            border: none; border-radius: 10px; font-size: 13px; font-weight: 800; 
+            cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; 
+            text-decoration: none; display: block; text-align: center;
+        }
         .btn-success { background: linear-gradient(135deg, #059669, #047857); }
         .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
         .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
 
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 6px; }
-        .plan-option { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); padding: 12px 10px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; gap: 8px; }
+        .plan-option { 
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); 
+            padding: 12px 10px; border-radius: 12px; cursor: pointer; 
+            display: flex; justify-content: space-between; align-items: center; 
+            position: relative; gap: 8px;
+        }
         .plan-option.selected, .plan-option:hover { border-color: var(--accent-cyan); background: #f0f9ff; }
         .plan-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; }
         .plan-info { flex: 1; min-width: 0; }
         .plan-info b { font-size: 13px; display: block; }
+        @media (min-width: 500px) { .plan-info b { font-size: 14px; } }
         .plan-info div { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
         .plan-price { text-align: right; flex-shrink: 0; }
         .plan-price b { color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }
@@ -182,7 +249,20 @@ HTML_BASE = """
         .badge-best { background: #db2777; }
         .badge-pro { background: #059669; }
 
+        .bw-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+        @media (min-width: 500px) { .bw-grid { grid-template-columns: 1fr 1fr; } }
+        .bw-card {
+            background: #ffffff; border: 2px solid var(--border-light);
+            padding: 10px 12px; border-radius: 10px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px; transition: 0.2s;
+        }
+        .bw-card:hover, .bw-card.active { border-color: var(--accent-purple); background: #faf5ff; }
+        .bw-card input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent-purple); flex-shrink: 0; cursor: pointer; margin: 0; }
+        .bw-card-text b { font-size: 12px; color: var(--text-dark); display: block; }
+        .bw-card-text span { font-size: 10px; color: var(--text-muted); }
+
         .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center; }
+        .payment-title { color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; }
         .payment-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
         @media (min-width: 500px) { .payment-grid { grid-template-columns: 1fr 1fr; } }
         .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 10px; }
@@ -202,16 +282,24 @@ HTML_BASE = """
         .rating-big { font-family: 'Space Grotesk'; font-size: 32px; font-weight: 900; color: #b45309; }
         .stars-gold { color: var(--accent-gold); font-size: 12px; letter-spacing: 2px; }
         .review-card { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid var(--border-light); margin-bottom: 6px; }
+        .rating-input { display: flex; flex-direction: row-reverse; justify-content: center; gap: 4px; margin: 8px 0; }
+        .rating-input input { display: none; }
+        .rating-input label { font-size: 26px; color: #cbd5e1; cursor: pointer; }
+        .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label { color: var(--accent-gold); }
 
         .faq-item { border-bottom: 1px solid var(--border-light); padding: 10px 0; }
         .faq-item:last-child { border-bottom: none; }
         .faq-question { font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
         .faq-answer { color: var(--text-body); font-size: 11px; line-height: 1.6; margin-top: 6px; display: none; background: #f8fafc; padding: 8px 10px; border-radius: 6px; }
         .faq-item.active .faq-answer { display: block; }
+        .faq-toggle { color: var(--accent-cyan); font-size: 14px; flex-shrink: 0; }
 
         .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }
+        .wifi-box { background: #f0f9ff; border: 1px dashed #7dd3fc; padding: 12px; border-radius: 10px; margin-top: 8px; }
+        .feature-box { background: #f0fdf4; padding: 10px; border-radius: 8px; margin-top: 6px; line-height: 1.9; font-size: 11px; border-left: 4px solid var(--accent-green); }
         .footer { text-align: center; color: var(--text-muted); margin: 20px 0 70px; font-size: 10px; padding: 10px; border-top: 1px solid var(--border-light); }
         .footer a { color: var(--accent-cyan); text-decoration: none; font-weight: 700; }
+        hr { border: none; border-top: 1px solid var(--border-light); margin: 12px 0; }
     </style>
 </head>
 <body>
@@ -222,7 +310,7 @@ HTML_BASE = """
         <div class="top-nav">
             <a href="/" class="nav-brand">
                 <div class="nav-logo-icon">⚡</div>
-                <span>KETRIKA MIKROTIK STUDIO</span>
+                <span>KETRIKA MIKROTIK</span>
             </a>
             <div class="top-links">
                 <a href="/tuto" class="btn-tuto">📖 Guide &amp; Tuto</a>
@@ -250,15 +338,15 @@ HTML_BASE = """
                 </div>
             </div>
             <h1>KETRIKA MIKROTIK</h1>
-            <p class="tagline txt-fr">Générateur Modulaire de Configurations MikroTik RouterOS v7</p>
-            <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina hanamboarana ny MikroTik rehetra</p>
-            <div class="stats-live"><span class="live-dot"></span><span>Studio Modulaire Pro • 1 Clé = 1 Routeur</span></div>
+            <p class="tagline txt-fr">Solution Professionnelle d'Optimisation Réseau MikroTik</p>
+            <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina hanatsarana ny MikroTik</p>
+            <div class="stats-live"><span class="live-dot"></span><span>Config en 5 secondes • Support 7j/7 • 1 Clé = 1 Routeur</span></div>
         </div>
 
         {{ content|safe }}
 
         <div class="footer">
-            KETRIKA MIKROTIK STUDIO © 2026 • <a href="{{ fb_link }}" target="_blank">📘 Facebook Officiel</a> • <a href="/tuto">📖 Guide d'Installation</a><br>📞 038 28 171 00 (Jean Eric)
+            KETRIKA MIKROTIK PRO © 2026 • <a href="{{ fb_link }}" target="_blank">📘 Facebook Officiel</a> • <a href="/tuto">📖 Guide d'Installation</a><br>📞 038 28 171 00 (Jean Eric)
         </div>
     </div>
 
@@ -275,14 +363,29 @@ HTML_BASE = """
             navigator.clipboard.writeText(text).then(() => { 
                 const btn = document.getElementById(btnId); 
                 const o = btn.innerHTML; 
-                btn.innerHTML = '✅ COPIÉ !'; 
+                btn.innerHTML = '✅ COPIÉ DANS LE PRESSE-PAPIER !'; 
                 btn.classList.add('copied'); 
                 setTimeout(() => { btn.innerHTML = o; btn.classList.remove('copied'); }, 2500); 
             }); 
         }
         function setIP(ip) { document.getElementById('router_ip').value = ip; }
-        function toggleModule(id) { document.getElementById(id).classList.toggle('open'); }
-        document.querySelectorAll('.faq-question').forEach(q => { q.addEventListener('click', () => q.parentElement.classList.toggle('active')); });
+        
+        function selectBW(val) {
+            document.querySelectorAll('.bw-card').forEach(c => c.classList.remove('active'));
+            const targetCard = document.getElementById('card_' + val);
+            if(targetCard) targetCard.classList.add('active');
+            const radio = document.getElementById('bw_' + val);
+            if(radio) radio.checked = true;
+            
+            const customDiv = document.getElementById('custom-bw-box');
+            if(customDiv) {
+                customDiv.style.display = (val === 'custom') ? 'grid' : 'none';
+            }
+        }
+
+        document.querySelectorAll('.faq-question').forEach(q => { 
+            q.addEventListener('click', () => q.parentElement.classList.toggle('active')); 
+        });
     </script>
 </body>
 </html>
@@ -295,23 +398,13 @@ def build_raw_script(cfg):
     plan = cfg["type"]
     modele = cfg.get("modele", "")
     opt = cfg.get("options", {})
-    
-    router_ip = opt.get("router_ip", "192.168.88.1").strip()
     ssid = opt.get("ssid", "KETRIKA-NET")
     wifi_pass = opt.get("wifi_pass", "ketrika2025")
-    
-    # Options Expertes Modulaires
-    enable_load_balancing = opt.get("enable_load_balancing", False)
-    enable_site_blocking = opt.get("enable_site_blocking", True)
-    enable_auto_reboot = opt.get("enable_auto_reboot", True)
-    enable_port_forward = opt.get("enable_port_forward", False)
-    forward_port = opt.get("forward_port", "8080")
-    forward_target = opt.get("forward_target", "192.168.88.200")
-    
     dns_name = opt.get("dns_name", "ketrika.wifi")
     bw_down = opt.get("bw_down", "0")
     bw_up = opt.get("bw_up", "0")
-
+    router_ip = opt.get("router_ip", "192.168.88.1").strip()
+    
     ip_parts = router_ip.split('.')
     if len(ip_parts) == 4:
         subnet_base = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}"
@@ -327,13 +420,14 @@ def build_raw_script(cfg):
     is_wifi6 = any(k in modele for k in ["ax2", "ax3", "ax 15s", "Wi-Fi 6"])
     is_wireless = any(k in modele for k in ["ac2", "ac3", "lite", "19s", "LHG", "SXT", "Wireless"])
 
-    # SCRIPT ROUTEROS V7 MODULAIRE COMPLET
+    # ARCHITECTURE TOTALEMENT CLEAN ET ISOLÉE PAR PACK
     s = f"""# =========================================================================
-# KETRIKA MIKROTIK STUDIO - CONFIGURATION TOTALE PERSONNALISÉE
-# Modèle : {modele} | Formule : {plan.upper()} | Client : {cfg['client']}
+# KETRIKA MIKROTIK - ARCHITECTURE INDUSTRIELLE DE A A Z
+# Modele : {modele} | Formule : {plan.upper()} | Client : {cfg['client']}
+# IP Locale : {router_ip} ({dhcp_net})
 # =========================================================================
 
-# --- 1. BRIDGE & INTERFACES LAN ---
+# --- 1. BRIDGE & LISTES D'INTERFACES ---
 :if ([:len [/interface bridge find name=bridge-lan]] = 0) do={{ /interface bridge add name=bridge-lan auto-mac=yes comment="defconf-LAN" }}
 :if ([:len [/interface list find name=WAN]] = 0) do={{ /interface list add name=WAN }}
 :if ([:len [/interface list find name=LAN]] = 0) do={{ /interface list add name=LAN }}
@@ -342,26 +436,16 @@ def build_raw_script(cfg):
 /interface list member remove [find interface=bridge-lan]
 /interface list member add interface=bridge-lan list=LAN
 
-# Ajout dynamique des ports LAN existants (sauf ether1 et ether2 si Load Balancing)
-:foreach i in=[/interface ethernet find where name!="ether1" {'and name!="ether2"' if enable_load_balancing else ''}] do={{
+# Ajout dynamique des ports physiques restants au Bridge
+:foreach i in=[/interface ethernet find where name!="ether1"] do={{
     :if ([:len [/interface bridge port find interface=$i]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$i comment="LAN-PORT" }}
 }}
 
-# --- 2. WAN & INTERNET ---
+# --- 2. WAN (PORT 1 VIA DHCP-CLIENT DYNAMIQUE) ---
 /ip dhcp-client remove [find interface=ether1]
-/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes default-route-distance=1 comment="WAN-STARLINK-1"
+/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes default-route-distance=1 comment="WAN-MAIN"
 
-# Option Load Balancing 2 Antennes Starlink (Port 1 + Port 2)
-"""
-    if enable_load_balancing:
-        s += """/interface list member remove [find interface=ether2]
-/interface list member add interface=ether2 list=WAN
-/ip dhcp-client remove [find interface=ether2]
-/ip dhcp-client add interface=ether2 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes default-route-distance=2 comment="WAN-STARLINK-2"
-/ip firewall nat add chain=srcnat out-interface=ether2 action=masquerade comment="NAT-WAN2"
-"""
-
-    s += f"""# --- 3. ADRESSAGE IP ET SERVEUR DHCP ---
+# --- 3. ADRESSAGE IP ET SERVEUR DHCP LOCAL ---
 /ip address remove [find interface=bridge-lan]
 /ip address add address={router_ip}/24 interface=bridge-lan comment="LAN-IP"
 /ip pool remove [find name=dhcp-pool]
@@ -371,15 +455,15 @@ def build_raw_script(cfg):
 /ip dhcp-server network remove [find address={dhcp_net}]
 /ip dhcp-server network add address={dhcp_net} gateway={router_ip} dns-server=1.1.1.1,1.0.0.1 comment="LAN-NET"
 
-# --- 4. ACCÈS INTERNET (NAT) ---
+# --- 4. ACCES INTERNET (NAT PRINCIPAL) ---
 /ip firewall nat remove [find comment="NAT-INTERNET"]
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="NAT-INTERNET"
 
-# --- 5. OPTIMISATION RÉSEAU (MANGLE TTL = 64) ---
+# --- 5. OPTIMISATION RESEAU (MANGLE TTL = 64) ---
 /ip firewall mangle remove [find comment="STARLINK-TTL-64"]
 /ip firewall mangle add chain=postrouting out-interface=ether1 action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
 
-# --- 6. DNS DO-H CLOUDFLARE 1.1.1.1 SÉCURISÉ ---
+# --- 6. DNS SECURISE DOH (CLOUDFLARE 1.1.1.1) ---
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no
 /ip firewall nat remove [find comment="DNS-REDIRECT-UDP"]
 /ip firewall nat add chain=dstnat in-interface-list=LAN protocol=udp dst-port=53 action=redirect to-ports=53 comment="DNS-REDIRECT-UDP"
@@ -398,26 +482,15 @@ def build_raw_script(cfg):
 /ip firewall filter add chain=forward action=drop connection-state=invalid comment="KETRIKA-FWD-INV"
 /ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=150,32 action=drop comment="KETRIKA-P2P-LIMIT"
 /ip firewall filter add chain=forward in-interface-list=WAN connection-nat-state=!dstnat connection-state=new action=drop comment="KETRIKA-WAN-FWD-DROP"
-"""
 
-    if enable_site_blocking:
-        s += """# Filtrage de contenu & protection de la bande passante
-/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-BLOCK-TORRENT-TCP"
-/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-BLOCK-TORRENT-UDP"
-"""
-
-    if enable_port_forward:
-        s += f"""# Redirection de port (Port Forwarding pour caméras/serveurs)
-/ip firewall nat add chain=dstnat in-interface-list=WAN protocol=tcp dst-port={forward_port} action=dst-nat to-addresses={forward_target} to-ports={forward_port} comment="KETRIKA-PORT-FWD"
-"""
-
-    s += """/ipv6 settings set disable-ipv6=yes
+/ipv6 settings set disable-ipv6=yes
 /ip service disable telnet,ftp,api
 """
 
-    # --- 8. WI-FI MODERNE / CLASSIQUE ---
+    # --- 8. WI-FI DÉDIÉ SANS CONFLIT ---
     if is_wifi6:
-        s += f"""# Configuration Wi-Fi 6 Moderne Wave2
+        s += f"""
+# --- 8. WI-FI 6 DEDIE (ROUTEROS V7 WIFI WAVE2) ---
 /interface wifi security remove [find name=sec-wifi]
 /interface wifi security add name=sec-wifi authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}"
 /interface wifi configuration remove [find name=cfg-wifi]
@@ -426,17 +499,25 @@ def build_raw_script(cfg):
 :foreach w in=[/interface wifi find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
 """
     elif is_wireless:
-        s += f"""# Configuration Wi-Fi Classique n/ac
+        s += f"""
+# --- 8. WI-FI CLASSIQUE DEDIE (ROUTEROS WIRELESS N/AC) ---
 /interface wireless security-profiles remove [find name=sec-wifi]
 /interface wireless security-profiles add name=sec-wifi mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
 /interface wireless set [find] ssid="{ssid}" security-profile=sec-wifi country="madagascar" disabled=no
 :foreach w in=[/interface wireless find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
 """
 
-    # --- 9. TUNNEL WIREGUARD VPN (PBR) ---
+    # --- 9. TUNNEL WIREGUARD VPN SÉCURISÉ AVEC PBR (Packs 20k, 30k, 50k) ---
     if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
-        s += f"""# Tunnel WireGuard avec Routage Dédié PBR
+        s += f"""
+# --- 9. TUNNEL WIREGUARD VPN AVEC ROUTAGE PBR SÉCURISÉ ---
 :if ([:len [/routing table find name=to-warp]] = 0) do={{ /routing table add name=to-warp fib }}
+/ip firewall address-list remove [find list=CONNECTED-NETS]
+/ip firewall address-list add list=CONNECTED-NETS address={dhcp_net}
+/ip firewall address-list add list=CONNECTED-NETS address=172.16.0.0/12
+/ip firewall address-list add list=CONNECTED-NETS address=10.0.0.0/8
+/ip firewall address-list add list=CONNECTED-NETS address=192.168.0.0/16
+
 /interface wireguard remove [find name=warp-vpn]
 /interface wireguard add name=warp-vpn listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
 /interface wireguard peers remove [find interface=warp-vpn]
@@ -445,15 +526,20 @@ def build_raw_script(cfg):
 /ip address add address={cfg['warp_ip']}/32 interface=warp-vpn
 /ip firewall nat remove [find comment="WARP-NAT"]
 /ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade comment="WARP-NAT"
+
+/ip route remove [find comment="WARP-ENDPOINT-ROUTE"]
+/ip route add dst-address=162.159.192.0/24 gateway=ether1 distance=1 comment="WARP-ENDPOINT-ROUTE"
 /ip route remove [find comment="VPN-PBR-ROUTE"]
 /ip route add dst-address=0.0.0.0/0 gateway=warp-vpn routing-table=to-warp comment="VPN-PBR-ROUTE"
+
 /ip firewall mangle remove [find comment="MARK-ROUTING-WARP"]
-/ip firewall mangle add chain=prerouting in-interface-list=LAN action=mark-routing new-routing-mark=to-warp passthrough=yes comment="MARK-ROUTING-WARP"
+/ip firewall mangle add chain=prerouting in-interface-list=LAN dst-address-list=!CONNECTED-NETS dst-address-type=!local action=mark-routing new-routing-mark=to-warp passthrough=yes comment="MARK-ROUTING-WARP"
 """
 
-    # --- 10. HOTSPOT WI-FI ZONE ---
+    # --- 10. SERVEUR HOTSPOT WI-FI ZONE PARFAITEMENT ALIGNÉ (Packs 30k, 50k) ---
     if plan in ["hotspot", "pro"]:
-        s += f"""# Serveur Hotspot Wi-Fi Zone
+        s += f"""
+# --- 10. SERVEUR HOTSPOT WI-FI ZONE SUR LE RESEAU LOCAL ---
 /ip hotspot profile remove [find name=hs-prof]
 /ip hotspot profile add name=hs-prof hotspot-address={router_ip} dns-name={dns_name}
 /ip hotspot user profile remove [find name=hs-user]
@@ -462,9 +548,10 @@ def build_raw_script(cfg):
 /ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=dhcp-pool profile=hs-prof disabled=no
 """
 
-    # --- 11. PPPOE & QOS ---
+    # --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE (Pack 50k) ---
     if plan == "pro":
-        s += f"""# Serveur PPPoE et Gestion de Bande Passante QoS
+        s += f"""
+# --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE ---
 /ip pool remove [find name=pppoe-pool]
 /ip pool add name=pppoe-pool ranges=10.10.10.2-10.10.10.254
 /ppp profile remove [find name=prof-pppoe]
@@ -473,16 +560,12 @@ def build_raw_script(cfg):
 /interface pppoe-server server add service-name=PPPOE-KETRIKA interface=bridge-lan default-profile=prof-pppoe disabled=no
 """
 
-    # --- 12. MAINTENANCE ET REBOOT AUTOMATIQUE ---
-    if enable_auto_reboot:
-        s += """# Redémarrage automatique quotidien à 04h00 du matin (Nettoyage RAM)
-/system scheduler remove [find name="KETRIKA-AUTO-REBOOT"]
-/system scheduler add name="KETRIKA-AUTO-REBOOT" start-time=04:00:00 interval=1d on-event="/system reboot" comment="AUTO-REBOOT"
-"""
-
-    s += f"""/system identity set name="KETRIKA-{cfg['client']}"
+    s += f"""
+# --- 12. IDENTITE DU ROUTEUR ---
+/system identity set name="KETRIKA-{cfg['client']}"
 :put "==========================================================="
-:put "  KETRIKA MIKROTIK STUDIO : CONFIG APPLIQUEE AVEC SUCCES ! "
+:put "  KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE !  "
+:put "  IP ROUTEUR : {router_ip} | PORTS LAN & WIFI ACTIFS      "
 :put "==========================================================="
 """
     return s
@@ -495,111 +578,6 @@ def clean_script_for_oneliner(raw_script):
             continue
         lines.append(line)
     return " ".join(lines).replace('"', '\\"')
-
-@app.route("/")
-def home():
-    if session.get("authenticated"):
-        return redirect(url_for("dashboard"))
-    
-    conn = sqlite3.connect("ketrika.db")
-    c = conn.cursor()
-    c.execute("SELECT AVG(etoiles), COUNT(*) FROM avis")
-    avg_stat, total_avis = c.fetchone()
-    avg_note = round(avg_stat, 1) if avg_stat else 5.0
-    c.execute("SELECT nom, ville, etoiles, commentaire, date_avis FROM avis ORDER BY id DESC LIMIT 5")
-    liste_avis = c.fetchall()
-    conn.close()
-    
-    reviews_html = ""
-    for a in liste_avis:
-        reviews_html += f'<div class="review-card"><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><b style="font-size:12px;">{a[0]} <span style="color:var(--text-muted); font-size:10px;">({a[1] or "MG"})</span></b><span class="stars-gold">{"⭐" * a[2]}</span></div><div style="font-size:11px; color:var(--text-body);">"{a[3]}"</div></div>'
-    
-    plans_html = ""
-    for k, v in TARIFS_MODULES.items():
-        checked = "checked" if k == "standard" else ""
-        selected_class = "selected" if k == "standard" else ""
-        badge_html = ""
-        if v.get("badge"):
-            bc = "badge-popular" if v["badge"] == "POPULAIRE" else ("badge-best" if v["badge"] == "MEILLEUR CHOIX" else "badge-pro")
-            badge_html = f'<div class="plan-badge {bc}">{v["badge"]}</div>'
-        plans_html += f"""
-        <label class="plan-option {selected_class}" id="opt_{k}" for="plan_{k}">
-            {badge_html}
-            <div class="plan-info">
-                <b>{v["nom"]}</b>
-                <div>{v["desc"]}</div>
-            </div>
-            <div class="plan-price">
-                <b>{v["prix"]:,} Ar</b>
-                <input type="radio" name="formule" id="plan_{k}" value="{k}" {checked} onchange="document.querySelectorAll('.plan-option').forEach(e=>e.classList.remove('selected')); document.getElementById('opt_{k}').classList.add('selected');">
-            </div>
-        </label>
-        """
-    
-    content = f"""
-    <!-- HERO -->
-    <div class="card" style="background:linear-gradient(135deg, #0284c7, #7c3aed); color:#fff;">
-        <h2 style="font-family:'Space Grotesk'; font-size:20px; font-weight:900; margin-bottom:8px;">🚀 Studio de Configuration MikroTik RouterOS v7</h2>
-        <p style="font-size:13px; opacity:0.95; line-height:1.6;">
-            Activez et combinez <b>toutes les options avancées de votre MikroTik</b> en quelques clics : Multi-WAN Load Balancing, Wi-Fi 6 Dual Band, Pare-feu d'entreprise, Hotspot, VPN et Redirection de ports.
-        </p>
-    </div>
-
-    <!-- COMMANDER -->
-    <div class="card">
-        <div class="card-title">🛒 1. CHOISIR VOTRE FORMULE STUDIO</div>
-        <div class="alert-warning">⚠️ <b>1 Clé = 1 Routeur uniquement.</b> Accès complet à toutes les options du pack.</div>
-        <form method="POST" action="/commander">
-            <div class="plan-selector">{plans_html}</div>
-            <div class="payment-banner">
-                <div class="payment-title">📱 PAIEMENT MOBILE MONEY</div>
-                <div class="payment-grid">
-                    <div class="payment-box">
-                        <div class="method">🟠 Orange Money</div>
-                        <div class="number">{NUMERO_ORANGE}</div>
-                        <div class="name">Au nom de : {NOM_COMPTE}</div>
-                    </div>
-                    <div class="payment-box">
-                        <div class="method">🟡 Mvola</div>
-                        <div class="number">{NUMERO_MVOLA}</div>
-                        <div class="name">Au nom de : {NOM_COMPTE}</div>
-                    </div>
-                </div>
-                <div class="payment-warning">⏰ Clé non reçue après <b>15 minutes</b> ? Appelez : <b>{NUMERO_MVOLA}</b></div>
-            </div>
-            <label>Nom complet :</label>
-            <input type="text" name="nom" placeholder="Rakoto Jean" required>
-            <label>Téléphone (Réception clé SMS) :</label>
-            <input type="tel" name="tel" placeholder="034 00 000 00" required>
-            <label>Référence transaction SMS :</label>
-            <input type="text" name="ref_paiement" placeholder="Code SMS de transaction" required>
-            <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
-        </form>
-    </div>
-
-    <!-- ACTIVER -->
-    <div class="card">
-        <div class="card-title">🔐 2. DÉJÀ UNE CLÉ ? OUVREZ LE STUDIO</div>
-        <form method="POST" action="/login">
-            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase; letter-spacing:1.5px;">
-            <button type="submit" class="btn-primary btn-success">OUVRIR LE STUDIO MIKROTIK</button>
-        </form>
-    </div>
-
-    <!-- AVIS -->
-    <div class="card">
-        <div class="card-title">⭐ AVIS CLIENTS ({total_avis}) • Note : {avg_note}/5</div>
-        <div class="rating-summary">
-            <div class="rating-big">{avg_note}</div>
-            <div style="text-align:center;">
-                <div class="stars-gold" style="font-size:18px;">{"⭐" * int(round(avg_note))}</div>
-                <div style="font-size:11px; font-weight:700; margin-top:2px;">Avis Vérifiés</div>
-            </div>
-        </div>
-        <div>{reviews_html}</div>
-    </div>
-    """
-    return render(content)
 
 @app.route("/dashboard")
 def dashboard():
@@ -615,120 +593,79 @@ def dashboard():
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
     ip_chips = "".join([f'<span class="ip-chip" onclick="setIP(\'{ip}\')">{ip}</span>' for ip in IP_SUGGESTIONS])
-    
+    feat_html = "<div>✅ Bridge + Ports auto-détectés</div><div>✅ Port 1 WAN (DHCP-Client)</div><div>✅ DHCP + NAT + IP personnalisée</div><div>✅ Firewall Stateful Pro</div><div>✅ Optimisation Réseau + DNS DoH</div>"
+    dns_input_html = ""
+    bandwidth_html = ""
+    if plan_key in ["warp", "hotspot", "pro"]:
+        feat_html += "<div style='color:var(--accent-green);'>✅ WireGuard VPN (gratuit à vie)</div>"
+    if plan_key in ["hotspot", "pro"]:
+        feat_html += "<div style='color:var(--accent-green);'>✅ Hotspot Wi-Fi Zone</div>"
+        dns_input_html = '<label>🔗 Adresse Hotspot :</label><input type="text" name="dns_name" value="wifizone.wifi" required>'
+        
+        bw_cards_html = ""
+        for k, v in BANDWIDTH_PROFILES.items():
+            ck = "checked" if k == "illimite" else ""
+            active_class = "active" if k == "illimite" else ""
+            bw_cards_html += f"""
+            <div class="bw-card {active_class}" id="card_{k}" onclick="selectBW('{k}')">
+                <input type="radio" name="bandwidth" id="bw_{k}" value="{k}" {ck}>
+                <div class="bw-card-text">
+                    <b>{v['nom']}</b>
+                    <span>{v['desc']}</span>
+                </div>
+            </div>
+            """
+        
+        bandwidth_html = f"""
+        <div class="wifi-box" style="border-color:rgba(124,58,237,0.3); margin-top:10px;">
+            <div style="font-size:11px; font-weight:800; color:var(--accent-purple); margin-bottom:6px;">📊 LIMITATION DU DÉBIT PAR CLIENT (CLIQUEZ SUR VOTRE CHOIX) :</div>
+            <div class="bw-grid">
+                {bw_cards_html}
+            </div>
+            <div id="custom-bw-box" style="display:none; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
+                <input type="text" name="custom_down" value="3M" placeholder="Download (ex: 5M)">
+                <input type="text" name="custom_up" value="1M" placeholder="Upload (ex: 2M)">
+            </div>
+        </div>
+        """
+        
+    if plan_key == "pro":
+        feat_html += "<div style='color:var(--accent-green);'>✅ PPPoE + QoS Bandwidth</div>"
+        
     content = f"""
     <div class="top-nav" style="margin-bottom:10px;">
-        <span class="badge">{plan_info['nom']} • Studio RouterOS v7</span>
-        <a href="/logout" style="color:var(--accent-red); font-size:11px; text-decoration:none; font-weight:700;">Fermer</a>
+        <span class="badge">{plan_info['nom']} • 1 Clé = 1 Routeur</span>
+        <a href="/logout" style="color:var(--accent-red); font-size:11px; text-decoration:none; font-weight:700;">Fermer Session</a>
     </div>
-
     <div class="card">
-        <div class="card-title">🎛️ STUDIO DE CONFIGURATION MIKROTIK - {session['client']}</div>
-        <div class="alert-warning">⚙️ Cochez et personnalisez les modules ci-dessous selon votre architecture réseau :</div>
-        
+        <div class="card-title">⚙️ CONFIGURATION A à Z - {session['client']}</div>
+        <div class="alert-warning">⚠️ Cette clé sera <b>définitivement consommée</b> après génération.</div>
         <form method="POST" action="/generate">
+            <label>1. Modèle MikroTik :</label>
+            <select name="modele" required>{modeles_opt}</select>
+
+            <label>2. Nom du client / Routeur :</label>
+            <input type="text" name="client_final" placeholder="Boutique_Rasoa" required>
+
+            <label>3. Adresse IP du Routeur (Champ libre) :</label>
+            <input type="text" name="router_ip" id="router_ip" value="192.168.88.1" placeholder="Tapez votre IP ou cliquez ci-dessous" required>
+            <div class="ip-suggestions">{ip_chips}</div>
+            <small style="color:var(--text-muted); font-size:10px; display:block; margin-top:4px;">💡 Cliquez sur une IP suggérée ou tapez la vôtre. Le DHCP s'adapte automatiquement.</small>
+
+            <div class="wifi-box">
+                <div class="wifi-box-title">📶 WI-FI (SSID + MOT DE PASSE)</div>
+                <label style="margin-top:0;">Nom du Wi-Fi (SSID) :</label>
+                <input type="text" name="ssid" value="KETRIKA-NET" required>
+                <label>Mot de passe Wi-Fi :</label>
+                <input type="text" name="wifi_pass" value="ketrika2025" required>
+                {dns_input_html}
+            </div>
             
-            <!-- MODULE 1 : BASE & MATÉRIEL -->
-            <div class="module-card open" id="mod_base">
-                <div class="module-header" onclick="toggleModule('mod_base')">
-                    <span>🔌 1. Matériel & IP Locale</span>
-                    <span class="module-arrow">▼</span>
-                </div>
-                <div class="module-body">
-                    <label>Modèle MikroTik :</label>
-                    <select name="modele" required>{modeles_opt}</select>
-
-                    <label>Nom du Routeur (Identity) :</label>
-                    <input type="text" name="client_final" placeholder="Ex: Bureau_Central" required>
-
-                    <label>Adresse IP Locale du Routeur :</label>
-                    <input type="text" name="router_ip" id="router_ip" value="192.168.88.1" required>
-                    <div class="ip-suggestions">{ip_chips}</div>
-                </div>
-            </div>
-
-            <!-- MODULE 2 : WI-FI DUAL-BAND -->
-            <div class="module-card open" id="mod_wifi">
-                <div class="module-header" onclick="toggleModule('mod_wifi')">
-                    <span>📶 2. Paramètres Wi-Fi (2.4G & 5G)</span>
-                    <span class="module-arrow">▼</span>
-                </div>
-                <div class="module-body">
-                    <label>Nom du Réseau Wi-Fi (SSID) :</label>
-                    <input type="text" name="ssid" value="KETRIKA-NET" required>
-                    <label>Mot de passe Wi-Fi :</label>
-                    <input type="text" name="wifi_pass" value="ketrika2025" required>
-                </div>
-            </div>
-
-            <!-- MODULE 3 : WAN & MULTI-WAN LOAD BALANCING -->
-            <div class="module-card" id="mod_wan">
-                <div class="module-header" onclick="toggleModule('mod_wan')">
-                    <span>🌐 3. Multi-WAN & Load Balancing</span>
-                    <span class="module-arrow">▼</span>
-                </div>
-                <div class="module-body">
-                    <div class="toggle-row">
-                        <div>
-                            <div class="toggle-label">Load Balancing 2 Antennes Starlink (Port 1 + Port 2)</div>
-                            <div class="toggle-desc">Combine 2 connexions WAN pour doubler le débit</div>
-                        </div>
-                        <input type="checkbox" name="enable_load_balancing" class="switch-input">
-                    </div>
-                </div>
-            </div>
-
-            <!-- MODULE 4 : SÉCURITÉ & CONTRÔLE DE CONTENU -->
-            <div class="module-card" id="mod_sec">
-                <div class="module-header" onclick="toggleModule('mod_sec')">
-                    <span>🛡️ 4. Sécurité, Filtres & Redirection</span>
-                    <span class="module-arrow">▼</span>
-                </div>
-                <div class="module-body">
-                    <div class="toggle-row">
-                        <div>
-                            <div class="toggle-label">Bloquer Torrent / P2P</div>
-                            <div class="toggle-desc">Empêche la saturation de la bande passante</div>
-                        </div>
-                        <input type="checkbox" name="enable_site_blocking" class="switch-input" checked>
-                    </div>
-
-                    <div class="toggle-row">
-                        <div>
-                            <div class="toggle-label">Redirection de Port (Port Forwarding)</div>
-                            <div class="toggle-desc">Accès distant pour Caméras IP ou Serveur local</div>
-                        </div>
-                        <input type="checkbox" name="enable_port_forward" class="switch-input" onchange="document.getElementById('p_fwd_box').style.display = this.checked ? 'grid' : 'none';">
-                    </div>
-
-                    <div id="p_fwd_box" style="display:none; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
-                        <input type="text" name="forward_port" value="8080" placeholder="Port externe (ex: 8080)">
-                        <input type="text" name="forward_target" value="192.168.88.200" placeholder="IP cible (ex: 192.168.88.200)">
-                    </div>
-                </div>
-            </div>
-
-            <!-- MODULE 5 : WI-FI ZONE HOTSPOT -->
-            {'<div class="module-card open" id="mod_hs"><div class="module-header" onclick="toggleModule(\'mod_hs\')"><span>🎫 5. Portail Captif Hotspot</span><span class="module-arrow">▼</span></div><div class="module-body"><label>Adresse DNS Hotspot :</label><input type="text" name="dns_name" value="wifizone.wifi" required><label>Limite Débit / Utilisateur :</label><select name="bandwidth"><option value="illimite">⚡ Illimité (Plein Débit)</option><option value="ultra">🚀 Ultra (10M / 5M)</option><option value="rapide" selected>⭐ Rapide (5M / 2M)</option><option value="standard">📶 Standard (2M / 1M)</option><option value="eco">🔒 Éco (1M / 512k)</option></select></div></div>' if plan_key in ["hotspot", "pro"] else ''}
-
-            <!-- MODULE 6 : MAINTENANCE & REBOOT -->
-            <div class="module-card" id="mod_maint">
-                <div class="module-header" onclick="toggleModule('mod_maint')">
-                    <span>⚙️ 6. Maintenance Automatique</span>
-                    <span class="module-arrow">▼</span>
-                </div>
-                <div class="module-body">
-                    <div class="toggle-row">
-                        <div>
-                            <div class="toggle-label">Reboot Automatique Quotidien (04h00 du matin)</div>
-                            <div class="toggle-desc">Vide la mémoire RAM et évite les ralentissements</div>
-                        </div>
-                        <input type="checkbox" name="enable_auto_reboot" class="switch-input" checked>
-                    </div>
-                </div>
-            </div>
-
-            <button type="submit" class="btn-primary" style="margin-top:15px;">🚀 GÉNÉRER LA CONFIGURATION STUDIO</button>
+            {bandwidth_html}
+            
+            <label>4. Fonctionnalités incluses :</label>
+            <div class="feature-box">{feat_html}</div>
+            <button type="submit" class="btn-primary">🚀 GÉNÉRER LA CONFIG A à Z</button>
         </form>
     </div>
     """
@@ -749,23 +686,18 @@ def generate():
     client_final = request.form.get("client_final", "Client").replace(" ", "_")
     ssid = request.form.get("ssid", "KETRIKA-NET")
     wifi_pass = request.form.get("wifi_pass", "ketrika2025")
+    dns_name = request.form.get("dns_name", "ketrika.wifi")
     router_ip = request.form.get("router_ip", "192.168.88.1")
+    bw_choice = request.form.get("bandwidth", "illimite")
+    if bw_choice == "custom":
+        bw_down = request.form.get("custom_down", "3M")
+        bw_up = request.form.get("custom_up", "1M")
+    else:
+        bp = BANDWIDTH_PROFILES.get(bw_choice, BANDWIDTH_PROFILES["illimite"])
+        bw_down = bp["down"]
+        bw_up = bp["up"]
     
-    options = {
-        "ssid": ssid,
-        "wifi_pass": wifi_pass,
-        "router_ip": router_ip,
-        "enable_load_balancing": request.form.get("enable_load_balancing") == "on",
-        "enable_site_blocking": request.form.get("enable_site_blocking") == "on",
-        "enable_auto_reboot": request.form.get("enable_auto_reboot") == "on",
-        "enable_port_forward": request.form.get("enable_port_forward") == "on",
-        "forward_port": request.form.get("forward_port", "8080"),
-        "forward_target": request.form.get("forward_target", "192.168.88.200"),
-        "dns_name": request.form.get("dns_name", "wifizone.wifi"),
-        "bw_down": BANDWIDTH_PROFILES.get(request.form.get("bandwidth", "illimite"), {}).get("down", "0"),
-        "bw_up": BANDWIDTH_PROFILES.get(request.form.get("bandwidth", "illimite"), {}).get("up", "0")
-    }
-    
+    options = {"ssid": ssid, "wifi_pass": wifi_pass, "dns_name": dns_name, "bw_down": bw_down, "bw_up": bw_up, "router_ip": router_ip}
     warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     
@@ -788,24 +720,53 @@ def generate():
     
     content = f"""
     <div class="card">
-        <div class="alert alert-success"><b>✅ Configuration Studio prête pour : {client_final} ({modele})</b></div>
+        <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
         <div class="alert-warning">
-            📍 <b>Branchement :</b> WAN sur <b>Port 1 {'et Port 2 (Load Balancing)' if options['enable_load_balancing'] else ''}</b> | LAN sur <b>autres ports</b><br>
-            📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP : <b>{router_ip}</b><br>
-            🔒 <i>Clé définitivement consommée.</i>
+            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | PC / Switch sur les <b>autres ports</b>.<br>
+            📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
+            🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
 
-        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE)</div>
+        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE &amp; ULTRA-RAPIDE)</div>
+        <div class="step-guide">
+            <b>📖 Mode d'emploi pas-à-pas :</b>
+            <ol>
+                <li>Ouvrez <b>Winbox</b> et connectez-vous sur votre MikroTik en cliquant sur l'<b>Adresse MAC</b> (onglet <i>Neighbors</i>).</li>
+                <li>Cliquez sur <b>New Terminal</b> dans le menu de gauche.</li>
+                <li>Cliquez sur le bouton violet ci-dessous pour copier la commande, puis <b>collez-la (Clic droit &gt; Paste)</b> dans le terminal.</li>
+                <li>Appuyez sur la touche <b>Entrée</b> : en 5 secondes, le routeur applique toute la configuration sans redémarrer !</li>
+            </ol>
+        </div>
         <div class="terminal-box" id="cmd1">{one_liner}</div>
-        <button class="btn-copy" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE</button>
+        <button class="btn-copy" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE UNIQUE</button>
+
         <hr>
-        <div class="card-title">MÉTHODE 2 : FICHIER .RSC</div>
-        <a href="/download/{config_id}.rsc" class="btn-primary btn-success">📥 TÉLÉCHARGER LE FICHIER</a>
+
+        <div class="card-title">MÉTHODE 2 : FICHIER SCRIPT (.RSC) OU CODE BRUT COMPLET</div>
+        <div class="step-guide">
+            <b>📖 Mode d'emploi pas-à-pas :</b>
+            <ol>
+                <li>Téléchargez le fichier <b>ketrika.rsc</b> avec le bouton vert, OU copiez tout le texte brut ci-dessous.</li>
+                <li>Dans Winbox, cliquez sur le menu <b>Files</b> à gauche, puis glissez-déposez le fichier <b>ketrika.rsc</b> dedans.</li>
+                <li>Ouvrez <b>New Terminal</b> et tapez : <code>/import file-name=ketrika.rsc</code> puis Entrée.</li>
+            </ol>
+        </div>
+        <a href="/download/{config_id}.rsc" class="btn-primary btn-success" style="margin-top:10px;">📥 TÉLÉCHARGER LE FICHIER KETRIKA.RSC</a>
+        
+        <label style="margin-top:12px;">📄 OU COPIEZ LE SCRIPT BRUT MULTI-LIGNES CI-DESSOUS :</label>
+        <textarea id="raw_script_box" style="height:140px; font-family:'Courier New', monospace; font-size:11px; background:#0f172a; color:#4ade80; border:1px solid #334155;" readonly>{raw_s}</textarea>
+        <button class="btn-copy" id="b_raw" onclick="copyText('raw_script_box','b_raw')" style="background:#475569;">📋 COPIER LE SCRIPT BRUT COMPLET</button>
+
         <hr>
-        <div class="card-title">MÉTHODE 3 : SI ROUTEUR DÉJÀ EN LIGNE</div>
+
+        <div class="card-title">MÉTHODE 3 : IMPORTATION DIRECTE (SI ROUTEUR DÉJÀ CONNECTÉ AU WEB)</div>
+        <div class="step-guide">
+            <b>📖 Mode d'emploi :</b> Si le port 1 de votre routeur a déjà accès à Internet, collez simplement cette commande dans le terminal Winbox :
+        </div>
         <div class="terminal-box" id="cmd2">{online_cmd}</div>
-        <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:#64748b;">📋 COPIER</button>
-        <a href="/" class="btn-primary" style="margin-top:14px;">🏠 RETOUR À L'ACCUEIL</a>
+        <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER LA COMMANDE CLOUD</button>
+
+        <a href="/" class="btn-primary" style="margin-top:18px;">🏠 TERMINER &amp; RETOUR À L'ACCUEIL</a>
     </div>
     """
     return render(content)
@@ -867,93 +828,6 @@ def admin_creer():
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
-
-@app.route("/tuto")
-def tuto():
-    content = f"""
-    <div class="card">
-        <div class="card-title">📖 GUIDE D'INSTALLATION MIKROTIK STUDIO</div>
-        <p style="font-size:13px; color:var(--text-body); line-height:1.6;">
-            Suivez ce guide simple pour brancher et injecter votre configuration personnalisée en 2 minutes.
-        </p>
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : BRANCHEMENT</div>
-            <ol>
-                <li>Starlink / WAN 1 sur <b>PORT 1 (ether1)</b>.</li>
-                <li>Si Load Balancing 2ème Starlink activé : branchez la 2ème antenne sur <b>PORT 2 (ether2)</b>.</li>
-                <li>Votre Ordinateur ou Switch sur n'importe quel autre port.</li>
-            </ol>
-        </div>
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : CONNEXION WINBOX</div>
-            <ol>
-                <li>Ouvrez Winbox, allez dans l'onglet <b>Neighbors</b>.</li>
-                <li>Cliquez sur l'<b>Adresse MAC</b> (ex: CC:2D:E0:...) pour vous connecter sans déconnexion.</li>
-            </ol>
-        </div>
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : INJECTION DU SCRIPT</div>
-            <ol>
-                <li>Ouvrez <b>New Terminal</b> dans Winbox.</li>
-                <li>Faites <b>Clic droit &gt; Paste (Coller)</b> et appuyez sur Entrée. Configuration terminée en 5s !</li>
-            </ol>
-        </div>
-        <div style="text-align:center; margin-top:20px;">
-            <a href="/" class="btn-primary" style="display:inline-block; width:auto; padding:12px 25px;">🛒 COMMANDER OU ACTIVER MON ROUTEUR</a>
-        </div>
-    </div>
-    """
-    return render(content)
-
-@app.route("/ajouter-avis", methods=["POST"])
-def ajouter_avis():
-    nom = request.form.get("nom", "").strip()
-    ville = request.form.get("ville", "").strip()
-    try:
-        etoiles = int(request.form.get("etoiles", 5))
-    except:
-        etoiles = 5
-    commentaire = request.form.get("commentaire", "").strip()
-    if nom and commentaire:
-        conn = sqlite3.connect("ketrika.db")
-        c = conn.cursor()
-        c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
-        conn.commit()
-        conn.close()
-    return redirect(url_for("home"))
-
-@app.route("/commander", methods=["POST"])
-def commander():
-    nom = request.form.get("nom")
-    tel = request.form.get("tel")
-    formule = request.form.get("formule")
-    ref = request.form.get("ref_paiement")
-    montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
-    conn = sqlite3.connect("ketrika.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
-    conn.commit()
-    conn.close()
-    return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES[formule]["nom"]}</b> ({montant:,} Ar).<br>Clé envoyée par SMS au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
-
-@app.route("/login", methods=["POST"])
-def login():
-    cle = request.form.get("licence", "").strip().upper()
-    result = verifier_licence(cle)
-    if not result or not result["valide"]:
-        return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
-    if result.get("utilisations", 0) >= 1:
-        return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
-    session["authenticated"] = True
-    session["licence"] = cle
-    session["client"] = result["client"]
-    session["type_abo"] = result["type"]
-    return redirect(url_for("dashboard"))
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("home"))
 
 @app.errorhandler(500)
 def server_error(e):
