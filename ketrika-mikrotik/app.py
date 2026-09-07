@@ -1,7 +1,7 @@
 from flask import Flask, request, Response, render_template_string, session, redirect, url_for, send_file
 from database import *
 from warp_api import creer_config_warp_complete
-import sqlite3, secrets, string, random, io
+import sqlite3, secrets, string, random, io, re
 from datetime import datetime
 
 app = Flask(__name__)
@@ -32,15 +32,29 @@ init_extra_tables()
 
 TARIFS_MODULES = {
     "basic": {"nom": "🛡️ Basic", "prix": 10000, "desc": "Config complète A à Z + Wi-Fi + Optimisation", "badge": ""},
-    "standard": {"nom": "⭐ Standard", "prix": 15000, "desc": "Basic + Wi-Fi Dual Band 5G + Sécurité renforcée", "badge": "POPULAIRE"},
+    "standard": {"nom": "⭐ Standard", "prix": 15000, "desc": "Basic + Wi-Fi Dual Band 5G + Sécurité+", "badge": "POPULAIRE"},
     "warp": {"nom": "🚀 Premium VPN", "prix": 20000, "desc": "Standard + Tunnel WireGuard confidentiel gratuit", "badge": "MEILLEUR CHOIX"},
     "hotspot": {"nom": "🎫 Wi-Fi Zone", "prix": 30000, "desc": "Premium + Portail Hotspot + Contrôle Débit", "badge": ""},
     "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Solution intégrale + PPPoE + QoS avancé", "badge": "PRO"}
 }
 
-MODELES_MIKROTIK = ["hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)", "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)", "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)", "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)", "CCR1009", "CCR2004", "CCR2116", "Chateau LTE/5G", "Autre RouterOS v7"]
+MODELES_MIKROTIK = [
+    "hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)",
+    "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)",
+    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)",
+    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
+    "CCR1009", "CCR2004", "CCR2116",
+    "Chateau LTE/5G", "Autre RouterOS v7"
+]
 
-BANDWIDTH_PROFILES = {"illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit"},"ultra": {"nom": "🚀 ULTRA (10M/5M)", "down": "10M", "up": "5M", "desc": "10↓/5↑"},"rapide": {"nom": "⭐ RAPIDE (5M/2M)", "down": "5M", "up": "2M", "desc": "5↓/2↑"},"standard": {"nom": "📶 STANDARD (2M/1M)", "down": "2M", "up": "1M", "desc": "2↓/1↑"},"eco": {"nom": "🔒 ÉCO (1M/512K)", "down": "1M", "up": "512k", "desc": "1↓/0.5↑"},"custom": {"nom": "🎯 SUR MESURE", "down": "3M", "up": "1M", "desc": "Personnalisé"}}
+BANDWIDTH_PROFILES = {
+    "illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit"},
+    "ultra": {"nom": "🚀 ULTRA (10M/5M)", "down": "10M", "up": "5M", "desc": "10↓/5↑"},
+    "rapide": {"nom": "⭐ RAPIDE (5M/2M)", "down": "5M", "up": "2M", "desc": "5↓/2↑"},
+    "standard": {"nom": "📶 STANDARD (2M/1M)", "down": "2M", "up": "1M", "desc": "2↓/1↑"},
+    "eco": {"nom": "🔒 ÉCO (1M/512K)", "down": "1M", "up": "512k", "desc": "1↓/0.5↑"},
+    "custom": {"nom": "🎯 SUR MESURE", "down": "3M", "up": "1M", "desc": "Personnalisé"}
+}
 
 IP_SUGGESTIONS = ["192.168.88.1", "192.168.1.1", "192.168.0.1", "192.168.10.1", "192.168.100.1", "10.0.0.1", "10.0.1.1", "10.10.10.1", "172.16.0.1", "172.16.1.1", "172.20.0.1"]
 
@@ -68,116 +82,81 @@ HTML_BASE = """
             --text-muted: #64748b;
             --border-light: #e2e8f0;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        html { -webkit-text-size-adjust: 100%; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
-        @keyframes float-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        @keyframes pulse-badge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-        @keyframes glow-rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes slide-right { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
-        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 100%);
             color: var(--text-dark); min-height: 100vh; padding: 10px;
-            -webkit-font-smoothing: antialiased;
         }
         .container { max-width: 860px; margin: auto; }
 
-        /* NAVBAR RESPONSIVE */
         .top-nav { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 14px; padding: 10px 14px; 
             background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
             border: 1px solid var(--border-light); border-radius: 14px; 
-            box-shadow: 0 4px 20px rgba(2,132,199,0.08); animation: fade-in 0.5s;
+            box-shadow: 0 4px 20px rgba(2,132,199,0.08);
             flex-wrap: wrap; gap: 8px;
         }
-        .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); flex-shrink: 0; }
-        .nav-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; box-shadow: 0 4px 10px rgba(124,58,237,0.3); }
-        .top-links { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-        .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 12px; background: linear-gradient(135deg, #1877f2, #0d6efd); border-radius: 12px; transition: 0.3s; white-space: nowrap; }
-        .top-links a:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(24,119,242,0.3); }
-        .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-        
-        @media (max-width: 480px) {
-            .nav-brand span { font-size: 11px; }
-            .top-links a, .lang-btn { font-size: 10px; padding: 5px 8px; }
-        }
+        .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); }
+        .nav-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+        .top-links { display: flex; gap: 6px; align-items: center; }
+        .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 12px; background: linear-gradient(135deg, #1877f2, #0d6efd); border-radius: 12px; }
+        .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-        /* HEADER AVEC LOGO CENTRAL */
-        .header { text-align: center; padding: 15px 5px 22px; animation: fade-in 0.6s; }
-        
+        .header { text-align: center; padding: 15px 5px 22px; }
         .logo-wrapper {
-            position: relative; width: 90px; height: 90px; margin: 0 auto 14px;
+            position: relative; width: 85px; height: 85px; margin: 0 auto 12px;
             display: flex; align-items: center; justify-content: center;
         }
         .logo-aura {
             position: absolute; inset: -4px; border-radius: 50%;
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink));
-            filter: blur(10px); opacity: 0.7; animation: glow-rotate 4s linear infinite;
+            filter: blur(8px); opacity: 0.7;
         }
         .logo-box {
             position: relative; width: 100%; height: 100%; border-radius: 50%;
             background: linear-gradient(135deg, #0f172a, #1e293b);
-            border: 3px solid rgba(255,255,255,0.9);
+            border: 2px solid rgba(255,255,255,0.9);
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 12px 30px rgba(2,132,199,0.4);
+            box-shadow: 0 10px 25px rgba(2,132,199,0.3);
         }
-        .logo-box svg { width: 46px; height: 46px; filter: drop-shadow(0 0 8px rgba(0,242,254,0.9)); }
+        .logo-box svg { width: 44px; height: 44px; }
 
         .header h1 { 
             font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 900; 
             background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); 
             background-size: 300% 100%; 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-            letter-spacing: 1.5px; animation: shimmer 3s infinite;
-            padding: 0 10px; line-height: 1.2;
+            letter-spacing: 1.5px;
         }
         @media (min-width: 500px) { .header h1 { font-size: 36px; } }
-        
-        .header .tagline { color: var(--text-body); font-size: 13px; margin-top: 8px; font-weight: 600; padding: 0 10px; line-height: 1.5; }
+        .header .tagline { color: var(--text-body); font-size: 13px; margin-top: 6px; font-weight: 600; }
         .header .stats-live { 
-            display: inline-flex; gap: 6px; margin-top: 12px; padding: 6px 14px; 
+            display: inline-flex; gap: 6px; margin-top: 10px; padding: 6px 14px; 
             background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; 
             border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; 
-            align-items: center; text-align: center; max-width: 95%;
+            align-items: center;
         }
-        .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 8px var(--accent-green); animation: pulse-badge 1.5s infinite; flex-shrink: 0; }
+        .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
 
-        /* CARDS */
         .card { 
             background: var(--bg-card); border: 1px solid var(--border-light); 
             border-radius: 18px; padding: 20px 18px; margin-bottom: 14px; 
-            box-shadow: 0 6px 20px rgba(15,23,42,0.06); 
-            position: relative; overflow: hidden; animation: fade-in 0.5s;
+            box-shadow: 0 6px 20px rgba(15,23,42,0.06); position: relative; overflow: hidden;
         }
         @media (min-width: 500px) { .card { padding: 22px; } }
         .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink), var(--accent-green)); }
-        .card-title { 
-            font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); 
-            margin-bottom: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; 
-            display: flex; align-items: center; gap: 8px; line-height: 1.3; flex-wrap: wrap;
-        }
+        .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
         @media (min-width: 500px) { .card-title { font-size: 15px; } }
 
-        /* HERO POURQUOI NOUS */
         .hero-card {
             background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
             color: #fff; padding: 22px 18px; border-radius: 20px; margin-bottom: 14px;
             box-shadow: 0 15px 40px rgba(2,132,199,0.3);
-            position: relative; overflow: hidden;
         }
-        @media (min-width: 500px) { .hero-card { padding: 26px; } }
-        .hero-card::before {
-            content: ''; position: absolute; top: -50%; right: -20%;
-            width: 300px; height: 300px; background: radial-gradient(circle, rgba(255,255,255,0.15), transparent);
-            border-radius: 50%;
-        }
-        .hero-card h2 { font-family: 'Space Grotesk'; font-size: 20px; font-weight: 900; margin-bottom: 8px; position: relative; line-height: 1.3; }
-        @media (min-width: 500px) { .hero-card h2 { font-size: 22px; } }
-        .hero-card > p { font-size: 13px; opacity: 0.95; margin-bottom: 15px; position: relative; line-height: 1.6; }
+        .hero-card h2 { font-family: 'Space Grotesk'; font-size: 20px; font-weight: 900; margin-bottom: 8px; }
+        .hero-card > p { font-size: 13px; opacity: 0.95; margin-bottom: 15px; line-height: 1.6; }
 
         .features-detail { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px; }
         @media (min-width: 500px) { .features-detail { grid-template-columns: repeat(2, 1fr); } }
@@ -185,194 +164,100 @@ HTML_BASE = """
         .feature-detail-box {
             background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
             padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);
-            transition: 0.3s;
         }
-        .feature-detail-box:hover { background: rgba(255,255,255,0.22); }
-        .feature-detail-box .fd-icon { font-size: 26px; display: block; margin-bottom: 6px; animation: float-up 3s infinite; }
-        .feature-detail-box .fd-title { font-family: 'Space Grotesk'; font-size: 13px; font-weight: 800; margin-bottom: 4px; line-height: 1.3; }
+        .feature-detail-box .fd-icon { font-size: 26px; display: block; margin-bottom: 6px; }
+        .feature-detail-box .fd-title { font-family: 'Space Grotesk'; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
         .feature-detail-box .fd-desc { font-size: 11px; opacity: 0.9; line-height: 1.5; }
 
-        /* AVANTAGES */
         .advantages-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         @media (min-width: 500px) { .advantages-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; } }
-        .adv-box { 
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 8px; border-radius: 12px; 
-            text-align: center; border: 1px solid var(--border-light); transition: 0.3s;
-        }
-        .adv-box:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(2,132,199,0.15); border-color: var(--accent-cyan); }
+        .adv-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 8px; border-radius: 12px; text-align: center; border: 1px solid var(--border-light); }
         .adv-icon { font-size: 24px; display: block; margin-bottom: 4px; }
-        .adv-title { font-family: 'Space Grotesk'; font-size: 11px; color: var(--text-dark); font-weight: 800; line-height: 1.3; }
-        .adv-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; line-height: 1.3; }
+        .adv-title { font-family: 'Space Grotesk'; font-size: 11px; color: var(--text-dark); font-weight: 800; }
+        .adv-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
 
-        /* ETAPES */
         .steps-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
         @media (min-width: 500px) { .steps-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
-        .step-box { 
-            background: linear-gradient(135deg, #f0fdfa, #eff6ff); border: 1px solid #bae6fd; 
-            padding: 14px 12px; border-radius: 14px; text-align: center; transition: 0.3s;
-        }
-        .step-box:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(2,132,199,0.15); }
-        .step-num { 
-            width: 34px; height: 34px; margin: 0 auto 8px; 
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); 
-            color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-family: 'Space Grotesk'; font-weight: 900; font-size: 16px;
-            box-shadow: 0 4px 12px rgba(124,58,237,0.4);
-        }
-        .step-title { font-family: 'Space Grotesk'; font-size: 13px; color: var(--text-dark); font-weight: 800; margin-bottom: 4px; line-height: 1.3; }
+        .step-box { background: linear-gradient(135deg, #f0fdfa, #eff6ff); border: 1px solid #bae6fd; padding: 14px 12px; border-radius: 14px; text-align: center; }
+        .step-num { width: 34px; height: 34px; margin: 0 auto 8px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; font-weight: 900; font-size: 16px; }
+        .step-title { font-family: 'Space Grotesk'; font-size: 13px; color: var(--text-dark); font-weight: 800; margin-bottom: 4px; }
         .step-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
 
-        /* FORMS */
-        label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 12px; text-transform: uppercase; line-height: 1.4; }
-        input, select, textarea { 
-            width: 100%; padding: 12px 14px; margin-top: 5px; 
-            background: #f8fafc; border: 1px solid var(--border-light); 
-            border-radius: 10px; color: var(--text-dark); font-size: 14px; 
-            font-family: inherit; transition: 0.3s; -webkit-appearance: none; appearance: none;
-        }
-        select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230284c7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; padding-right: 36px; }
+        label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 12px; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 5px; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-cyan); background: #fff; box-shadow: 0 0 0 3px rgba(2,132,199,0.1); }
 
         .ip-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-        .ip-chip { 
-            background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); 
-            padding: 4px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; 
-            cursor: pointer; border: 1px solid #bae6fd; transition: 0.3s; font-family: 'Courier New', monospace;
-        }
-        .ip-chip:hover, .ip-chip:active { background: var(--accent-cyan); color: #fff; }
+        .ip-chip { background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); padding: 4px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #bae6fd; font-family: 'Courier New', monospace; }
+        .ip-chip:hover { background: var(--accent-cyan); color: #fff; }
 
-        /* BOUTONS */
-        .btn-primary { 
-            width: 100%; padding: 14px; margin-top: 14px; 
-            background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; 
-            border: none; border-radius: 10px; font-size: 13px; font-weight: 800; 
-            cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; 
-            text-decoration: none; display: block; text-align: center; transition: 0.3s; 
-            box-shadow: 0 4px 12px rgba(2,132,199,0.3); letter-spacing: 0.5px;
-        }
-        .btn-primary:hover, .btn-primary:active { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(2,132,199,0.5); }
-        .btn-success { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 4px 12px rgba(5,150,105,0.3); }
-        .btn-copy { 
-            background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; 
-            padding: 12px; border-radius: 10px; border: none; font-weight: 700; 
-            cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; 
-            margin-top: 8px; font-size: 12px; letter-spacing: 0.5px;
-        }
+        .btn-primary { width: 100%; padding: 14px; margin-top: 14px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: block; text-align: center; }
+        .btn-primary:hover { box-shadow: 0 6px 20px rgba(2,132,199,0.4); }
+        .btn-success { background: linear-gradient(135deg, #059669, #047857); }
+        .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
         .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
 
-        /* PLANS */
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; }
-        .plan-option { 
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); 
-            padding: 14px 12px; padding-right: 14px; border-radius: 12px; cursor: pointer; 
-            display: flex; justify-content: space-between; align-items: center; 
-            position: relative; transition: 0.3s; gap: 8px;
-        }
+        .plan-option { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); padding: 14px 12px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; gap: 8px; }
         .plan-option:hover { border-color: var(--accent-cyan); background: linear-gradient(135deg, #f0f9ff, #e0f2fe); }
         .plan-option input { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; }
-        .plan-info { flex: 1; min-width: 0; padding-right: 5px; }
-        .plan-info b { font-size: 13px; display: block; line-height: 1.3; }
+        .plan-info { flex: 1; min-width: 0; }
+        .plan-info b { font-size: 13px; display: block; }
         @media (min-width: 500px) { .plan-info b { font-size: 14px; } }
-        .plan-info div { color: var(--text-muted); font-size: 11px; margin-top: 3px; line-height: 1.4; }
+        .plan-info div { color: var(--text-muted); font-size: 11px; margin-top: 3px; }
         .plan-price { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .plan-price b { color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }
         @media (min-width: 500px) { .plan-price b { font-size: 16px; } }
-        .plan-badge { 
-            position: absolute; top: -1px; right: 12px; padding: 3px 10px; 
-            border-radius: 0 0 8px 8px; font-size: 9px; font-weight: 800; 
-            color: #fff; font-family: 'Space Grotesk'; animation: pulse-badge 2s infinite;
-        }
-        .badge-popular { background: linear-gradient(135deg, #ea580c, #dc2626); }
-        .badge-best { background: linear-gradient(135deg, #db2777, #7c3aed); }
-        .badge-pro { background: linear-gradient(135deg, #059669, #047857); }
+        .plan-badge { position: absolute; top: -1px; right: 12px; padding: 3px 10px; border-radius: 0 0 8px 8px; font-size: 9px; font-weight: 800; color: #fff; font-family: 'Space Grotesk'; }
+        .badge-popular { background: #ea580c; }
+        .badge-best { background: #db2777; }
+        .badge-pro { background: #059669; }
 
-        /* PAIEMENT */
-        .payment-banner { 
-            background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; 
-            border-radius: 12px; padding: 14px; margin-top: 14px; text-align: center;
-        }
-        .payment-title { color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; letter-spacing: 0.5px; }
+        .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 14px; text-align: center; }
+        .payment-title { color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; }
         .payment-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
         @media (min-width: 500px) { .payment-grid { grid-template-columns: 1fr 1fr; } }
-        .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; box-shadow: 0 2px 8px rgba(180,83,9,0.1); }
+        .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; }
         .payment-box .method { font-size: 12px; font-weight: 800; color: var(--text-dark); }
-        .payment-box .number { font-family: 'Space Grotesk'; font-size: 18px; font-weight: 900; color: #b45309; margin: 5px 0; letter-spacing: 1px; }
+        .payment-box .number { font-family: 'Space Grotesk'; font-size: 18px; font-weight: 900; color: #b45309; margin: 5px 0; }
         .payment-box .name { font-size: 10px; color: var(--text-muted); }
-        .payment-warning { 
-            background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca; 
-            border-radius: 10px; padding: 10px; margin-top: 10px; 
-            font-size: 12px; color: #991b1b; font-weight: 700; line-height: 1.5;
-        }
+        .payment-warning { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca; border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 12px; color: #991b1b; font-weight: 700; }
 
-        /* TERMINAL */
-        .terminal-box { 
-            background: linear-gradient(135deg, #0f172a, #1e293b); border: 1px solid #334155; 
-            color: #4ade80; padding: 12px; border-radius: 10px; 
-            font-family: 'Courier New', monospace; font-size: 11px; 
-            word-break: break-all; margin-top: 8px; line-height: 1.6;
-        }
-        
-        .badge { background: linear-gradient(135deg, #e0f2fe, #dbeafe); color: var(--accent-cyan); padding: 5px 10px; border-radius: 15px; font-size: 10px; font-weight: 700; border: 1px solid #bae6fd; line-height: 1.3; }
+        .terminal-box { background: linear-gradient(135deg, #0f172a, #1e293b); border: 1px solid #334155; color: #4ade80; padding: 12px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; margin-top: 8px; line-height: 1.6; }
+        .badge { background: linear-gradient(135deg, #e0f2fe, #dbeafe); color: var(--accent-cyan); padding: 5px 10px; border-radius: 15px; font-size: 10px; font-weight: 700; border: 1px solid #bae6fd; }
         .alert { padding: 12px 14px; border-radius: 10px; margin-bottom: 12px; font-size: 12px; line-height: 1.5; }
         .alert-success { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; color: #065f46; }
         .alert-error { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca; color: #991b1b; }
         .alert-warning { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; color: #92400e; }
 
-        /* AVIS */
-        .rating-summary { 
-            display: flex; align-items: center; justify-content: center; gap: 15px; 
-            padding: 14px; background: linear-gradient(135deg, #fffbeb, #fef9c3); 
-            border: 1px solid #fde68a; border-radius: 12px; margin-bottom: 12px; flex-wrap: wrap;
-        }
-        .rating-big { font-family: 'Space Grotesk'; font-size: 36px; font-weight: 900; color: #b45309; line-height: 1; }
+        .rating-summary { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 14px; background: linear-gradient(135deg, #fffbeb, #fef9c3); border: 1px solid #fde68a; border-radius: 12px; margin-bottom: 12px; }
+        .rating-big { font-family: 'Space Grotesk'; font-size: 36px; font-weight: 900; color: #b45309; }
         .stars-gold { color: var(--accent-gold); font-size: 13px; letter-spacing: 2px; }
         .review-card { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px; border-radius: 10px; border: 1px solid var(--border-light); margin-bottom: 8px; }
-        .review-header { display: flex; justify-content: space-between; margin-bottom: 4px; gap: 6px; flex-wrap: wrap; }
-        .review-name { font-size: 12px; font-weight: 700; line-height: 1.3; }
-        .review-city { color: var(--text-muted); font-size: 10px; font-weight: 400; }
+        .review-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .review-name { font-size: 12px; font-weight: 700; }
+        .review-city { color: var(--text-muted); font-size: 10px; }
         .review-text { font-size: 12px; color: var(--text-body); line-height: 1.5; }
         .rating-input { display: flex; flex-direction: row-reverse; justify-content: center; gap: 6px; margin: 10px 0; }
         .rating-input input { display: none; }
-        .rating-input label { font-size: 30px; color: #cbd5e1; cursor: pointer; transition: 0.2s; line-height: 1; }
+        .rating-input label { font-size: 30px; color: #cbd5e1; cursor: pointer; }
         .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label { color: var(--accent-gold); }
 
-        /* FAQ */
         .faq-item { border-bottom: 1px solid var(--border-light); padding: 12px 0; }
         .faq-item:last-child { border-bottom: none; }
-        .faq-question { 
-            font-weight: 700; color: var(--text-dark); font-size: 13px; 
-            cursor: pointer; display: flex; justify-content: space-between; 
-            align-items: flex-start; gap: 8px; line-height: 1.4;
-        }
-        .faq-answer { 
-            color: var(--text-body); font-size: 12px; line-height: 1.7; 
-            margin-top: 8px; display: none; 
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); 
-            padding: 12px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);
-        }
-        .faq-item.active .faq-answer { display: block; animation: fade-in 0.3s; }
-        .faq-toggle { color: var(--accent-cyan); font-size: 16px; transition: 0.3s; flex-shrink: 0; margin-top: 2px; }
+        .faq-question { font-weight: 700; color: var(--text-dark); font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .faq-answer { color: var(--text-body); font-size: 12px; line-height: 1.7; margin-top: 8px; display: none; background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px; border-radius: 8px; border-left: 3px solid var(--accent-cyan); }
+        .faq-item.active .faq-answer { display: block; }
+        .faq-toggle { color: var(--accent-cyan); font-size: 16px; flex-shrink: 0; }
         .faq-item.active .faq-toggle { transform: rotate(180deg); }
 
-        /* WHATSAPP */
-        .whatsapp-float { 
-            position: fixed; bottom: 18px; right: 18px; z-index: 9999; 
-            background: linear-gradient(135deg, #25D366, #128C7E); color: #fff; 
-            padding: 11px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; 
-            text-decoration: none; display: flex; align-items: center; gap: 6px; 
-            font-family: 'Space Grotesk'; box-shadow: 0 6px 20px rgba(37,211,102,0.5);
-        }
-        .whatsapp-float:hover { transform: scale(1.08); }
-
-        /* WI-FI BOX */
+        .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: linear-gradient(135deg, #25D366, #128C7E); color: #fff; padding: 11px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; }
         .wifi-box { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 1px dashed #7dd3fc; padding: 14px; border-radius: 12px; margin-top: 10px; }
         .wifi-box-title { font-size: 11px; font-weight: 800; color: var(--accent-cyan); margin-bottom: 8px; }
         .feature-box { background: linear-gradient(135deg, #f0fdf4, #d1fae5); padding: 12px; border-radius: 10px; margin-top: 8px; line-height: 2; font-size: 12px; border-left: 4px solid var(--accent-green); color: var(--text-body); }
-
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-        .footer { text-align: center; color: var(--text-muted); margin: 25px 0 80px; font-size: 11px; padding: 12px; border-top: 1px solid var(--border-light); line-height: 1.6; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .footer { text-align: center; color: var(--text-muted); margin: 25px 0 80px; font-size: 11px; padding: 12px; border-top: 1px solid var(--border-light); }
         .footer a { color: var(--accent-cyan); text-decoration: none; font-weight: 700; }
-
         hr { border: none; border-top: 1px solid var(--border-light); margin: 14px 0; }
     </style>
 </head>
@@ -411,7 +296,7 @@ HTML_BASE = """
             <h1>KETRIKA MIKROTIK</h1>
             <p class="tagline txt-fr">Solution Professionnelle d'Optimisation Réseau MikroTik</p>
             <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina hanatsarana ny MikroTik</p>
-            <div class="stats-live"><span class="live-dot"></span><span>Configuration en 5 secondes • Support 7j/7 • 1 Clé = 1 Routeur</span></div>
+            <div class="stats-live"><span class="live-dot"></span><span>Config en 5 secondes • Support 7j/7 • 1 Clé = 1 Routeur</span></div>
         </div>
 
         {{ content|safe }}
@@ -456,50 +341,163 @@ def build_raw_script(cfg):
         dhcp_pool_start = "192.168.88.10"
         dhcp_pool_end = "192.168.88.250"
         dhcp_net = "192.168.88.0/24"
+
     is_wifi6 = any(k in modele for k in ["ax2", "ax3", "ax 15s", "Wi-Fi 6"])
     is_wireless = any(k in modele for k in ["ac2", "ac3", "lite", "19s", "LHG", "SXT", "Wireless"])
-    s = f"""# KETRIKA MIKROTIK - CONFIG A à Z
-# Modele : {modele} | Formule : {plan.upper()} | IP : {router_ip}
-/interface bridge add name=bridge-lan auto-mac=yes
-/interface list add name=WAN
-/interface list add name=LAN
+
+    s = f"""# =========================================================================
+# KETRIKA MIKROTIK - ARCHITECTURE INDUSTRIELLE DE A A Z
+# Modele : {modele} | Formule : {plan.upper()} | Client : {cfg['client']}
+# IP Locale : {router_ip} ({dhcp_net})
+# =========================================================================
+
+# --- 1. BRIDGE & INTERFACES LAN ---
+:if ([:len [/interface bridge find name=bridge-lan]] = 0) do={{ /interface bridge add name=bridge-lan auto-mac=yes comment="defconf-LAN" }}
+:if ([:len [/interface list find name=WAN]] = 0) do={{ /interface list add name=WAN }}
+:if ([:len [/interface list find name=LAN]] = 0) do={{ /interface list add name=LAN }}
+/interface list member remove [find interface=ether1]
 /interface list member add interface=ether1 list=WAN
+/interface list member remove [find interface=bridge-lan]
 /interface list member add interface=bridge-lan list=LAN
-:foreach i in=[/interface ethernet find where name!="ether1"] do={{ /interface bridge port add bridge=bridge-lan interface=$i }}
-/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no add-default-route=yes
-/ip address add address={router_ip}/24 interface=bridge-lan
+
+# Ajout dynamique de tous les ports physiques restants au Bridge
+:foreach i in=[/interface ethernet find where name!="ether1"] do={{
+    :if ([:len [/interface bridge port find interface=$i]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$i comment="LAN-PORT" }}
+}}
+
+# --- 2. WAN (PORT 1 VIA DHCP-CLIENT) ---
+/ip dhcp-client remove [find interface=ether1]
+/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes default-route-distance=2 comment="WAN-STARLINK"
+
+# --- 3. ADRESSAGE IP ET SERVEUR DHCP LOCAL ---
+/ip address remove [find interface=bridge-lan]
+/ip address add address={router_ip}/24 interface=bridge-lan comment="LAN-IP"
+/ip pool remove [find name=dhcp-pool]
 /ip pool add name=dhcp-pool ranges={dhcp_pool_start}-{dhcp_pool_end}
+/ip dhcp-server remove [find interface=bridge-lan]
 /ip dhcp-server add name=dhcp-lan interface=bridge-lan address-pool=dhcp-pool disabled=no lease-time=12h
-/ip dhcp-server network add address={dhcp_net} gateway={router_ip} dns-server=1.1.1.1,1.0.0.1
-/ip firewall nat add chain=srcnat out-interface-list=WAN action=masquerade
-/ip firewall mangle add chain=postrouting out-interface-list=WAN action=change-ttl new-ttl=set:64 passthrough=yes
+/ip dhcp-server network remove [find address={dhcp_net}]
+/ip dhcp-server network add address={dhcp_net} gateway={router_ip} dns-server=1.1.1.1,1.0.0.1 comment="LAN-NET"
+
+# --- 4. ACCES INTERNET (NAT) ---
+/ip firewall nat remove [find comment="NAT-INTERNET"]
+/ip firewall nat add chain=srcnat out-interface-list=WAN action=masquerade comment="NAT-INTERNET"
+
+# --- 5. OPTIMISATION RESEAU (MANGLE TTL = 64) ---
+/ip firewall mangle remove [find comment="STARLINK-TTL-64"]
+/ip firewall mangle add chain=postrouting out-interface-list=WAN action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
+
+# --- 6. DNS SECURISE DOH (CLOUDFLARE) ---
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no
-/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=udp dst-port=53 action=redirect to-ports=53
-/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=tcp dst-port=53 action=redirect to-ports=53
-/ip firewall filter add chain=input action=accept connection-state=established,related,untracked
-/ip firewall filter add chain=input action=drop connection-state=invalid
-/ip firewall filter add chain=input action=accept protocol=icmp
-/ip firewall filter add chain=input in-interface-list=LAN action=accept
-/ip firewall filter add chain=input in-interface-list=WAN action=drop
-/ip firewall filter add chain=forward action=accept connection-state=established,related,untracked
-/ip firewall filter add chain=forward action=drop connection-state=invalid
-/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=150,32 action=drop
-/ip firewall filter add chain=forward in-interface-list=WAN connection-nat-state=!dstnat connection-state=new action=drop
+/ip firewall nat remove [find comment="DNS-REDIRECT-UDP"]
+/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=udp dst-port=53 action=redirect to-ports=53 comment="DNS-REDIRECT-UDP"
+/ip firewall nat remove [find comment="DNS-REDIRECT-TCP"]
+/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=tcp dst-port=53 action=redirect to-ports=53 comment="DNS-REDIRECT-TCP"
+
+# --- 7. PARE-FEU D'ENTREPRISE (STATEFUL FIREWALL) ---
+/ip firewall filter remove [find comment~"KETRIKA"]
+/ip firewall filter add chain=input action=accept connection-state=established,related,untracked comment="KETRIKA-ESTABLISHED"
+/ip firewall filter add chain=input action=drop connection-state=invalid comment="KETRIKA-INVALID"
+/ip firewall filter add chain=input action=accept protocol=icmp comment="KETRIKA-PING"
+/ip firewall filter add chain=input in-interface-list=LAN action=accept comment="KETRIKA-LAN-IN"
+/ip firewall filter add chain=input in-interface-list=WAN action=drop comment="KETRIKA-WAN-DROP"
+
+/ip firewall filter add chain=forward action=accept connection-state=established,related,untracked comment="KETRIKA-FWD-EST"
+/ip firewall filter add chain=forward action=drop connection-state=invalid comment="KETRIKA-FWD-INV"
+/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=150,32 action=drop comment="KETRIKA-P2P-LIMIT"
+/ip firewall filter add chain=forward in-interface-list=WAN connection-nat-state=!dstnat connection-state=new action=drop comment="KETRIKA-WAN-FWD-DROP"
+
 /ipv6 settings set disable-ipv6=yes
 /ip service disable telnet,ftp,api
 """
+
     if is_wifi6:
-        s += f'/interface wifi security add name=sec-wifi authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}"\n/interface wifi configuration add name=cfg-wifi ssid="{ssid}" security=sec-wifi country="Madagascar"\n/interface wifi set [find] configuration=cfg-wifi disabled=no\n:foreach w in=[/interface wifi find] do={{ /interface bridge port add bridge=bridge-lan interface=$w }}\n'
+        s += f"""
+# --- 8. WI-FI 6 DEDIE (ROUTEROS V7 WIFI) ---
+:do {{
+    /interface wifi security remove [find name=sec-wifi]
+    /interface wifi security add name=sec-wifi authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}"
+    /interface wifi configuration remove [find name=cfg-wifi]
+    /interface wifi configuration add name=cfg-wifi ssid="{ssid}" security=sec-wifi country="Madagascar"
+    /interface wifi set [find] configuration=cfg-wifi disabled=no
+    :foreach w in=[/interface wifi find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
+}} on-error={{}};
+"""
     elif is_wireless:
-        s += f'/interface wireless security-profiles add name=sec-wifi mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}"\n/interface wireless set [find] ssid="{ssid}" security-profile=sec-wifi country="madagascar" disabled=no\n:foreach w in=[/interface wireless find] do={{ /interface bridge port add bridge=bridge-lan interface=$w }}\n'
+        s += f"""
+# --- 8. WI-FI CLASSIQUE DEDIE (ROUTEROS WIRELESS N/AC) ---
+:do {{
+    /interface wireless security-profiles remove [find name=sec-wifi]
+    /interface wireless security-profiles add name=sec-wifi mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
+    /interface wireless set [find] ssid="{ssid}" security-profile=sec-wifi country="madagascar" disabled=no
+    :foreach w in=[/interface wireless find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
+}} on-error={{}};
+"""
+
     if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
-        s += f'/interface wireguard add name=warp-vpn listen-port=51820 mtu=1280 private-key="{cfg["warp_private"]}"\n/interface wireguard peers add interface=warp-vpn public-key="{cfg["warp_public"]}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25\n/ip address add address={cfg["warp_ip"]}/32 interface=warp-vpn\n/interface list member add interface=warp-vpn list=WAN\n/ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade\n/ip route add dst-address=0.0.0.0/0 gateway=warp-vpn distance=1\n'
+        s += f"""
+# --- 9. TUNNEL WIREGUARD VPN (CLOUDFLARE WARP) ---
+/ip route remove [find comment="WARP-ENDPOINT-ROUTE"]
+/ip route add dst-address=162.159.192.0/24 gateway=ether1 distance=1 comment="WARP-ENDPOINT-ROUTE"
+/interface wireguard remove [find name=warp-vpn]
+/interface wireguard add name=warp-vpn listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
+/interface wireguard peers remove [find interface=warp-vpn]
+/interface wireguard peers add interface=warp-vpn public-key="{cfg['warp_public']}" endpoint-address=162.159.192.1 endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
+/ip address remove [find interface=warp-vpn]
+/ip address add address={cfg['warp_ip']}/32 interface=warp-vpn
+/interface list member remove [find interface=warp-vpn]
+/interface list member add interface=warp-vpn list=WAN
+/ip firewall nat remove [find comment="WARP-NAT"]
+/ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade comment="WARP-NAT"
+/ip route remove [find comment="VPN-DEFAULT-ROUTE"]
+/ip route add dst-address=0.0.0.0/0 gateway=warp-vpn distance=1 comment="VPN-DEFAULT-ROUTE"
+"""
+
     if plan in ["hotspot", "pro"]:
-        s += f'/ip pool add name=hs-pool ranges=10.5.50.10-10.5.50.250\n/ip dhcp-server add name=dhcp-hs interface=bridge-lan address-pool=hs-pool disabled=no\n/ip hotspot profile add name=hs-prof hotspot-address=10.5.50.1 dns-name={dns_name}\n/ip hotspot user profile add name=hs-user rate-limit="{bw_up}/{bw_down}"\n/ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=hs-pool profile=hs-prof disabled=no\n'
+        s += f"""
+# --- 10. SERVEUR HOTSPOT WI-FI ZONE ---
+/ip pool remove [find name=hs-pool]
+/ip pool add name=hs-pool ranges=10.5.50.10-10.5.50.250
+/ip dhcp-server remove [find name=dhcp-hs]
+/ip dhcp-server add name=dhcp-hs interface=bridge-lan address-pool=hs-pool disabled=no
+/ip hotspot profile remove [find name=hs-prof]
+/ip hotspot profile add name=hs-prof hotspot-address=10.5.50.1 dns-name={dns_name}
+/ip hotspot user profile remove [find name=hs-user]
+/ip hotspot user profile add name=hs-user rate-limit="{bw_up}/{bw_down}"
+/ip hotspot remove [find name=hotspot-ketrika]
+/ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=hs-pool profile=hs-prof disabled=no
+"""
+
     if plan == "pro":
-        s += f'/ip pool add name=pppoe-pool ranges=10.10.10.2-10.10.10.254\n/ppp profile add name=prof-pppoe local-address=10.10.10.1 remote-address=pppoe-pool dns-server=1.1.1.1 rate-limit="{bw_up}/{bw_down}"\n/interface pppoe-server server add service-name=PPPOE-KETRIKA interface=bridge-lan default-profile=prof-pppoe disabled=no\n'
-    s += f'/system identity set name="KETRIKA-{cfg["client"]}"\n:put "=== KETRIKA MIKROTIK OK - IP:{router_ip} ==="\n'
+        s += f"""
+# --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE ---
+/ip pool remove [find name=pppoe-pool]
+/ip pool add name=pppoe-pool ranges=10.10.10.2-10.10.10.254
+/ppp profile remove [find name=prof-pppoe]
+/ppp profile add name=prof-pppoe local-address=10.10.10.1 remote-address=pppoe-pool dns-server=1.1.1.1 rate-limit="{bw_up}/{bw_down}"
+/interface pppoe-server server remove [find service-name=PPPOE-KETRIKA]
+/interface pppoe-server server add service-name=PPPOE-KETRIKA interface=bridge-lan default-profile=prof-pppoe disabled=no
+"""
+
+    s += f"""
+# --- 12. IDENTITE DU ROUTEUR ---
+/system identity set name="KETRIKA-{cfg['client']}"
+:put "==========================================================="
+:put "  KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE !  "
+:put "  IP ROUTEUR : {router_ip} | PORTS LAN & WIFI ACTIFS      "
+:put "==========================================================="
+"""
     return s
+
+def clean_script_for_oneliner(raw_script):
+    """Supprime proprement tous les commentaires et lignes vides pour garantir une exécution sans faute en une seule ligne"""
+    lines = []
+    for line in raw_script.split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        lines.append(line)
+    return " ".join(lines).replace('"', '\\"')
 
 @app.route("/")
 def home():
@@ -847,11 +845,14 @@ def generate():
     conn.commit()
     conn.close()
     session.clear()
+
     host = request.host_url.replace("http://", "https://")
     online_cmd = f'/tool fetch url="{host}config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
     cfg = get_config_by_id(config_id)
-    raw_s = build_raw_script(cfg).replace('"', '\\"').replace('\n', ' ')
-    one_liner = f'/system script add name=ketrika_run source="{raw_s}"; /system script run ketrika_run; /system script remove ketrika_run'
+    raw_s = build_raw_script(cfg)
+    clean_s = clean_script_for_oneliner(raw_s)
+    one_liner = f'/system script add name=ketrika_run source="{clean_s}"; /system script run ketrika_run; /system script remove ketrika_run'
+
     content = f"""
     <div class="card">
         <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
@@ -930,8 +931,8 @@ def admin_creer():
     if not session.get("admin"): return redirect(url_for("admin"))
     if request.method == "POST":
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
-        return render(f'<div class="card"><div class="alert alert-success">Clé créée :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
-    return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
+        return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
+    return render('<div class="card"><div class="card-title">Créer Clé (1 Routeur)</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
