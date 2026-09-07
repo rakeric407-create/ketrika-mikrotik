@@ -1,12 +1,15 @@
 from flask import Flask, request, Response, render_template_string, session, redirect, url_for, send_file
 from database import *
 from warp_api import creer_config_warp_complete
-import sqlite3, secrets, string, random, io, traceback
+import sqlite3, secrets, string, random, io, os, traceback
 from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 app.url_map.strict_slashes = False
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(BASE_DIR, "ketrika.db")
 
 FB_LINK = "https://www.facebook.com/loza.nama.376"
 NUMERO_MVOLA = "038 28 171 00"
@@ -14,7 +17,7 @@ NUMERO_ORANGE = "037 39 755 72"
 NOM_COMPTE = "Jean Eric"
 
 def init_extra_tables():
-    conn = sqlite3.connect("ketrika.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS commandes (id INTEGER PRIMARY KEY AUTOINCREMENT, client_nom TEXT, telephone TEXT, formule TEXT, montant REAL, reference_paiement TEXT, statut TEXT DEFAULT 'EN_ATTENTE', cle_generee TEXT, date_commande TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS avis (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, ville TEXT, etoiles INTEGER NOT NULL, commentaire TEXT NOT NULL, date_avis TEXT)''')
@@ -180,10 +183,7 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
-        .visual-container {
-            background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0;
-            border: 1px solid #334155; color: #fff; text-align: center;
-        }
+        .visual-container { background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0; border: 1px solid #334155; color: #fff; text-align: center; }
         .ports-bar { display: flex; justify-content: center; gap: 6px; margin: 14px 0; flex-wrap: wrap; }
         .port-indicator { background: #1e293b; border: 2px solid #475569; border-radius: 8px; padding: 8px 12px; font-family: 'Space Grotesk'; font-size: 11px; min-width: 70px; }
         .port-indicator.wan { border-color: #0284c7; background: rgba(2,132,199,0.2); }
@@ -191,10 +191,7 @@ HTML_BASE = """
         .port-indicator.lan { border-color: #10b981; background: rgba(16,185,129,0.15); }
         .port-indicator.lan b { color: #4ade80; display: block; }
 
-        .winbox-mockup {
-            background: #1e293b; border-radius: 8px; border: 1px solid #475569;
-            text-align: left; overflow: hidden; margin: 10px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-        }
+        .winbox-mockup { background: #1e293b; border-radius: 8px; border: 1px solid #475569; text-align: left; overflow: hidden; margin: 10px 0; }
         .winbox-top { background: #334155; padding: 6px 12px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #cbd5e1; }
         .winbox-body { padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; }
         .winbox-item { background: rgba(2,132,199,0.25); border: 1px solid #0284c7; padding: 6px 10px; border-radius: 4px; display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; margin-top: 6px; }
@@ -205,33 +202,18 @@ HTML_BASE = """
         .step-guide b { color: var(--accent-cyan); }
 
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
-        input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
-            width: 100%; padding: 12px 14px; margin-top: 4px; 
-            background: #f8fafc; border: 1px solid var(--border-light); 
-            border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit;
-        }
+        input[type="text"], input[type="tel"], input[type="password"], select, textarea { width: 100%; padding: 12px 14px; margin-top: 4px; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit; }
 
         .ip-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
         .ip-chip { background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #bae6fd; font-family: 'Courier New', monospace; }
 
-        .btn-primary { 
-            width: 100%; padding: 14px; margin-top: 12px; 
-            background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; 
-            border: none; border-radius: 10px; font-size: 13px; font-weight: 800; 
-            cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; 
-            text-decoration: none; display: block; text-align: center;
-        }
+        .btn-primary { width: 100%; padding: 14px; margin-top: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: block; text-align: center; }
         .btn-success { background: linear-gradient(135deg, #059669, #047857); }
         .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
         .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
 
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 6px; }
-        .plan-option { 
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); 
-            padding: 12px 10px; border-radius: 12px; cursor: pointer; 
-            display: flex; justify-content: space-between; align-items: center; 
-            position: relative; gap: 8px;
-        }
+        .plan-option { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); padding: 12px 10px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; gap: 8px; }
         .plan-option.selected, .plan-option:hover { border-color: var(--accent-cyan); background: #f0f9ff; }
         .plan-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; cursor: pointer; }
         .plan-info { flex: 1; min-width: 0; }
@@ -247,11 +229,7 @@ HTML_BASE = """
 
         .bw-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
         @media (min-width: 500px) { .bw-grid { grid-template-columns: 1fr 1fr; } }
-        .bw-card {
-            background: #ffffff; border: 2px solid var(--border-light);
-            padding: 10px 12px; border-radius: 10px; cursor: pointer;
-            display: flex; align-items: center; gap: 10px; transition: 0.2s;
-        }
+        .bw-card { background: #ffffff; border: 2px solid var(--border-light); padding: 10px 12px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
         .bw-card:hover, .bw-card.active { border-color: var(--accent-purple); background: #faf5ff; }
         .bw-card input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent-purple); flex-shrink: 0; cursor: pointer; margin: 0; }
         .bw-card-text b { font-size: 12px; color: var(--text-dark); display: block; }
@@ -569,7 +547,221 @@ def clean_script_for_oneliner(raw_script):
         lines.append(line)
     return " ".join(lines).replace('"', '\\"')
 
-# GESTION DES CONFIGURATIONS SANS RISQUE DE 404
+@app.route("/")
+def home():
+    if session.get("authenticated"):
+        return redirect(url_for("dashboard"))
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT AVG(etoiles), COUNT(*) FROM avis")
+    avg_stat, total_avis = c.fetchone()
+    avg_note = round(avg_stat, 1) if avg_stat else 5.0
+    c.execute("SELECT nom, ville, etoiles, commentaire, date_avis FROM avis ORDER BY id DESC LIMIT 5")
+    liste_avis = c.fetchall()
+    conn.close()
+    
+    reviews_html = ""
+    for a in liste_avis:
+        reviews_html += f'<div class="review-card"><div class="review-header"><span class="review-name">{a[0]} <span class="review-city">({a[1] or "MG"})</span></span><span class="stars-gold">{"⭐" * a[2]}</span></div><div class="review-text">"{a[3]}"</div></div>'
+    
+    plans_html = ""
+    for k, v in TARIFS_MODULES.items():
+        checked = "checked" if k == "standard" else ""
+        selected_class = "selected" if k == "standard" else ""
+        badge_html = ""
+        if v.get("badge"):
+            bc = "badge-popular" if v["badge"] == "POPULAIRE" else ("badge-best" if v["badge"] == "MEILLEUR CHOIX" else "badge-pro")
+            badge_html = f'<div class="plan-badge {bc}">{v["badge"]}</div>'
+        plans_html += f"""
+        <label class="plan-option {selected_class}" id="opt_{k}" for="plan_{k}">
+            {badge_html}
+            <div class="plan-info">
+                <b>{v["nom"]}</b>
+                <div>{v["desc"]}</div>
+            </div>
+            <div class="plan-price">
+                <b>{v["prix"]:,} Ar</b>
+                <input type="radio" name="formule" id="plan_{k}" value="{k}" {checked} onchange="document.querySelectorAll('.plan-option').forEach(e=>e.classList.remove('selected')); document.getElementById('opt_{k}').classList.add('selected');">
+            </div>
+        </label>
+        """
+    
+    content = f"""
+    <!-- HERO CONVAINCANT -->
+    <div class="hero-card">
+        <h2>🚀 Pourquoi choisir KETRIKA ?</h2>
+        <p>Notre solution utilise les <b>meilleures technologies mondiales</b> pour offrir à votre réseau MikroTik une performance et une sécurité de niveau entreprise.</p>
+        <div class="features-detail">
+            <div class="feature-detail-box">
+                <span class="fd-icon">🔒</span>
+                <div class="fd-title">SÉCURITÉ MILITAIRE</div>
+                <div class="fd-desc">Chiffrement <b>ChaCha20-Poly1305</b> (WireGuard), le même utilisé par les banques et gouvernements. Vos données sont indéchiffrables.</div>
+            </div>
+            <div class="feature-detail-box">
+                <span class="fd-icon">⚡</span>
+                <div class="fd-title">TUNNEL ULTRA-RAPIDE</div>
+                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Votre débit reste maximal en toutes circonstances.</div>
+            </div>
+            <div class="feature-detail-box">
+                <span class="fd-icon">🌐</span>
+                <div class="fd-title">RÉSEAU CLOUDFLARE</div>
+                <div class="fd-desc">Serveurs présents dans <b>300+ villes mondiales</b>. DNS DoH sécurisé 1.1.1.1 : navigation privée garantie.</div>
+            </div>
+            <div class="feature-detail-box">
+                <span class="fd-icon">🛡️</span>
+                <div class="fd-title">CONFIDENTIALITÉ</div>
+                <div class="fd-desc">Protection de votre vie privée. Routage intelligent, filtrage du trafic P2P, gestion optimale des connexions.</div>
+            </div>
+            <div class="feature-detail-box">
+                <span class="fd-icon">📶</span>
+                <div class="fd-title">WI-FI OPTIMISÉ</div>
+                <div class="fd-desc">Configuration Dual Band <b>2.4G + 5G</b> automatique. Wi-Fi 6 supporté pour vitesses maximales.</div>
+            </div>
+            <div class="feature-detail-box">
+                <span class="fd-icon">🎯</span>
+                <div class="fd-title">CONFIG COMPLÈTE</div>
+                <div class="fd-desc">IP, DHCP, NAT, Firewall Pro, Wi-Fi, VPN : <b>tout configuré automatiquement</b>. Même après un reset total.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">💎 AVANTAGES CLÉS</div>
+        <div class="advantages-grid">
+            <div class="adv-box"><span class="adv-icon">🔒</span><div class="adv-title">WireGuard</div><div class="adv-desc">ChaCha20</div></div>
+            <div class="adv-box"><span class="adv-icon">⚡</span><div class="adv-title">Vitesse Max</div><div class="adv-desc">Latence réduite</div></div>
+            <div class="adv-box"><span class="adv-icon">🌐</span><div class="adv-title">DNS Cloudflare</div><div class="adv-desc">DoH 1.1.1.1</div></div>
+            <div class="adv-box"><span class="adv-icon">📶</span><div class="adv-title">Config A à Z</div><div class="adv-desc">Après Reset</div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">🚀 COMMENT ÇA MARCHE ?</div>
+        <div class="steps-grid">
+            <div class="step-box"><div class="step-num">1</div><div class="step-title">Choisir le Pack</div><div class="step-desc">Sélectionnez la formule adaptée à vos besoins</div></div>
+            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money → Clé par SMS en 15 min max</div></div>
+            <div class="step-box"><div class="step-num">3</div><div class="step-title">Configurer</div><div class="step-desc">1 commande dans Winbox = Config complète</div></div>
+        </div>
+        <div style="text-align:center; margin-top:14px;">
+            <a href="/tuto" class="btn-primary btn-success" style="display:inline-block; width:auto; padding:10px 20px; font-size:12px;">📖 VOIR LE GUIDE D'INSTALLATION DÉTAILLÉ</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">🛒 CHOISIR VOTRE FORMULE</div>
+        <div class="alert-warning">⚠️ <b>1 Clé = 1 Routeur uniquement.</b> Chaque clé configure intégralement un seul boîtier MikroTik.</div>
+        <form method="POST" action="/commander">
+            <div class="plan-selector">{plans_html}</div>
+            <div class="payment-banner">
+                <div class="payment-title">📱 PAIEMENT MOBILE MONEY</div>
+                <div class="payment-grid">
+                    <div class="payment-box">
+                        <div class="method">🟠 Orange Money</div>
+                        <div class="number">{NUMERO_ORANGE}</div>
+                        <div class="name">Au nom de : {NOM_COMPTE}</div>
+                    </div>
+                    <div class="payment-box">
+                        <div class="method">🟡 Mvola</div>
+                        <div class="number">{NUMERO_MVOLA}</div>
+                        <div class="name">Au nom de : {NOM_COMPTE}</div>
+                    </div>
+                </div>
+                <div class="payment-warning">
+                    ⏰ Clé non reçue après <b>15 minutes</b> ?<br>Appelez directement : <b>{NUMERO_MVOLA}</b>
+                </div>
+            </div>
+            <label>Nom complet :</label>
+            <input type="text" name="nom" placeholder="Rakoto Jean" required>
+            <label>Téléphone (Réception clé SMS) :</label>
+            <input type="tel" name="tel" placeholder="034 00 000 00" required>
+            <label>Référence de transaction :</label>
+            <input type="text" name="ref_paiement" placeholder="Code SMS de transaction" required>
+            <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">🔐 ACTIVATION AVEC VOTRE CLÉ</div>
+        <form method="POST" action="/login">
+            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase; letter-spacing:1.5px;">
+            <button type="submit" class="btn-primary btn-success">DÉVERROUILLER LE GÉNÉRATEUR</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">⭐ AVIS CLIENTS ({total_avis}) • Note : {avg_note}/5</div>
+        <div class="rating-summary">
+            <div class="rating-big">{avg_note}</div>
+            <div style="text-align:center;">
+                <div class="stars-gold" style="font-size:18px;">{"⭐" * int(round(avg_note))}</div>
+                <div style="font-size:11px; font-weight:700; margin-top:2px;">Avis Vérifiés</div>
+                <div style="color:var(--text-muted); font-size:10px;">Basé sur {total_avis} retours</div>
+            </div>
+        </div>
+        <div>{reviews_html}</div>
+        <hr>
+        <div style="font-size:11px; font-weight:700; color:var(--accent-cyan); text-align:center; margin-bottom:6px;">✍️ LAISSEZ VOTRE AVIS</div>
+        <form method="POST" action="/ajouter-avis">
+            <div class="rating-input">
+                <input type="radio" id="s5" name="etoiles" value="5" checked><label for="s5">★</label>
+                <input type="radio" id="s4" name="etoiles" value="4"><label for="s4">★</label>
+                <input type="radio" id="s3" name="etoiles" value="3"><label for="s3">★</label>
+                <input type="radio" id="s2" name="etoiles" value="2"><label for="s2">★</label>
+                <input type="radio" id="s1" name="etoiles" value="1"><label for="s1">★</label>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                <input type="text" name="nom" placeholder="Votre Nom" required>
+                <input type="text" name="ville" placeholder="Votre Ville" required>
+            </div>
+            <textarea name="commentaire" placeholder="Partagez votre expérience..." rows="2" required style="margin-top:4px;"></textarea>
+            <button type="submit" class="btn-primary" style="padding:10px; font-size:11px;">⭐ PUBLIER MON AVIS</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">❓ QUESTIONS FRÉQUENTES</div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Est-ce que la configuration affecte mon débit Internet ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer"><b style="color:var(--accent-green);">Non, au contraire !</b> Notre optimisation améliore votre débit. WireGuard consomme moins de <b>2% de bande passante</b>. Votre vitesse reste maximale grâce à l'optimisation TTL, DNS et au routage intelligent.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Le tunnel VPN a-t-il un abonnement mensuel ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer"><b style="color:var(--accent-green);">Non, 100% gratuit à vie !</b> Cloudflare WARP est entièrement gratuit. Vous payez uniquement notre configuration une seule fois. Le VPN fonctionne pour toujours sans frais mensuel.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Configuration complète même après un RESET TOTAL ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer"><b style="color:var(--accent-green);">Oui, absolument à 100% !</b> Notre script recrée tout de A à Z : Bridge, DHCP, NAT, IP, Wi-Fi avec mot de passe, Firewall Pro, Optimisation Réseau, VPN. Même sur un routeur vide et réinitialisé.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Puis-je choisir mon adresse IP ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer"><b style="color:var(--accent-cyan);">Oui !</b> Dans le générateur, vous pouvez taper <b>n'importe quelle IP</b> (192.168.88.1, 10.0.0.1, 172.16.1.1...) ou cliquer sur une suggestion. Le DHCP et le sous-réseau s'adaptent automatiquement.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>1 clé = combien de routeurs ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer"><b style="color:var(--accent-red);">1 clé = 1 seul routeur.</b> Après génération, la clé est définitivement consommée et verrouillée. Pour configurer un autre routeur, il faut acheter une nouvelle clé.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Combien de temps prend l'installation ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer">Moins de <b>5 secondes chrono</b> ! Une seule commande à coller dans Winbox Terminal et tout s'applique automatiquement.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Quels modèles MikroTik sont compatibles ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer">Compatible avec <b>tous les modèles RouterOS v7</b> : hAP ax2/ax3, hAP ac2/ac3, RB750/760/2011/3011/4011/1100, CCR1009/2004/2116, mANTBox, LHG, SXTsq, Chateau LTE/5G. Le script s'adapte à chaque modèle.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Comment payer et recevoir ma clé ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer">Paiement Mobile Money au nom de <b>{NOM_COMPTE}</b> :<br>🟠 Orange Money : <b>{NUMERO_ORANGE}</b><br>🟡 Mvola : <b>{NUMERO_MVOLA}</b><br>Votre clé est envoyée par SMS après validation (max 15 min).</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question"><span>Que faire si ma clé n'arrive pas après 15 min ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>{NUMERO_MVOLA}</b> ({NOM_COMPTE})<br>2. Écrivez-nous sur notre page <a href="{FB_LINK}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
+        </div>
+    </div>
+    """
+    return render(content)
+
+# GESTION DES FICHIERS DE CONFIGURATION SANS RISQUE DE 404
 @app.route("/config/<path:config_id>")
 def get_config(config_id):
     cid = config_id.replace('.rsc', '').strip()
@@ -589,6 +781,7 @@ def download_config(config_id):
     mem.seek(0)
     return send_file(mem, mimetype="text/plain", as_attachment=True, download_name="ketrika.rsc")
 
+# ROUTE ADMIN
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if request.method == "POST":
@@ -600,7 +793,7 @@ def admin():
 @app.route("/admin/dashboard", methods=["GET", "POST"])
 def admin_dashboard():
     if not session.get("admin"): return redirect(url_for("admin"))
-    conn = sqlite3.connect("ketrika.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT * FROM commandes WHERE statut='EN_ATTENTE' ORDER BY id DESC")
     cmds = c.fetchall()
@@ -613,7 +806,7 @@ def admin_dashboard():
 @app.route("/admin/valider/<int:cmd_id>", methods=["POST"])
 def admin_valider(cmd_id):
     if not session.get("admin"): return redirect(url_for("admin"))
-    conn = sqlite3.connect("ketrika.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT * FROM commandes WHERE id=?", (cmd_id,))
     cmd = c.fetchone()
@@ -632,9 +825,9 @@ def admin_creer():
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
-# GESTIONNAIRES D'ERREURS TRANSPARENTS
+# GESTIONNAIRES DE REDIRECTION TRANSPARENTE
 @app.errorhandler(404)
-def not_found(e):
+def handle_not_found(e):
     return redirect(url_for("home"))
 
 @app.errorhandler(500)
