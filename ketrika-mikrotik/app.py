@@ -89,19 +89,23 @@ HTML_BASE = """
         }
         .container { max-width: 860px; margin: auto; }
 
+        /* NAVBAR */
         .top-nav { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 12px; padding: 10px 14px; 
             background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
             border: 1px solid var(--border-light); border-radius: 14px; 
-            box-shadow: 0 4px 15px rgba(2,132,199,0.06); gap: 8px; flex-wrap: wrap;
+            box-shadow: 0 4px 15px rgba(2,132,199,0.06); gap: 6px; flex-wrap: wrap;
         }
-        .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); }
+        .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); text-decoration: none; }
         .nav-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
-        .top-links { display: flex; gap: 6px; align-items: center; }
-        .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 12px; background: linear-gradient(135deg, #1877f2, #0d6efd); border-radius: 10px; transition: 0.2s; }
+        .top-links { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 11px; border-radius: 10px; transition: 0.2s; white-space: nowrap; }
+        .btn-fb { background: linear-gradient(135deg, #1877f2, #0d6efd); }
+        .btn-tuto { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
         .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
+        /* HEADER */
         .header { text-align: center; padding: 14px 5px 20px; }
         .logo-wrapper {
             position: relative; width: 80px; height: 80px; margin: 0 auto 10px;
@@ -136,6 +140,7 @@ HTML_BASE = """
         }
         .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
 
+        /* CARDS */
         .card { 
             background: var(--bg-card); border: 1px solid var(--border-light); 
             border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; 
@@ -176,7 +181,22 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
-        /* GUIDES ÉTAPE PAR ÉTAPE (MÉTHODES 1, 2, 3) */
+        /* SCHÉMA VISUEL DE BRANCHEMENT */
+        .schema-box {
+            background: #0f172a; border: 1px solid #334155; border-radius: 12px;
+            padding: 16px; margin: 12px 0; color: #fff; font-family: 'Space Grotesk';
+            text-align: center;
+        }
+        .schema-grid {
+            display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; gap: 10px;
+            margin-top: 10px;
+        }
+        @media (max-width: 600px) { .schema-grid { grid-template-columns: 1fr; gap: 6px; } }
+        .schema-card { background: rgba(255,255,255,0.08); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); }
+        .schema-card.active { border-color: #4ade80; background: rgba(74,222,128,0.1); }
+        .schema-card b { display: block; font-size: 13px; color: #4ade80; }
+        .schema-card span { font-size: 11px; color: var(--text-muted); }
+
         .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 12px; margin-top: 8px; }
         .step-guide ol { padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }
         .step-guide li { margin-bottom: 4px; }
@@ -188,7 +208,6 @@ HTML_BASE = """
             background: #f8fafc; border: 1px solid var(--border-light); 
             border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit;
         }
-        input[type="text"]:focus, input[type="tel"]:focus, input[type="password"]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-cyan); background: #fff; }
 
         .ip-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
         .ip-chip { background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #bae6fd; font-family: 'Courier New', monospace; }
@@ -231,13 +250,8 @@ HTML_BASE = """
             padding: 10px 12px; border-radius: 10px; cursor: pointer;
             display: flex; align-items: center; gap: 10px; transition: 0.2s;
         }
-        .bw-card:hover, .bw-card.active {
-            border-color: var(--accent-purple); background: #faf5ff;
-        }
-        .bw-card input[type="radio"] {
-            width: 20px; height: 20px; accent-color: var(--accent-purple);
-            flex-shrink: 0; cursor: pointer; margin: 0;
-        }
+        .bw-card:hover, .bw-card.active { border-color: var(--accent-purple); background: #faf5ff; }
+        .bw-card input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent-purple); flex-shrink: 0; cursor: pointer; margin: 0; }
         .bw-card-text b { font-size: 12px; color: var(--text-dark); display: block; }
         .bw-card-text span { font-size: 10px; color: var(--text-muted); }
 
@@ -288,12 +302,13 @@ HTML_BASE = """
     <div class="container">
         <!-- TOP NAV -->
         <div class="top-nav">
-            <div class="nav-brand">
+            <a href="/" class="nav-brand">
                 <div class="nav-logo-icon">⚡</div>
                 <span>KETRIKA MIKROTIK</span>
-            </div>
+            </a>
             <div class="top-links">
-                <a href="{{ fb_link }}" target="_blank">📘 Facebook</a>
+                <a href="/tuto" class="btn-tuto">📖 Guide &amp; Tuto</a>
+                <a href="{{ fb_link }}" target="_blank" class="btn-fb">📘 Facebook</a>
                 <button class="lang-btn" onclick="toggleLang()">🇲🇬/🇫🇷</button>
             </div>
         </div>
@@ -325,7 +340,7 @@ HTML_BASE = """
         {{ content|safe }}
 
         <div class="footer">
-            KETRIKA MIKROTIK PRO © 2026 • <a href="{{ fb_link }}" target="_blank">📘 Facebook Officiel</a><br>📞 038 28 171 00 (Jean Eric)
+            KETRIKA MIKROTIK PRO © 2026 • <a href="{{ fb_link }}" target="_blank">📘 Facebook Officiel</a> • <a href="/tuto">📖 Guide d'Installation</a><br>📞 038 28 171 00 (Jean Eric)
         </div>
     </div>
 
@@ -337,7 +352,8 @@ HTML_BASE = """
             document.querySelectorAll('.txt-mg').forEach(e => e.style.display = currentLang === 'mg' ? '' : 'none'); 
         }
         function copyText(elemId, btnId) { 
-            const text = document.getElementById(elemId).innerText || document.getElementById(elemId).value; 
+            const el = document.getElementById(elemId);
+            const text = el.innerText || el.value; 
             navigator.clipboard.writeText(text).then(() => { 
                 const btn = document.getElementById(btnId); 
                 const o = btn.innerHTML; 
@@ -645,6 +661,9 @@ def home():
             <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money → Clé par SMS en 15 min max</div></div>
             <div class="step-box"><div class="step-num">3</div><div class="step-title">Configurer</div><div class="step-desc">1 commande dans Winbox = Config complète</div></div>
         </div>
+        <div style="text-align:center; margin-top:14px;">
+            <a href="/tuto" class="btn-primary btn-success" style="display:inline-block; width:auto; padding:10px 20px; font-size:12px;">📖 VOIR LE GUIDE D'INSTALLATION DÉTAILLÉ</a>
+        </div>
     </div>
 
     <div class="card">
@@ -760,6 +779,80 @@ def home():
     """
     return render(content)
 
+# NOUVELLE ROUTE : PAGE TUTO DÉTAILLÉE
+@app.route("/tuto")
+def tuto():
+    content = f"""
+    <div class="card">
+        <div class="card-title">📖 GUIDE D'INSTALLATION MIKROTIK (PAS-À-PAS)</div>
+        <p style="font-size:13px; color:var(--text-body); line-height:1.6;">
+            Suivez ce guide simple pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
+        </p>
+
+        <!-- ETAPE 1 -->
+        <div class="step-guide" style="margin-top:15px;">
+            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT PHYSIQUE DES CÂBLES</div>
+            <ol>
+                <li>Prenez le câble venant de votre antenne <b>Starlink (ou box Internet)</b> et branchez-le sur le <b>PORT 1 (ether1)</b> du MikroTik.</li>
+                <li>Prenez un 2ème câble réseau et branchez votre <b>Ordinateur</b> sur le <b>PORT 2 (ou n'importe quel autre port)</b>.</li>
+                <li>Branchez l'alimentation du MikroTik et attendez le bip de démarrage.</li>
+            </ol>
+            
+            <div class="schema-box">
+                <div style="font-size:11px; color:#94a3b8; margin-bottom:6px;">📍 SCHÉMA DE CONNEXION :</div>
+                <div class="schema-grid">
+                    <div class="schema-card active">
+                        <b>[ ANTENNE STARLINK ]</b>
+                        <span>Câble réseau principal</span>
+                    </div>
+                    <div style="font-size:18px; color:var(--accent-cyan);">➔</div>
+                    <div class="schema-card">
+                        <b>[ PORT 1 (ether1) ]</b>
+                        <span>Entrée Internet WAN</span>
+                    </div>
+                </div>
+                <div style="margin-top:10px; font-size:11px; color:#cbd5e1;">
+                    ⬇️ Les <b>Ports 2 à 13</b> et le <b>Wi-Fi</b> distribuent la connexion à pleine vitesse à vos appareils.
+                </div>
+            </div>
+        </div>
+
+        <!-- ETAPE 2 -->
+        <div class="step-guide" style="margin-top:15px;">
+            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX (LOGICIEL MIKROTIK)</div>
+            <ol>
+                <li>Téléchargez gratuitement Winbox sur votre PC : <a href="https://mikrotik.com/download" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Télécharger Winbox Officiel</a></li>
+                <li>Ouvrez Winbox, allez dans l'onglet <b>Neighbors</b> (Voisins).</li>
+                <li><b>Astuce Pro Importante :</b> Cliquez sur l'<b>Adresse MAC</b> de votre routeur (ex: <code>CC:2D:E0:...</code>) au lieu de l'IP pour éviter toute déconnexion !</li>
+                <li>Laissez le login <b>admin</b> (sans mot de passe si le routeur est neuf/reset) et cliquez sur <b>Connect</b>.</li>
+            </ol>
+        </div>
+
+        <!-- ETAPE 3 -->
+        <div class="step-guide" style="margin-top:15px;">
+            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE UNIQUE KETRIKA</div>
+            <ol>
+                <li>Dans Winbox, cliquez sur le menu <b>New Terminal</b> (à gauche).</li>
+                <li>Entrez votre clé sur notre site, générez votre configuration, puis cliquez sur <b>📋 COPIER LA COMMANDE</b>.</li>
+                <li>Dans la fenêtre noire du Terminal Winbox, faites <b>Clic Droit ➔ Paste (Coller)</b>.</li>
+                <li>Appuyez sur la touche <b>Entrée</b> de votre clavier.</li>
+                <li><b>C'est terminé !</b> En 5 secondes, le routeur applique l'ensemble de la configuration (Wi-Fi, IP, pare-feu, VPN).</li>
+            </ol>
+        </div>
+
+        <!-- CONSEILS / RESET -->
+        <div class="alert-warning" style="margin-top:15px; font-size:12px; line-height:1.6;">
+            💡 <b>Besoin de réinitialiser le routeur à zéro avant de commencer ?</b><br>
+            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Le script KETRIKA recréera tout de A à Z !
+        </div>
+
+        <div style="text-align:center; margin-top:20px;">
+            <a href="/" class="btn-primary" style="display:inline-block; width:auto; padding:12px 25px;">🛒 COMMANDER UNE CLÉ OU ACTIVER MON ROUTEUR</a>
+        </div>
+    </div>
+    """
+    return render(content)
+
 @app.route("/ajouter-avis", methods=["POST"])
 def ajouter_avis():
     nom = request.form.get("nom", "").strip()
@@ -819,7 +912,6 @@ def dashboard():
     if not result or result.get("utilisations", 0) >= 1:
         session.clear()
         return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
-    
     plan_key = session.get("type_abo", "basic")
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
@@ -953,7 +1045,7 @@ def generate():
     <div class="card">
         <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
         <div class="alert-warning">
-            📍 <b>Branchement Physique :</b> Câble Internet / Starlink sur le <b>Port 1 (ether1)</b> | PC / Switch sur les <b>autres ports</b>.<br>
+            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | Ordinateur sur les <b>autres ports</b>.<br>
             📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
             🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
@@ -1061,7 +1153,7 @@ def admin_creer():
     if request.method == "POST":
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
-    return render('<div class="card"><div class="card-title">Créer Clé (1 Routeur)</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
+    return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
 @app.errorhandler(500)
 def server_error(e):
