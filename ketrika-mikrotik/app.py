@@ -38,7 +38,7 @@ TARIFS_MODULES = {
     "base": {"nom": "🛡️ Pack Essentiel (Anti-Bridage)", "prix": 10000, "desc": "TTL 64 + DNS DoH + Blocage IPv6 & Torrents"},
     "warp": {"nom": "🚀 Pack Blindé (Tunnel WARP VPN)", "prix": 20000, "desc": "Pack Essentiel + Chiffrement Total WireGuard"},
     "hotspot": {"nom": "🎫 Pack Wi-Fi Zone (Hotspot + VPN)", "prix": 30000, "desc": "Pack Blindé + Système Tickets Hotspot"},
-    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs"}
+    "pro": {"nom": "🏢 Pack Pro WISP (PPPoE + Hotspot + VPN)", "prix": 50000, "desc": "Solution intégrale pour revendeurs & WISP"}
 }
 
 MODELES_MIKROTIK = [
@@ -55,7 +55,7 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>KETRIKA MIKROTIK - Starlink Optimizer</title>
+    <title>KETRIKA MIKROTIK</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -76,18 +76,18 @@ HTML_BASE = """
         .card-title { font-family: 'Orbitron', sans-serif; font-size: 15px; color: var(--accent-cyan); margin-bottom: 12px; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-top: 12px; text-transform: uppercase; }
         input, select { width: 100%; padding: 12px; margin-top: 6px; background: #1a2234; border: 1px solid #2d3748; border-radius: 8px; color: #fff; font-size: 15px; }
-        input:focus, select:focus { outline: none; border-color: var(--accent-cyan); }
         .btn-primary { width: 100%; padding: 14px; margin-top: 15px; background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Orbitron', sans-serif; text-decoration: none; display: inline-block; text-align: center; }
         .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
         .plan-option { background: #161f30; border: 2px solid #2d3748; padding: 12px; border-radius: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .plan-option input { width: 20px; height: 20px; accent-color: var(--accent-cyan); margin: 0; }
         .terminal-box { background: #05080f; border: 1px solid var(--accent-green); color: var(--accent-green); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; word-break: break-all; margin-top: 10px; line-height: 1.5; }
-        .badge { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); padding: 3px 8px; border-radius: 12px; font-size: 11px; border: 1px solid var(--accent-cyan); }
+        .badge { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid var(--accent-cyan); }
         .alert { padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
         .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7; }
         .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
         .alert-warning { background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fcd34d; }
+        .feature-box { background: #161f30; padding: 15px; border-radius: 10px; margin-top: 10px; line-height: 1.8; font-size: 13px; border-left: 4px solid var(--accent-cyan); }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         table th, table td { padding: 10px; border-bottom: 1px solid #2d3748; text-align: left; }
         table th { color: var(--accent-cyan); }
@@ -112,13 +112,17 @@ def render(content):
     return render_template_string(HTML_BASE, content=content)
 
 def build_raw_script(cfg):
-    opt = cfg["options"]
-    s = f"# KETRIKA MIKROTIK - {cfg['client']} ({cfg['modele']})\n"
+    plan = cfg["type"]
+    s = f"# ==========================================\n# KETRIKA MIKROTIK - {cfg['client']} ({cfg['modele']})\n# Pack Actif : {plan.upper()}\n# ==========================================\n"
+    
+    # 1. TOUS LES PACKS ONT LE SOCLE ANTI-BRIDAGE (10k, 20k, 30k, 50k)
     s += '/ip firewall mangle remove [find comment="KETRIKA-TTL"]\n/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:64 passthrough=yes comment="KETRIKA-TTL"\n'
     s += '/ip dns set use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no allow-remote-requests=yes\n/ip firewall nat remove [find comment="KETRIKA-DNS"]\n/ip firewall nat add chain=dstnat protocol=udp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"\n/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"\n'
     s += '/ipv6 settings set disable-ipv6=yes\n'
     s += '/ip firewall filter remove [find comment="KETRIKA-P2P"]\n/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"\n/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-P2P"\n'
-    if cfg.get("warp_private"):
+    
+    # 2. SEULS LES PACKS WARP (20k), HOTSPOT (30k) ET PRO (50k) ONT LE VPN WARP
+    if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
         s += f"""/interface wireguard remove [find name="warp-ketrika"]
 /interface wireguard add name=warp-ketrika listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
 /interface wireguard peers remove [find interface="warp-ketrika"]
@@ -129,6 +133,24 @@ def build_raw_script(cfg):
 /ip firewall nat add chain=srcnat out-interface=warp-ketrika action=masquerade comment="KETRIKA-WARP"
 /ip route remove [find comment="KETRIKA-ROUTE"]
 /ip route add dst-address=0.0.0.0/0 gateway=warp-ketrika distance=1 comment="KETRIKA-ROUTE"
+"""
+
+    # 3. SEULS LES PACKS HOTSPOT (30k) ET PRO (50k) ONT LE SERVEUR HOTSPOT
+    if plan in ["hotspot", "pro"]:
+        s += """/ip pool add name=ketrika-hs-pool ranges=10.5.50.10-10.5.50.254
+/ip dhcp-server add name=ketrika-hs-dhcp interface=bridge address-pool=ketrika-hs-pool disabled=no
+/ip hotspot profile add name=ketrika-hs hotspot-address=10.5.50.1 dns-name=ketrika.wifi
+/ip hotspot add name=hs-ketrika interface=bridge address-pool=ketrika-hs-pool profile=ketrika-hs disabled=no
+"""
+
+    # 4. SEUL LE PACK PRO (50k) A LE PPPOE ET LA GESTION DE BANDE PASSANTE
+    if plan == "pro":
+        s += """/ip pool add name=ketrika-ppp-pool ranges=10.10.10.2-10.10.10.254
+/ppp profile add name=ketrika-ppp local-address=10.10.10.1 remote-address=ketrika-ppp-pool dns-server=1.1.1.1
+/interface pppoe-server server add service-name=KETRIKA-NET interface=bridge default-profile=ketrika-ppp disabled=no
+/queue type add name=pcq-download kind=pcq pcq-rate=5M pcq-classifier=dst-address
+/queue type add name=pcq-upload kind=pcq pcq-rate=2M pcq-classifier=src-address
+/queue simple add name=KETRIKA-QOS target=10.5.50.0/24 queue=pcq-upload/pcq-download comment="KETRIKA-QOS"
 """
     return s
 
@@ -235,31 +257,40 @@ def dashboard():
     if not session.get("authenticated"):
         return redirect(url_for("home"))
     
+    plan_key = session.get("type_abo", "base")
+    plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["base"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
-    
+
+    # Affichage des fonctionnalités selon le pack débloqué
+    feat_html = "<div>✅ Masquage TTL = 64 (Starlink)</div><div>✅ DNS Sécurisé DoH Cloudflare</div><div>✅ Blocage IPv6 & Torrents</div>"
+    if plan_key in ["warp", "hotspot", "pro"]:
+        feat_html += "<div style='color:var(--accent-green);'>✅ Tunnel Cloudflare WARP VPN Unique (WireGuard)</div>"
+    if plan_key in ["hotspot", "pro"]:
+        feat_html += "<div style='color:var(--accent-green);'>✅ Système Hotspot Wi-Fi Zone (Tickets)</div>"
+    if plan_key == "pro":
+        feat_html += "<div style='color:var(--accent-green);'>✅ Fournisseur PPPoE + Gestion Débit PCQ QoS</div>"
+
     content = f"""
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <span class="badge">Session : {session['client']}</span>
+        <span class="badge">Pack Actif : {plan_info['nom']}</span>
         <a href="/logout" style="color:#ef4444; font-size:12px; text-decoration:none;">Déconnexion</a>
     </div>
 
     <div class="card">
-        <div class="card-title">⚙️ CONFIGURATION MIKROTIK</div>
+        <div class="card-title">⚙️ GÉNÉRATEUR MIKROTIK - {session['client']}</div>
         <form method="POST" action="/generate">
-            <label>1. Modèle MikroTik :</label>
+            <label>1. Modèle de votre équipement MikroTik :</label>
             <select name="modele" required>{modeles_opt}</select>
 
-            <label>2. Type de réseau :</label>
-            <select name="type_config" required>
-                <option value="base">🌐 Simple Débridage LAN</option>
-                <option value="hotspot">🎫 Hotspot Tickets Wi-Fi</option>
-                <option value="pppoe">🔑 Fournisseur PPPoE</option>
-            </select>
+            <label>2. Nom de l'équipement / Client final :</label>
+            <input type="text" name="client_final" placeholder="Ex: Client_Starlink_01" required>
 
-            <label>3. Nom du client / Réseau :</label>
-            <input type="text" name="client_final" placeholder="Ex: Boutique_Rakoto" required>
+            <label>3. Fonctionnalités incluses dans votre formule :</label>
+            <div class="feature-box">
+                {feat_html}
+            </div>
 
-            <button type="submit" class="btn-primary">GÉNÉRER L'INJECTION</button>
+            <button type="submit" class="btn-primary">GÉNÉRER L'INJECTION DU PACK ({plan_info['prix']:,} Ar)</button>
         </form>
     </div>
     """
@@ -271,20 +302,19 @@ def generate():
         return redirect(url_for("home"))
     
     modele = request.form.get("modele")
-    type_config = request.form.get("type_config")
+    plan_key = session.get("type_abo", "base")
     client_final = request.form.get("client_final").replace(" ", "_")
     
-    options = {"ttl": True, "dns": True, "ipv6": True, "torrent": True, "warp": True}
-    warp_data = creer_config_warp_complete()
+    # Seuls les packs éligibles génèrent une clé WARP
+    warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     
-    sauvegarder_config(session["licence"], client_final, modele, type_config, options, warp_data, config_id)
+    sauvegarder_config(session["licence"], client_final, modele, plan_key, {}, warp_data, config_id)
     incrementer_utilisation(session["licence"])
     
     host = request.host_url.replace("http://", "https://")
     online_cmd = f'/tool fetch url="{host}config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
     
-    # Construction de la commande one-liner anti-déconnexion
     cfg = get_config_by_id(config_id)
     raw_s = build_raw_script(cfg).replace('"', '\\"').replace('\n', ' ')
     one_liner = f'/system script add name=ketrika_run source="{raw_s}"; /system script run ketrika_run; /system script remove ketrika_run'
@@ -293,17 +323,16 @@ def generate():
     <div class="card">
         <div class="alert alert-success"><b>✅ Injection prête pour : {client_final} ({modele})</b></div>
         <div class="alert alert-warning">
-            💡 <b>Conseil Pro :</b> Dans Winbox, connectez-vous toujours en cliquant sur l'<b>Adresse MAC</b> (onglet Neighbors) pour éviter toute déconnexion pendant la configuration !
+            💡 <b>Conseil Pro :</b> Dans Winbox, connectez-vous toujours sur l'<b>Adresse MAC</b> pour éviter toute déconnexion !
         </div>
 
-        <div class="card-title">MÉTHODE 1 (RECOMMANDÉE) : COMMANDE EN 1 SEULE LIGNE (ANTI-DÉCONNEXION)</div>
-        <p style="font-size:12px; color:var(--text-muted);">Copiez cette ligne unique et collez-la dans <b>Winbox ➡️ New Terminal</b> :</p>
+        <div class="card-title">MÉTHODE 1 (RECOMMANDÉE) : COMMANDE UNIQUE (ANTI-DÉCONNEXION)</div>
+        <p style="font-size:12px; color:var(--text-muted);">Copiez cette ligne et collez-la dans <b>Winbox ➡️ New Terminal</b> :</p>
         <div class="terminal-box">{one_liner}</div>
 
         <hr style="border-color:#2d3748; margin:20px 0;">
 
         <div class="card-title">MÉTHODE 2 : TÉLÉCHARGER LE FICHIER (.RSC)</div>
-        <p style="font-size:12px; color:var(--text-muted);">Téléchargez le fichier, glissez-le dans la fenêtre <b>Files</b> de Winbox, puis tapez <code>/import file-name=ketrika.rsc</code> :</p>
         <a href="/download/{config_id}.rsc" class="btn-primary btn-success" style="margin-top:10px;">📥 TÉLÉCHARGER KETRIKA.RSC</a>
 
         <hr style="border-color:#2d3748; margin:20px 0;">
@@ -311,7 +340,7 @@ def generate():
         <div class="card-title">MÉTHODE 3 : SI DÉJÀ CONNECTÉ À INTERNET</div>
         <div class="terminal-box">{online_cmd}</div>
 
-        <a href="/dashboard" class="btn-primary" style="margin-top:20px;">CRÉER UNE AUTRE CONFIGURATION</a>
+        <a href="/dashboard" class="btn-primary" style="margin-top:20px;">NOUVELLE CONFIGURATION</a>
     </div>
     """
     return render(content)
@@ -404,7 +433,7 @@ def admin_valider(cmd_id):
     
     return render(f"""
     <div class="card">
-        <div class="alert alert-success">✅ Commande validée pour {cmd[1]} !</div>
+        <div class="alert alert-success">✅ Commande validée pour {cmd[1]} ({cmd[3].upper()}) !</div>
         <div class="card-title">CLÉ À ENVOYER PAR SMS AU {cmd[2]} :</div>
         <div class="terminal-box">{cle}</div>
         <a href="/admin/dashboard" class="btn-primary" style="margin-top:15px;">RETOUR AUX COMMANDES</a>
