@@ -43,14 +43,7 @@ TARIFS_MODULES = {
     "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Solution intégrale + PPPoE + QoS avancé", "badge": "PRO"}
 }
 
-MODELES_MIKROTIK = [
-    "hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)",
-    "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)",
-    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)",
-    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
-    "CCR1009", "CCR2004", "CCR2116",
-    "Chateau LTE/5G", "Autre RouterOS v7"
-]
+MODELES_MIKROTIK = ["hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)", "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)", "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)", "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)", "CCR1009", "CCR2004", "CCR2116", "Chateau LTE/5G", "Autre RouterOS v7"]
 
 BANDWIDTH_PROFILES = {
     "illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit sans restriction"},
@@ -69,7 +62,7 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>KETRIKA MIKROTIK PRO • Optimisation Réseau Professionnelle</title>
+    <title>KETRIKA MIKROTIK PRO • Solution Réseau Professionnelle</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -96,7 +89,6 @@ HTML_BASE = """
         }
         .container { max-width: 860px; margin: auto; }
 
-        /* NAVBAR */
         .top-nav { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 12px; padding: 10px 14px; 
@@ -112,7 +104,6 @@ HTML_BASE = """
         .btn-tuto { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
         .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-        /* HEADER */
         .header { text-align: center; padding: 14px 5px 20px; }
         .logo-wrapper {
             position: relative; width: 80px; height: 80px; margin: 0 auto 10px;
@@ -147,7 +138,6 @@ HTML_BASE = """
         }
         .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
 
-        /* CARDS */
         .card { 
             background: var(--bg-card); border: 1px solid var(--border-light); 
             border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; 
@@ -158,26 +148,6 @@ HTML_BASE = """
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
         @media (min-width: 500px) { .card-title { font-size: 15px; } }
 
-        /* DASHBOARD LIVE */
-        .live-dashboard {
-            background: #0f172a; border: 1px solid #334155; border-radius: 14px;
-            padding: 16px; margin: 12px 0; color: #fff;
-        }
-        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-        @media (min-width: 600px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
-        .dash-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; }
-        .dash-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
-        .dash-value { font-family: 'Space Grotesk'; font-size: 16px; font-weight: 900; color: #38bdf8; margin-top: 2px; }
-        .dash-value.green { color: #4ade80; }
-
-        /* TRUST BADGES */
-        .trust-badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-        @media (min-width: 600px) { .trust-badges-grid { grid-template-columns: repeat(4, 1fr); } }
-        .trust-badge-card { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid var(--border-light); padding: 10px 8px; border-radius: 10px; text-align: center; }
-        .trust-badge-icon { font-size: 20px; display: block; margin-bottom: 2px; }
-        .trust-badge-title { font-size: 11px; font-weight: 800; color: var(--text-dark); }
-        .trust-badge-desc { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
-
         .hero-card {
             background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
             color: #fff; padding: 20px 16px; border-radius: 18px; margin-bottom: 14px;
@@ -186,6 +156,7 @@ HTML_BASE = """
         @media (min-width: 500px) { .hero-card { padding: 24px; } }
         .hero-card h2 { font-family: 'Space Grotesk'; font-size: 19px; font-weight: 900; margin-bottom: 6px; }
         .hero-card > p { font-size: 12px; opacity: 0.95; margin-bottom: 12px; line-height: 1.5; }
+
         .features-detail { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
         @media (min-width: 500px) { .features-detail { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 800px) { .features-detail { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
@@ -209,7 +180,7 @@ HTML_BASE = """
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
-        input[type="text"], input[type="tel"], select, textarea { 
+        input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
             width: 100%; padding: 12px 14px; margin-top: 4px; 
             background: #f8fafc; border: 1px solid var(--border-light); 
             border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit;
@@ -237,12 +208,12 @@ HTML_BASE = """
             position: relative; gap: 8px;
         }
         .plan-option.selected, .plan-option:hover { border-color: var(--accent-cyan); background: #f0f9ff; }
-        .plan-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; }
+        .plan-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; cursor: pointer; }
         .plan-info { flex: 1; min-width: 0; }
         .plan-info b { font-size: 13px; display: block; }
         @media (min-width: 500px) { .plan-info b { font-size: 14px; } }
         .plan-info div { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
-        .plan-price { text-align: right; flex-shrink: 0; }
+        .plan-price { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .plan-price b { color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }
         .plan-badge { position: absolute; top: -1px; right: 10px; padding: 2px 8px; border-radius: 0 0 6px 6px; font-size: 8px; font-weight: 800; color: #fff; font-family: 'Space Grotesk'; }
         .badge-popular { background: #ea580c; }
@@ -420,7 +391,6 @@ def build_raw_script(cfg):
     is_wifi6 = any(k in modele for k in ["ax2", "ax3", "ax 15s", "Wi-Fi 6"])
     is_wireless = any(k in modele for k in ["ac2", "ac3", "lite", "19s", "LHG", "SXT", "Wireless"])
 
-    # ARCHITECTURE TOTALEMENT CLEAN ET ISOLÉE PAR PACK
     s = f"""# =========================================================================
 # KETRIKA MIKROTIK - ARCHITECTURE INDUSTRIELLE DE A A Z
 # Modele : {modele} | Formule : {plan.upper()} | Client : {cfg['client']}
@@ -579,7 +549,165 @@ def clean_script_for_oneliner(raw_script):
         lines.append(line)
     return " ".join(lines).replace('"', '\\"')
 
-@app.route("/dashboard")
+# GESTION PROPRE DES REQUÊTES (GET ET POST SUPPORTÉS PARTOUT)
+@app.route("/tuto", methods=["GET", "POST"])
+def tuto():
+    content = f"""
+    <div class="card">
+        <div class="card-title">📖 GUIDE D'INSTALLATION MIKROTIK (PAS-À-PAS)</div>
+        <p style="font-size:13px; color:var(--text-body); line-height:1.6;">
+            Suivez ce guide simple avec schémas visuels pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
+        </p>
+
+        <!-- ETAPE 1 : BRANCHEMENT VISUEL -->
+        <div class="step-guide" style="margin-top:15px;">
+            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT DES CÂBLES RÉSEAU</div>
+            <ol>
+                <li>Prenez le câble venant de votre antenne <b>Starlink / Box Internet</b> et branchez-le sur le <b>PORT 1 (ether1)</b>.</li>
+                <li>Prenez un 2ème câble réseau et reliez votre <b>Ordinateur / Switch</b> sur les <b>PORTS 2 à 13</b>.</li>
+                <li>Branchez l'alimentation du MikroTik.</li>
+            </ol>
+            
+            <div class="visual-container">
+                <div style="font-size:12px; font-weight:bold; color:#94a3b8; margin-bottom:6px;">📍 SCHÉMA DES PORTS SUR LE MIKROTIK :</div>
+                <div class="ports-bar">
+                    <div class="port-indicator wan">
+                        <b>PORT 1</b>
+                        <span>Starlink (WAN)</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 2</b>
+                        <span>PC / LAN</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 3</b>
+                        <span>Switch</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 4</b>
+                        <span>Access Point</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 5</b>
+                        <span>LAN</span>
+                    </div>
+                </div>
+                <div style="font-size:11px; color:#a7f3d0; margin-top:8px;">
+                    📶 Le <b>Wi-Fi Dual Band 2.4G &amp; 5G</b> diffuse automatiquement dès l'injection du script !
+                </div>
+            </div>
+        </div>
+
+        <!-- ETAPE 2 : WINBOX VISUEL -->
+        <div class="step-guide" style="margin-top:15px;">
+            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX ET SE CONNECTER EN MAC</div>
+            <ol>
+                <li>Téléchargez Winbox officiel : <a href="https://mikrotik.com/download" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Télécharger Winbox (MikroTik)</a></li>
+                <li>Ouvrez Winbox et cliquez sur l'onglet <b>Neighbors</b> (Voisins).</li>
+                <li><b>Astuce Pro Cruciale :</b> Cliquez sur la ligne affichant l'<b>Adresse MAC</b> (ex: <code>CC:2D:E0:...</code>) et JAMAIS sur l'adresse IP !</li>
+            </ol>
+
+            <div class="winbox-mockup">
+                <div class="winbox-top">
+                    <span>Winbox v3.41 - Neighbors Table</span>
+                    <span>_ □ ✕</span>
+                </div>
+                <div class="winbox-body">
+                    <div style="color:#94a3b8; margin-bottom:6px;">IP Address | MAC Address | Identity | Board Name</div>
+                    <div class="winbox-item">
+                        <span>0.0.0.0</span>
+                        <span>👉 CC:2D:E0:4F:92:1A (CLIQUEZ ICI !)</span>
+                        <span>MikroTik</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ETAPE 3 : TERMINAL VISUEL -->
+        <div class="step-guide" style="margin-top:15px;">
+            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE ET VALIDER</div>
+            <ol>
+                <li>Dans Winbox, cliquez sur le menu <b>New Terminal</b> dans la colonne de gauche.</li>
+                <li>Générez votre configuration sur notre site, puis cliquez sur <b>📋 COPIER LA COMMANDE</b>.</li>
+                <li>Dans la fenêtre noire du Terminal Winbox, faites <b>Clic Droit ➔ Paste (Coller)</b>.</li>
+                <li>Appuyez sur la touche <b>Entrée</b> de votre clavier : en 5 secondes, l'installation se termine sans redémarrage !</li>
+            </ol>
+
+            <div class="terminal-box" style="margin-top:8px;">
+                <span style="color:#94a3b8;">[admin@MikroTik] &gt; </span><span style="color:#38bdf8;">/system script add name=ketrika_run...</span><br>
+                <span style="color:#4ade80;">=== KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE ! ===</span>
+            </div>
+        </div>
+
+        <div class="alert-warning" style="margin-top:15px; font-size:12px; line-height:1.6;">
+            💡 <b>Vous voulez réinitialiser le routeur à zéro avant de commencer ?</b><br>
+            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Notre script KETRIKA recréera tout de A à Z !
+        </div>
+
+        <div style="text-align:center; margin-top:20px;">
+            <a href="/" class="btn-primary" style="display:inline-block; width:auto; padding:12px 25px;">🛒 COMMANDER UNE CLÉ OU ACTIVER MON ROUTEUR</a>
+        </div>
+    </div>
+    """
+    return render(content)
+
+@app.route("/ajouter-avis", methods=["GET", "POST"])
+def ajouter_avis():
+    if request.method == "POST":
+        nom = request.form.get("nom", "").strip()
+        ville = request.form.get("ville", "").strip()
+        try:
+            etoiles = int(request.form.get("etoiles", 5))
+        except:
+            etoiles = 5
+        commentaire = request.form.get("commentaire", "").strip()
+        if nom and commentaire:
+            conn = sqlite3.connect("ketrika.db")
+            c = conn.cursor()
+            c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
+            conn.commit()
+            conn.close()
+    return redirect(url_for("home"))
+
+@app.route("/commander", methods=["GET", "POST"])
+def commander():
+    if request.method == "POST":
+        nom = request.form.get("nom", "").strip()
+        tel = request.form.get("tel", "").strip()
+        formule = request.form.get("formule", "basic")
+        ref = request.form.get("ref_paiement", "").strip()
+        montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
+        if nom and tel and ref:
+            conn = sqlite3.connect("ketrika.db")
+            c = conn.cursor()
+            c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
+            conn.commit()
+            conn.close()
+            return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES.get(formule, {}).get("nom", "Basic")}</b> ({montant:,} Ar).<br>Clé envoyée par SMS au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
+    return redirect(url_for("home"))
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        cle = request.form.get("licence", "").strip().upper()
+        result = verifier_licence(cle)
+        if not result or not result["valide"]:
+            return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
+        if result.get("utilisations", 0) >= 1:
+            return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
+        session["authenticated"] = True
+        session["licence"] = cle
+        session["client"] = result["client"]
+        session["type_abo"] = result["type"]
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+@app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     if not session.get("authenticated"):
         return redirect(url_for("home"))
@@ -671,8 +799,10 @@ def dashboard():
     """
     return render(content)
 
-@app.route("/generate", methods=["POST"])
+@app.route("/generate", methods=["GET", "POST"])
 def generate():
+    if request.method == "GET":
+        return redirect(url_for("dashboard"))
     if not session.get("authenticated"):
         return redirect(url_for("home"))
     cle = session.get("licence")
@@ -681,7 +811,7 @@ def generate():
         session.clear()
         return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
     
-    modele = request.form.get("modele")
+    modele = request.form.get("modele", "")
     plan_key = session.get("type_abo", "basic")
     client_final = request.form.get("client_final", "Client").replace(" ", "_")
     ssid = request.form.get("ssid", "KETRIKA-NET")
@@ -711,8 +841,8 @@ def generate():
     conn.close()
     session.clear()
     
-    host = request.host_url.replace("http://", "https://")
-    online_cmd = f'/tool fetch url="{host}config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
+    host = request.host_url.rstrip('/').replace("http://", "https://")
+    online_cmd = f'/tool fetch url="{host}/config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
     cfg = get_config_by_id(config_id)
     raw_s = build_raw_script(cfg)
     clean_s = clean_script_for_oneliner(raw_s)
@@ -722,7 +852,7 @@ def generate():
     <div class="card">
         <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
         <div class="alert-warning">
-            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | PC / Switch sur les <b>autres ports</b>.<br>
+            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | Ordinateur sur les <b>autres ports</b>.<br>
             📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
             🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
@@ -794,7 +924,7 @@ def admin():
             return redirect(url_for("admin_dashboard"))
     return render('<div class="card"><div class="card-title">🔐 ADMIN</div><form method="POST"><input type="text" name="username" placeholder="admin" required><input type="password" name="password" placeholder="mot de passe" required><button type="submit" class="btn-primary">CONNEXION</button></form></div>')
 
-@app.route("/admin/dashboard")
+@app.route("/admin/dashboard", methods=["GET", "POST"])
 def admin_dashboard():
     if not session.get("admin"): return redirect(url_for("admin"))
     conn = sqlite3.connect("ketrika.db")
@@ -829,9 +959,14 @@ def admin_creer():
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
+# GESTIONNAIRES D'ERREURS PROPRES (ZÉRO ÉCRAN BRISÉ)
+@app.errorhandler(404)
+def not_found(e):
+    return render('<div class="card"><div class="alert alert-warning"><b>🔍 Page introuvable</b><br>L\'adresse demandée n\'existe pas ou a été déplacée.</div><a href="/" class="btn-primary">🏠 RETOUR À L\'ACCUEIL</a></div>'), 404
+
 @app.errorhandler(500)
 def server_error(e):
-    return f"<h1>Erreur 500</h1><pre>{traceback.format_exc()}</pre>", 500
+    return render('<div class="card"><div class="alert alert-error"><b>⚠️ Erreur Temporaire</b><br>Une erreur est survenue lors du traitement. Veuillez réessayer.</div><a href="/" class="btn-primary">🏠 RETOUR À L\'ACCUEIL</a></div>'), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
