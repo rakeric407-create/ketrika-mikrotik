@@ -181,23 +181,41 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
-        /* SCHÉMA VISUEL DE BRANCHEMENT */
-        .schema-box {
-            background: #0f172a; border: 1px solid #334155; border-radius: 12px;
-            padding: 16px; margin: 12px 0; color: #fff; font-family: 'Space Grotesk';
-            text-align: center;
+        /* SCHÉMAS VISUELS ET CAPTURES POUR LE TUTO */
+        .visual-container {
+            background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0;
+            border: 1px solid #334155; color: #fff; text-align: center;
         }
-        .schema-grid {
-            display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; gap: 10px;
-            margin-top: 10px;
+        .ports-bar {
+            display: flex; justify-content: center; gap: 6px; margin: 14px 0; flex-wrap: wrap;
         }
-        @media (max-width: 600px) { .schema-grid { grid-template-columns: 1fr; gap: 6px; } }
-        .schema-card { background: rgba(255,255,255,0.08); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); }
-        .schema-card.active { border-color: #4ade80; background: rgba(74,222,128,0.1); }
-        .schema-card b { display: block; font-size: 13px; color: #4ade80; }
-        .schema-card span { font-size: 11px; color: var(--text-muted); }
+        .port-indicator {
+            background: #1e293b; border: 2px solid #475569; border-radius: 8px;
+            padding: 8px 12px; font-family: 'Space Grotesk'; font-size: 11px;
+            min-width: 70px;
+        }
+        .port-indicator.wan { border-color: #0284c7; background: rgba(2,132,199,0.2); }
+        .port-indicator.wan b { color: #38bdf8; display: block; }
+        .port-indicator.lan { border-color: #10b981; background: rgba(16,185,129,0.15); }
+        .port-indicator.lan b { color: #4ade80; display: block; }
 
-        .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 12px; margin-top: 8px; }
+        /* SIMULATEUR D'ÉCRAN WINBOX VISUEL */
+        .winbox-mockup {
+            background: #1e293b; border-radius: 8px; border: 1px solid #475569;
+            text-align: left; overflow: hidden; margin: 10px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .winbox-top {
+            background: #334155; padding: 6px 12px; display: flex; justify-content: space-between;
+            font-size: 11px; font-weight: 700; color: #cbd5e1;
+        }
+        .winbox-body { padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; }
+        .winbox-item {
+            background: rgba(2,132,199,0.25); border: 1px solid #0284c7; padding: 6px 10px;
+            border-radius: 4px; display: flex; justify-content: space-between; color: #38bdf8;
+            font-weight: bold; margin-top: 6px;
+        }
+
+        .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-top: 10px; }
         .step-guide ol { padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }
         .step-guide li { margin-bottom: 4px; }
         .step-guide b { color: var(--accent-cyan); }
@@ -272,6 +290,7 @@ HTML_BASE = """
         .alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
         .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
 
+        /* AVIS */
         .rating-summary { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; margin-bottom: 10px; }
         .rating-big { font-family: 'Space Grotesk'; font-size: 32px; font-weight: 900; color: #b45309; }
         .stars-gold { color: var(--accent-gold); font-size: 12px; letter-spacing: 2px; }
@@ -281,6 +300,7 @@ HTML_BASE = """
         .rating-input label { font-size: 26px; color: #cbd5e1; cursor: pointer; }
         .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label { color: var(--accent-gold); }
 
+        /* FAQ */
         .faq-item { border-bottom: 1px solid var(--border-light); padding: 10px 0; }
         .faq-item:last-child { border-bottom: none; }
         .faq-question { font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
@@ -779,71 +799,98 @@ def home():
     """
     return render(content)
 
-# NOUVELLE ROUTE : PAGE TUTO DÉTAILLÉE
 @app.route("/tuto")
 def tuto():
     content = f"""
     <div class="card">
         <div class="card-title">📖 GUIDE D'INSTALLATION MIKROTIK (PAS-À-PAS)</div>
         <p style="font-size:13px; color:var(--text-body); line-height:1.6;">
-            Suivez ce guide simple pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
+            Suivez ce guide simple avec schémas visuels pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
         </p>
 
-        <!-- ETAPE 1 -->
+        <!-- ETAPE 1 : BRANCHEMENT VISUEL -->
         <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT PHYSIQUE DES CÂBLES</div>
+            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT DES CÂBLES RÉSEAU</div>
             <ol>
-                <li>Prenez le câble venant de votre antenne <b>Starlink (ou box Internet)</b> et branchez-le sur le <b>PORT 1 (ether1)</b> du MikroTik.</li>
-                <li>Prenez un 2ème câble réseau et branchez votre <b>Ordinateur</b> sur le <b>PORT 2 (ou n'importe quel autre port)</b>.</li>
-                <li>Branchez l'alimentation du MikroTik et attendez le bip de démarrage.</li>
+                <li>Prenez le câble venant de votre antenne <b>Starlink / Box Internet</b> et branchez-le sur le <b>PORT 1 (ether1)</b>.</li>
+                <li>Prenez un 2ème câble réseau et reliez votre <b>Ordinateur / Switch</b> sur les <b>PORTS 2 à 13</b>.</li>
+                <li>Branchez l'alimentation du MikroTik.</li>
             </ol>
             
-            <div class="schema-box">
-                <div style="font-size:11px; color:#94a3b8; margin-bottom:6px;">📍 SCHÉMA DE CONNEXION :</div>
-                <div class="schema-grid">
-                    <div class="schema-card active">
-                        <b>[ ANTENNE STARLINK ]</b>
-                        <span>Câble réseau principal</span>
+            <div class="visual-container">
+                <div style="font-size:12px; font-weight:bold; color:#94a3b8; margin-bottom:6px;">📍 SCHÉMA DES PORTS SUR LE MIKROTIK :</div>
+                <div class="ports-bar">
+                    <div class="port-indicator wan">
+                        <b>PORT 1</b>
+                        <span>Starlink (WAN)</span>
                     </div>
-                    <div style="font-size:18px; color:var(--accent-cyan);">➔</div>
-                    <div class="schema-card">
-                        <b>[ PORT 1 (ether1) ]</b>
-                        <span>Entrée Internet WAN</span>
+                    <div class="port-indicator lan">
+                        <b>PORT 2</b>
+                        <span>PC / LAN</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 3</b>
+                        <span>Switch</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 4</b>
+                        <span>Access Point</span>
+                    </div>
+                    <div class="port-indicator lan">
+                        <b>PORT 5</b>
+                        <span>LAN</span>
                     </div>
                 </div>
-                <div style="margin-top:10px; font-size:11px; color:#cbd5e1;">
-                    ⬇️ Les <b>Ports 2 à 13</b> et le <b>Wi-Fi</b> distribuent la connexion à pleine vitesse à vos appareils.
+                <div style="font-size:11px; color:#a7f3d0; margin-top:8px;">
+                    📶 Le <b>Wi-Fi Dual Band 2.4G & 5G</b> diffuse automatiquement dès l'injection du script !
                 </div>
             </div>
         </div>
 
-        <!-- ETAPE 2 -->
+        <!-- ETAPE 2 : WINBOX VISUEL -->
         <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX (LOGICIEL MIKROTIK)</div>
+            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX ET SE CONNECTER EN MAC</div>
             <ol>
-                <li>Téléchargez gratuitement Winbox sur votre PC : <a href="https://mikrotik.com/download" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Télécharger Winbox Officiel</a></li>
-                <li>Ouvrez Winbox, allez dans l'onglet <b>Neighbors</b> (Voisins).</li>
-                <li><b>Astuce Pro Importante :</b> Cliquez sur l'<b>Adresse MAC</b> de votre routeur (ex: <code>CC:2D:E0:...</code>) au lieu de l'IP pour éviter toute déconnexion !</li>
-                <li>Laissez le login <b>admin</b> (sans mot de passe si le routeur est neuf/reset) et cliquez sur <b>Connect</b>.</li>
+                <li>Téléchargez Winbox officiel : <a href="https://mikrotik.com/download" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Télécharger Winbox (MikroTik)</a></li>
+                <li>Ouvrez Winbox et cliquez sur l'onglet <b>Neighbors</b> (Voisins).</li>
+                <li><b>Astuce Pro Cruciale :</b> Cliquez sur la ligne affichant l'<b>Adresse MAC</b> (ex: <code>CC:2D:E0:...</code>) et JAMAIS sur l'adresse IP !</li>
             </ol>
+
+            <div class="winbox-mockup">
+                <div class="winbox-top">
+                    <span>Winbox v3.41 - Neighbors Table</span>
+                    <span>_ □ ✕</span>
+                </div>
+                <div class="winbox-body">
+                    <div style="color:#94a3b8; margin-bottom:6px;">IP Address | MAC Address | Identity | Board Name</div>
+                    <div class="winbox-item">
+                        <span>0.0.0.0</span>
+                        <span>👉 CC:2D:E0:4F:92:1A (CLIQUEZ ICI !)</span>
+                        <span>MikroTik</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- ETAPE 3 -->
+        <!-- ETAPE 3 : TERMINAL VISUEL -->
         <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE UNIQUE KETRIKA</div>
+            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE ET VALIDER</div>
             <ol>
-                <li>Dans Winbox, cliquez sur le menu <b>New Terminal</b> (à gauche).</li>
-                <li>Entrez votre clé sur notre site, générez votre configuration, puis cliquez sur <b>📋 COPIER LA COMMANDE</b>.</li>
+                <li>Dans Winbox, cliquez sur le menu <b>New Terminal</b> dans la colonne de gauche.</li>
+                <li>Générez votre configuration sur notre site, puis cliquez sur <b>📋 COPIER LA COMMANDE</b>.</li>
                 <li>Dans la fenêtre noire du Terminal Winbox, faites <b>Clic Droit ➔ Paste (Coller)</b>.</li>
-                <li>Appuyez sur la touche <b>Entrée</b> de votre clavier.</li>
-                <li><b>C'est terminé !</b> En 5 secondes, le routeur applique l'ensemble de la configuration (Wi-Fi, IP, pare-feu, VPN).</li>
+                <li>Appuyez sur la touche <b>Entrée</b> de votre clavier : en 5 secondes, l'installation se termine sans redémarrage !</li>
             </ol>
+
+            <div class="terminal-box" style="margin-top:8px;">
+                <span style="color:#94a3b8;">[admin@MikroTik] &gt; </span><span style="color:#38bdf8;">/system script add name=ketrika_run...</span><br>
+                <span style="color:#4ade80;">=== KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE ! ===</span>
+            </div>
         </div>
 
-        <!-- CONSEILS / RESET -->
         <div class="alert-warning" style="margin-top:15px; font-size:12px; line-height:1.6;">
-            💡 <b>Besoin de réinitialiser le routeur à zéro avant de commencer ?</b><br>
-            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Le script KETRIKA recréera tout de A à Z !
+            💡 <b>Vous voulez réinitialiser le routeur à zéro avant de commencer ?</b><br>
+            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Notre script KETRIKA recréera tout de A à Z !
         </div>
 
         <div style="text-align:center; margin-top:20px;">
@@ -912,6 +959,7 @@ def dashboard():
     if not result or result.get("utilisations", 0) >= 1:
         session.clear()
         return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
+    
     plan_key = session.get("type_abo", "basic")
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
