@@ -73,7 +73,7 @@ HTML_BASE = """
         @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
         @keyframes float-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes pulse-badge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-        @keyframes rotate-icon { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } }
+        @keyframes glow-rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
@@ -82,7 +82,7 @@ HTML_BASE = """
         }
         .container { max-width: 860px; margin: auto; }
 
-        /* NAVBAR */
+        /* NAVBAR AVEC MINI LOGO */
         .top-nav { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 14px; padding: 10px 16px; 
@@ -90,15 +90,40 @@ HTML_BASE = """
             border: 1px solid var(--border-light); border-radius: 16px; 
             box-shadow: 0 4px 20px rgba(2,132,199,0.08); animation: fade-in 0.5s;
         }
+        .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); }
+        .nav-logo-icon { width: 24px; height: 24px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+        
         .top-links { display: flex; gap: 8px; align-items: center; }
         .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 5px 12px; background: linear-gradient(135deg, #1877f2, #0d6efd); border-radius: 12px; transition: 0.3s; }
         .top-links a:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(24,119,242,0.3); }
         .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-        /* HEADER SPECTACULAIRE */
-        .header { text-align: center; padding: 20px 0 25px; animation: fade-in 0.6s; }
+        /* HEADER AVEC LOGO PRINCIPAL EMBLÉMATIQUE */
+        .header { text-align: center; padding: 15px 0 22px; animation: fade-in 0.6s; position: relative; }
+        
+        /* LOGO BADGE GLOWING */
+        .logo-wrapper {
+            position: relative; width: 85px; height: 85px; margin: 0 auto 12px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .logo-aura {
+            position: absolute; inset: -4px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink));
+            filter: blur(8px); opacity: 0.7; animation: glow-rotate 4s linear infinite;
+        }
+        .logo-box {
+            position: relative; width: 100%; height: 100%; border-radius: 50%;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            border: 2px solid rgba(255,255,255,0.8);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 10px 25px rgba(2,132,199,0.3);
+        }
+        .logo-box svg { width: 44px; height: 44px; filter: drop-shadow(0 0 6px rgba(0,242,254,0.8)); }
+        
+        .custom-logo { max-width: 90px; height: auto; border-radius: 14px; box-shadow: 0 8px 25px rgba(2,132,199,0.25); }
+
         .header h1 { 
-            font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 900; 
+            font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 900; 
             background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); 
             background-size: 300% 100%; 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
@@ -134,7 +159,6 @@ HTML_BASE = """
         .hero-card h2 { font-family: 'Space Grotesk'; font-size: 22px; font-weight: 900; margin-bottom: 8px; position: relative; }
         .hero-card p { font-size: 13px; opacity: 0.95; margin-bottom: 15px; position: relative; line-height: 1.6; }
 
-        /* AVANTAGES DETAILLES */
         .features-detail { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px; }
         @media (max-width: 700px) { .features-detail { grid-template-columns: 1fr; } }
         .feature-detail-box {
@@ -147,7 +171,6 @@ HTML_BASE = """
         .feature-detail-box .fd-title { font-family: 'Space Grotesk'; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
         .feature-detail-box .fd-desc { font-size: 11px; opacity: 0.9; line-height: 1.4; }
 
-        /* AVANTAGES SIMPLES */
         .advantages-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         @media (max-width: 600px) { .advantages-grid { grid-template-columns: repeat(2, 1fr); } }
         .adv-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 14px 10px; border-radius: 12px; text-align: center; border: 1px solid var(--border-light); transition: 0.3s; }
@@ -156,7 +179,6 @@ HTML_BASE = """
         .adv-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; }
         .adv-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
 
-        /* COMMENT ÇA MARCHE */
         .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
         @media (max-width: 600px) { .steps-grid { grid-template-columns: 1fr; } }
         .step-box { 
@@ -174,12 +196,10 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 13px; color: var(--text-dark); font-weight: 800; margin-bottom: 4px; }
         .step-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 
-        /* FORMULAIRES */
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 12px; text-transform: uppercase; }
         input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 5px; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit; transition: 0.3s; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-cyan); background: #fff; box-shadow: 0 0 0 3px rgba(2,132,199,0.1); }
 
-        /* IP SUGGESTIONS */
         .ip-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
         .ip-chip { 
             background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); 
@@ -188,14 +208,12 @@ HTML_BASE = """
         }
         .ip-chip:hover { background: var(--accent-cyan); color: #fff; transform: translateY(-2px); }
 
-        /* BOUTONS */
         .btn-primary { width: 100%; padding: 14px; margin-top: 15px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: inline-block; text-align: center; transition: 0.3s; box-shadow: 0 4px 12px rgba(2,132,199,0.3); }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(2,132,199,0.5); }
         .btn-success { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 4px 12px rgba(5,150,105,0.3); }
         .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
         .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
 
-        /* PLANS */
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; }
         .plan-option { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); padding: 14px 16px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; transition: 0.3s; }
         .plan-option:hover { border-color: var(--accent-cyan); background: linear-gradient(135deg, #f0f9ff, #e0f2fe); transform: translateX(4px); }
@@ -205,7 +223,6 @@ HTML_BASE = """
         .badge-best { background: linear-gradient(135deg, #db2777, #7c3aed); }
         .badge-pro { background: linear-gradient(135deg, #059669, #047857); }
 
-        /* PAIEMENT */
         .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-top: 14px; text-align: center; }
         .payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; box-shadow: 0 2px 8px rgba(180,83,9,0.1); }
@@ -221,7 +238,6 @@ HTML_BASE = """
         .alert-error { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca; color: #991b1b; }
         .alert-warning { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; color: #92400e; }
 
-        /* AVIS */
         .rating-summary { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 14px; background: linear-gradient(135deg, #fffbeb, #fef9c3); border: 1px solid #fde68a; border-radius: 12px; margin-bottom: 12px; }
         .rating-big { font-family: 'Space Grotesk'; font-size: 40px; font-weight: 900; color: #b45309; }
         .stars-gold { color: var(--accent-gold); font-size: 13px; letter-spacing: 2px; }
@@ -232,7 +248,6 @@ HTML_BASE = """
         .rating-input label { font-size: 32px; color: #cbd5e1; cursor: pointer; transition: 0.2s; }
         .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label { color: var(--accent-gold); transform: scale(1.15); }
 
-        /* FAQ */
         .faq-item { border-bottom: 1px solid var(--border-light); padding: 12px 0; transition: 0.3s; }
         .faq-item:last-child { border-bottom: none; }
         .faq-item:hover { padding-left: 5px; }
@@ -254,15 +269,39 @@ HTML_BASE = """
     <a href="https://wa.me/261382817100?text=Bonjour%20KETRIKA%2C%20je%20souhaite%20une%20assistance" target="_blank" class="whatsapp-float">💬 <span>WhatsApp</span></a>
 
     <div class="container">
+        <!-- TOP NAV -->
         <div class="top-nav">
-            <span style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px;"><span class="live-dot"></span> KETRIKA v3.8</span>
+            <div class="nav-brand">
+                <div class="nav-logo-icon">⚡</div>
+                <span>KETRIKA MIKROTIK</span>
+            </div>
             <div class="top-links">
                 <a href="https://www.facebook.com/profile.php?id=61577074985498" target="_blank">📘 Facebook</a>
                 <button class="lang-btn" onclick="toggleLang()">🇲🇬/🇫🇷</button>
             </div>
         </div>
 
+        <!-- HEADER AVEC LOGO CENTRAL GLOWING -->
         <div class="header">
+            <div class="logo-wrapper">
+                <div class="logo-aura"></div>
+                <div class="logo-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="url(#cyan-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <defs>
+                            <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#00f2fe" />
+                                <stop offset="100%" stop-color="#7c3aed" />
+                            </linearGradient>
+                        </defs>
+                        <rect x="2" y="14" width="20" height="8" rx="2" fill="rgba(0,242,254,0.1)"></rect>
+                        <path d="M6 18h.01"></path>
+                        <path d="M10 18h.01"></path>
+                        <path d="M14 18h.01"></path>
+                        <path d="M18 18h.01"></path>
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#00f2fe" stroke="#00f2fe" stroke-width="1.5"></path>
+                    </svg>
+                </div>
+            </div>
             <h1>⚡ KETRIKA MIKROTIK ⚡</h1>
             <p class="tagline txt-fr">Solution Professionnelle d'Optimisation Réseau MikroTik</p>
             <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina hanatsarana ny MikroTik</p>
@@ -718,7 +757,7 @@ def generate():
         <div class="card-title">MÉTHODE 2 : FICHIER .RSC</div>
         <a href="/download/{config_id}.rsc" class="btn-primary btn-success">📥 TÉLÉCHARGER LE FICHIER</a>
         <hr style="border-color:var(--border-light); margin:14px 0;">
-        <div class="card-title">MÉTHODE 3 : ROUTEUR DÉJÀ EN LIGNE</div>
+        <div class="card-title">MÉTHODE 3 : SI ROUTEUR DÉJÀ EN LIGNE</div>
         <div class="terminal-box" id="cmd2">{online_cmd}</div>
         <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER</button>
         <a href="/" class="btn-primary" style="margin-top:14px;">🏠 RETOUR À L'ACCUEIL</a>
