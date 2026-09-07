@@ -43,7 +43,14 @@ TARIFS_MODULES = {
     "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Solution intégrale + PPPoE + QoS avancé", "badge": "PRO"}
 }
 
-MODELES_MIKROTIK = ["hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)", "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)", "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)", "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)", "CCR1009", "CCR2004", "CCR2116", "Chateau LTE/5G", "Autre RouterOS v7"]
+MODELES_MIKROTIK = [
+    "hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)",
+    "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)",
+    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)",
+    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
+    "CCR1009", "CCR2004", "CCR2116",
+    "Chateau LTE/5G", "Autre RouterOS v7"
+]
 
 BANDWIDTH_PROFILES = {
     "illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit sans restriction"},
@@ -62,7 +69,7 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>KETRIKA MIKROTIK PRO • Optimisation Réseau Professionnelle</title>
+    <title>KETRIKA MIKROTIK PRO • Solution Réseau Professionnelle</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -81,7 +88,6 @@ HTML_BASE = """
             --border-light: #e2e8f0;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 100%);
@@ -90,7 +96,6 @@ HTML_BASE = """
         }
         .container { max-width: 860px; margin: auto; }
 
-        /* NAVBAR */
         .top-nav { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 12px; padding: 10px 14px; 
@@ -106,7 +111,6 @@ HTML_BASE = """
         .btn-tuto { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
         .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-        /* HEADER */
         .header { text-align: center; padding: 14px 5px 20px; }
         .logo-wrapper {
             position: relative; width: 80px; height: 80px; margin: 0 auto 10px;
@@ -133,15 +137,7 @@ HTML_BASE = """
         }
         @media (min-width: 500px) { .header h1 { font-size: 34px; } }
         .header .tagline { color: var(--text-body); font-size: 13px; margin-top: 6px; font-weight: 600; }
-        .header .stats-live { 
-            display: inline-flex; gap: 6px; margin-top: 10px; padding: 5px 12px; 
-            background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; 
-            border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; 
-            align-items: center;
-        }
-        .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
 
-        /* CARDS */
         .card { 
             background: var(--bg-card); border: 1px solid var(--border-light); 
             border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; 
@@ -152,32 +148,22 @@ HTML_BASE = """
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
         @media (min-width: 500px) { .card-title { font-size: 15px; } }
 
-        /* 🎛️ DASHBOARD DE PERFORMANCE VISUEL */
+        /* DASHBOARD LIVE */
         .live-dashboard {
             background: #0f172a; border: 1px solid #334155; border-radius: 14px;
-            padding: 16px; margin: 12px 0; color: #fff; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            padding: 16px; margin: 12px 0; color: #fff;
         }
-        .dashboard-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;
-        }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
         @media (min-width: 600px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
-        .dash-item {
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            padding: 10px; border-radius: 10px; text-align: center;
-        }
+        .dash-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; }
         .dash-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
         .dash-value { font-family: 'Space Grotesk'; font-size: 16px; font-weight: 900; color: #38bdf8; margin-top: 2px; }
         .dash-value.green { color: #4ade80; }
 
-        /* 🏆 BADGES DE CONFIANCE & CERTIFICATIONS */
-        .trust-badges-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px;
-        }
+        /* TRUST BADGES */
+        .trust-badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
         @media (min-width: 600px) { .trust-badges-grid { grid-template-columns: repeat(4, 1fr); } }
-        .trust-badge-card {
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid var(--border-light);
-            padding: 10px 8px; border-radius: 10px; text-align: center;
-        }
+        .trust-badge-card { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid var(--border-light); padding: 10px 8px; border-radius: 10px; text-align: center; }
         .trust-badge-icon { font-size: 20px; display: block; margin-bottom: 2px; }
         .trust-badge-title { font-size: 11px; font-weight: 800; color: var(--text-dark); }
         .trust-badge-desc { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
@@ -212,44 +198,8 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
-        .visual-container {
-            background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0;
-            border: 1px solid #334155; color: #fff; text-align: center;
-        }
-        .ports-bar {
-            display: flex; justify-content: center; gap: 6px; margin: 14px 0; flex-wrap: wrap;
-        }
-        .port-indicator {
-            background: #1e293b; border: 2px solid #475569; border-radius: 8px;
-            padding: 8px 12px; font-family: 'Space Grotesk'; font-size: 11px; min-width: 70px;
-        }
-        .port-indicator.wan { border-color: #0284c7; background: rgba(2,132,199,0.2); }
-        .port-indicator.wan b { color: #38bdf8; display: block; }
-        .port-indicator.lan { border-color: #10b981; background: rgba(16,185,129,0.15); }
-        .port-indicator.lan b { color: #4ade80; display: block; }
-
-        .winbox-mockup {
-            background: #1e293b; border-radius: 8px; border: 1px solid #475569;
-            text-align: left; overflow: hidden; margin: 10px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-        }
-        .winbox-top {
-            background: #334155; padding: 6px 12px; display: flex; justify-content: space-between;
-            font-size: 11px; font-weight: 700; color: #cbd5e1;
-        }
-        .winbox-body { padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; }
-        .winbox-item {
-            background: rgba(2,132,199,0.25); border: 1px solid #0284c7; padding: 6px 10px;
-            border-radius: 4px; display: flex; justify-content: space-between; color: #38bdf8;
-            font-weight: bold; margin-top: 6px;
-        }
-
-        .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-top: 10px; }
-        .step-guide ol { padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }
-        .step-guide li { margin-bottom: 4px; }
-        .step-guide b { color: var(--accent-cyan); }
-
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
-        input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
+        input[type="text"], input[type="tel"], select, textarea { 
             width: 100%; padding: 12px 14px; margin-top: 4px; 
             background: #f8fafc; border: 1px solid var(--border-light); 
             border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit;
@@ -444,6 +394,7 @@ def build_raw_script(cfg):
     bw_down = opt.get("bw_down", "0")
     bw_up = opt.get("bw_up", "0")
     router_ip = opt.get("router_ip", "192.168.88.1").strip()
+    
     ip_parts = router_ip.split('.')
     if len(ip_parts) == 4:
         subnet_base = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}"
@@ -459,6 +410,9 @@ def build_raw_script(cfg):
     is_wifi6 = any(k in modele for k in ["ax2", "ax3", "ax 15s", "Wi-Fi 6"])
     is_wireless = any(k in modele for k in ["ac2", "ac3", "lite", "19s", "LHG", "SXT", "Wireless"])
 
+    # =========================================================================
+    # ARCHITECTURE DE A À Z TOTALEMENT ISOLÉE PAR PACK
+    # =========================================================================
     s = f"""# =========================================================================
 # KETRIKA MIKROTIK - ARCHITECTURE INDUSTRIELLE DE A A Z
 # Modele : {modele} | Formule : {plan.upper()} | Client : {cfg['client']}
@@ -474,13 +428,14 @@ def build_raw_script(cfg):
 /interface list member remove [find interface=bridge-lan]
 /interface list member add interface=bridge-lan list=LAN
 
+# Ajout dynamique de tous les ports physiques restants au Bridge
 :foreach i in=[/interface ethernet find where name!="ether1"] do={{
     :if ([:len [/interface bridge port find interface=$i]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$i comment="LAN-PORT" }}
 }}
 
-# --- 2. WAN (PORT 1 VIA DHCP-CLIENT) ---
+# --- 2. WAN (PORT 1 STARLINK VIA DHCP-CLIENT DYNAMIQUE) ---
 /ip dhcp-client remove [find interface=ether1]
-/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes default-route-distance=2 comment="WAN-STARLINK"
+/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes default-route-distance=1 comment="WAN-MAIN"
 
 # --- 3. ADRESSAGE IP ET SERVEUR DHCP LOCAL ---
 /ip address remove [find interface=bridge-lan]
@@ -492,15 +447,15 @@ def build_raw_script(cfg):
 /ip dhcp-server network remove [find address={dhcp_net}]
 /ip dhcp-server network add address={dhcp_net} gateway={router_ip} dns-server=1.1.1.1,1.0.0.1 comment="LAN-NET"
 
-# --- 4. ACCES INTERNET (NAT) ---
+# --- 4. ACCES INTERNET (NAT STARLINK) ---
 /ip firewall nat remove [find comment="NAT-INTERNET"]
-/ip firewall nat add chain=srcnat out-interface-list=WAN action=masquerade comment="NAT-INTERNET"
+/ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="NAT-INTERNET"
 
 # --- 5. OPTIMISATION RESEAU (MANGLE TTL = 64) ---
 /ip firewall mangle remove [find comment="STARLINK-TTL-64"]
-/ip firewall mangle add chain=postrouting out-interface-list=WAN action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
+/ip firewall mangle add chain=postrouting out-interface=ether1 action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
 
-# --- 6. DNS SECURISE DOH (CLOUDFLARE) ---
+# --- 6. DNS SECURISE DOH (CLOUDFLARE 1.1.1.1) ---
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no
 /ip firewall nat remove [find comment="DNS-REDIRECT-UDP"]
 /ip firewall nat add chain=dstnat in-interface-list=LAN protocol=udp dst-port=53 action=redirect to-ports=53 comment="DNS-REDIRECT-UDP"
@@ -524,63 +479,60 @@ def build_raw_script(cfg):
 /ip service disable telnet,ftp,api
 """
 
+    # --- 8. CONFIGURATION WI-FI DÉDIÉE SANS ERREUR ---
     if is_wifi6:
         s += f"""
-# --- 8. WI-FI 6 DEDIE (ROUTEROS V7 WIFI) ---
-:do {{
-    /interface wifi security remove [find name=sec-wifi]
-    /interface wifi security add name=sec-wifi authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}"
-    /interface wifi configuration remove [find name=cfg-wifi]
-    /interface wifi configuration add name=cfg-wifi ssid="{ssid}" security=sec-wifi country="Madagascar"
-    /interface wifi set [find] configuration=cfg-wifi disabled=no
-    :foreach w in=[/interface wifi find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
-}} on-error={{}};
+# --- 8. WI-FI 6 DEDIE (ROUTEROS V7 WIFI WAVE2) ---
+/interface wifi security remove [find name=sec-wifi]
+/interface wifi security add name=sec-wifi authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}"
+/interface wifi configuration remove [find name=cfg-wifi]
+/interface wifi configuration add name=cfg-wifi ssid="{ssid}" security=sec-wifi country="Madagascar"
+/interface wifi set [find] configuration=cfg-wifi disabled=no
+:foreach w in=[/interface wifi find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
 """
     elif is_wireless:
         s += f"""
 # --- 8. WI-FI CLASSIQUE DEDIE (ROUTEROS WIRELESS N/AC) ---
-:do {{
-    /interface wireless security-profiles remove [find name=sec-wifi]
-    /interface wireless security-profiles add name=sec-wifi mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
-    /interface wireless set [find] ssid="{ssid}" security-profile=sec-wifi country="madagascar" disabled=no
-    :foreach w in=[/interface wireless find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
-}} on-error={{}};
+/interface wireless security-profiles remove [find name=sec-wifi]
+/interface wireless security-profiles add name=sec-wifi mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
+/interface wireless set [find] ssid="{ssid}" security-profile=sec-wifi country="madagascar" disabled=no
+:foreach w in=[/interface wireless find] do={{ :if ([:len [/interface bridge port find interface=$w]] = 0) do={{ /interface bridge port add bridge=bridge-lan interface=$w }} }}
 """
 
+    # --- 9. TUNNEL WIREGUARD VPN PRO AVEC ROUTAGE PAR TABLE PBR (Packs 20k, 30k, 50k) ---
     if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
         s += f"""
-# --- 9. TUNNEL WIREGUARD VPN (CLOUDFLARE WARP) ---
-/ip route remove [find comment="WARP-ENDPOINT-ROUTE"]
-/ip route add dst-address=162.159.192.0/24 gateway=ether1 distance=1 comment="WARP-ENDPOINT-ROUTE"
+# --- 9. TUNNEL WIREGUARD VPN AVEC ROUTAGE PBR SÉCURISÉ ---
+:if ([:len [/routing table find name=to-warp]] = 0) do={{ /routing table add name=to-warp fib }}
 /interface wireguard remove [find name=warp-vpn]
 /interface wireguard add name=warp-vpn listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
-/interface wireguard peers remove [find interface="warp-vpn"]
-/interface wireguard peers add interface=warp-vpn public-key="{cfg['warp_public']}" endpoint-address=162.159.192.1 endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
-/ip address remove [find interface="warp-vpn"]
+/interface wireguard peers remove [find interface=warp-vpn]
+/interface wireguard peers add interface=warp-vpn public-key="{cfg['warp_public']}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
+/ip address remove [find interface=warp-vpn]
 /ip address add address={cfg['warp_ip']}/32 interface=warp-vpn
-/interface list member remove [find interface=warp-vpn]
-/interface list member add interface=warp-vpn list=WAN
 /ip firewall nat remove [find comment="WARP-NAT"]
 /ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade comment="WARP-NAT"
-/ip route remove [find comment="VPN-DEFAULT-ROUTE"]
-/ip route add dst-address=0.0.0.0/0 gateway=warp-vpn distance=1 comment="VPN-DEFAULT-ROUTE"
+
+/ip route remove [find comment="VPN-PBR-ROUTE"]
+/ip route add dst-address=0.0.0.0/0 gateway=warp-vpn routing-table=to-warp comment="VPN-PBR-ROUTE"
+
+/ip firewall mangle remove [find comment="MARK-ROUTING-WARP"]
+/ip firewall mangle add chain=prerouting in-interface-list=LAN action=mark-routing new-routing-mark=to-warp passthrough=yes comment="MARK-ROUTING-WARP"
 """
 
+    # --- 10. SERVEUR HOTSPOT WI-FI ZONE PARFAITEMENT ALIGNÉ (Packs 30k, 50k) ---
     if plan in ["hotspot", "pro"]:
         s += f"""
-# --- 10. SERVEUR HOTSPOT WI-FI ZONE ---
-/ip pool remove [find name=hs-pool]
-/ip pool add name=hs-pool ranges=10.5.50.10-10.5.50.250
-/ip dhcp-server remove [find name=dhcp-hs]
-/ip dhcp-server add name=dhcp-hs interface=bridge-lan address-pool=hs-pool disabled=no
+# --- 10. SERVEUR HOTSPOT WI-FI ZONE SUR LE RESEAU LOCAL ---
 /ip hotspot profile remove [find name=hs-prof]
-/ip hotspot profile add name=hs-prof hotspot-address=10.5.50.1 dns-name={dns_name}
+/ip hotspot profile add name=hs-prof hotspot-address={router_ip} dns-name={dns_name}
 /ip hotspot user profile remove [find name=hs-user]
 /ip hotspot user profile add name=hs-user rate-limit="{bw_up}/{bw_down}"
 /ip hotspot remove [find name=hotspot-ketrika]
-/ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=hs-pool profile=hs-prof disabled=no
+/ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=dhcp-pool profile=hs-prof disabled=no
 """
 
+    # --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE (Pack 50k) ---
     if plan == "pro":
         s += f"""
 # --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE ---
@@ -610,278 +562,6 @@ def clean_script_for_oneliner(raw_script):
             continue
         lines.append(line)
     return " ".join(lines).replace('"', '\\"')
-
-@app.route("/")
-def home():
-    if session.get("authenticated"):
-        return redirect(url_for("dashboard"))
-    
-    conn = sqlite3.connect("ketrika.db")
-    c = conn.cursor()
-    c.execute("SELECT AVG(etoiles), COUNT(*) FROM avis")
-    avg_stat, total_avis = c.fetchone()
-    avg_note = round(avg_stat, 1) if avg_stat else 5.0
-    c.execute("SELECT nom, ville, etoiles, commentaire, date_avis FROM avis ORDER BY id DESC LIMIT 5")
-    liste_avis = c.fetchall()
-    conn.close()
-    
-    reviews_html = ""
-    for a in liste_avis:
-        reviews_html += f'<div class="review-card"><div class="review-header"><span class="review-name">{a[0]} <span class="review-city">({a[1] or "MG"})</span></span><span class="stars-gold">{"⭐" * a[2]}</span></div><div class="review-text">"{a[3]}"</div></div>'
-    
-    plans_html = ""
-    for k, v in TARIFS_MODULES.items():
-        checked = "checked" if k == "standard" else ""
-        selected_class = "selected" if k == "standard" else ""
-        badge_html = ""
-        if v.get("badge"):
-            bc = "badge-popular" if v["badge"] == "POPULAIRE" else ("badge-best" if v["badge"] == "MEILLEUR CHOIX" else "badge-pro")
-            badge_html = f'<div class="plan-badge {bc}">{v["badge"]}</div>'
-        plans_html += f"""
-        <label class="plan-option {selected_class}" id="opt_{k}" for="plan_{k}">
-            {badge_html}
-            <div class="plan-info">
-                <b>{v["nom"]}</b>
-                <div>{v["desc"]}</div>
-            </div>
-            <div class="plan-price">
-                <b>{v["prix"]:,} Ar</b>
-                <input type="radio" name="formule" id="plan_{k}" value="{k}" {checked} onchange="document.querySelectorAll('.plan-option').forEach(e=>e.classList.remove('selected')); document.getElementById('opt_{k}').classList.add('selected');">
-            </div>
-        </label>
-        """
-    
-    content = f"""
-    <!-- 🎛️ DASHBOARD DE PERFORMANCE VISUEL EN DIRECT -->
-    <div class="live-dashboard">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-            <span style="font-family:'Space Grotesk'; font-weight:800; font-size:12px; color:#38bdf8;">📊 ÉTAT DU PROTOCOLE KETRIKA</span>
-            <span class="badge" style="background:#0284c7; color:#fff;">EN LIGNE (300+ VILLES)</span>
-        </div>
-        <div class="dashboard-grid">
-            <div class="dash-item">
-                <div class="dash-label">LATENCE / PING</div>
-                <div class="dash-value green">&lt; 24 ms</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">CHIFFREMENT</div>
-                <div class="dash-value">ChaCha20</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">RÉSOLVEUR DNS</div>
-                <div class="dash-value">1.1.1.1 DoH</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">STABILITÉ</div>
-                <div class="dash-value green">99.9%</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🏆 BADGES DE CONFIANCE & CERTIFICATIONS -->
-    <div class="card">
-        <div class="trust-badges-grid">
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🛡️</span>
-                <div class="trust-badge-title">RouterOS v7 Certifié</div>
-                <div class="trust-badge-desc">Compatible tous modèles</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🔒</span>
-                <div class="trust-badge-title">Zéro Journalisation</div>
-                <div class="trust-badge-desc">Confidentialité totale</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">⚡</span>
-                <div class="trust-badge-title">Injection 5s</div>
-                <div class="trust-badge-desc">Sans redémarrage</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🇲🇬</span>
-                <div class="trust-badge-title">Support 7j/7</div>
-                <div class="trust-badge-desc">Assistance Madagascar</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- HERO CONVAINCANT -->
-    <div class="hero-card">
-        <h2>🚀 Pourquoi choisir KETRIKA ?</h2>
-        <p>Notre solution utilise les <b>meilleures technologies mondiales</b> pour offrir à votre réseau MikroTik une performance et une sécurité de niveau entreprise.</p>
-        <div class="features-detail">
-            <div class="feature-detail-box">
-                <span class="fd-icon">🔒</span>
-                <div class="fd-title">SÉCURITÉ MILITAIRE</div>
-                <div class="fd-desc">Chiffrement <b>ChaCha20-Poly1305</b> (WireGuard), le même utilisé par les banques et gouvernements. Vos données sont indéchiffrables.</div>
-            </div>
-            <div class="feature-detail-box">
-                <span class="fd-icon">⚡</span>
-                <div class="fd-title">TUNNEL ULTRA-RAPIDE</div>
-                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Votre débit reste maximal en toutes circonstances.</div>
-            </div>
-            <div class="feature-detail-box">
-                <span class="fd-icon">🌐</span>
-                <div class="fd-title">RÉSEAU CLOUDFLARE</div>
-                <div class="fd-desc">Serveurs présents dans <b>300+ villes mondiales</b>. DNS DoH sécurisé 1.1.1.1 : navigation privée garantie.</div>
-            </div>
-            <div class="feature-detail-box">
-                <span class="fd-icon">🛡️</span>
-                <div class="fd-title">CONFIDENTIALITÉ</div>
-                <div class="fd-desc">Protection de votre vie privée. Routage intelligent, filtrage du trafic P2P, gestion optimale des connexions.</div>
-            </div>
-            <div class="feature-detail-box">
-                <span class="fd-icon">📶</span>
-                <div class="fd-title">WI-FI OPTIMISÉ</div>
-                <div class="fd-desc">Configuration Dual Band <b>2.4G + 5G</b> automatique. Wi-Fi 6 supporté pour vitesses maximales.</div>
-            </div>
-            <div class="feature-detail-box">
-                <span class="fd-icon">🎯</span>
-                <div class="fd-title">CONFIG COMPLÈTE</div>
-                <div class="fd-desc">IP, DHCP, NAT, Firewall Pro, Wi-Fi, VPN : <b>tout configuré automatiquement</b>. Même après un reset total.</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- AVANTAGES CLÉS -->
-    <div class="card">
-        <div class="card-title">💎 AVANTAGES CLÉS</div>
-        <div class="advantages-grid">
-            <div class="adv-box"><span class="adv-icon">🔒</span><div class="adv-title">WireGuard</div><div class="adv-desc">ChaCha20</div></div>
-            <div class="adv-box"><span class="adv-icon">⚡</span><div class="adv-title">Vitesse Max</div><div class="adv-desc">Latence réduite</div></div>
-            <div class="adv-box"><span class="adv-icon">🌐</span><div class="adv-title">DNS Cloudflare</div><div class="adv-desc">DoH 1.1.1.1</div></div>
-            <div class="adv-box"><span class="adv-icon">📶</span><div class="adv-title">Config A à Z</div><div class="adv-desc">Après Reset</div></div>
-        </div>
-    </div>
-
-    <!-- COMMENT ÇA MARCHE -->
-    <div class="card">
-        <div class="card-title">🚀 COMMENT ÇA MARCHE ?</div>
-        <div class="steps-grid">
-            <div class="step-box"><div class="step-num">1</div><div class="step-title">Choisir le Pack</div><div class="step-desc">Sélectionnez la formule adaptée à vos besoins</div></div>
-            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money → Clé par SMS en 15 min max</div></div>
-            <div class="step-box"><div class="step-num">3</div><div class="step-title">Configurer</div><div class="step-desc">1 commande dans Winbox = Config complète</div></div>
-        </div>
-        <div style="text-align:center; margin-top:14px;">
-            <a href="/tuto" class="btn-primary btn-success" style="display:inline-block; width:auto; padding:10px 20px; font-size:12px;">📖 VOIR LE GUIDE D'INSTALLATION DÉTAILLÉ</a>
-        </div>
-    </div>
-
-    <!-- COMMANDER -->
-    <div class="card">
-        <div class="card-title">🛒 CHOISIR VOTRE FORMULE</div>
-        <div class="alert-warning">⚠️ <b>1 Clé = 1 Routeur uniquement.</b> Chaque clé configure intégralement un seul boîtier MikroTik.</div>
-        <form method="POST" action="/commander">
-            <div class="plan-selector">{plans_html}</div>
-            <div class="payment-banner">
-                <div class="payment-title">📱 PAIEMENT MOBILE MONEY</div>
-                <div class="payment-grid">
-                    <div class="payment-box">
-                        <div class="method">🟠 Orange Money</div>
-                        <div class="number">{NUMERO_ORANGE}</div>
-                        <div class="name">Au nom de : {NOM_COMPTE}</div>
-                    </div>
-                    <div class="payment-box">
-                        <div class="method">🟡 Mvola</div>
-                        <div class="number">{NUMERO_MVOLA}</div>
-                        <div class="name">Au nom de : {NOM_COMPTE}</div>
-                    </div>
-                </div>
-                <div class="payment-warning">
-                    ⏰ Clé non reçue après <b>15 minutes</b> ?<br>Appelez directement : <b>{NUMERO_MVOLA}</b>
-                </div>
-            </div>
-            <label>Nom complet :</label>
-            <input type="text" name="nom" placeholder="Rakoto Jean" required>
-            <label>Téléphone (Réception clé SMS) :</label>
-            <input type="tel" name="tel" placeholder="034 00 000 00" required>
-            <label>Référence de transaction :</label>
-            <input type="text" name="ref_paiement" placeholder="Code SMS de transaction" required>
-            <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
-        </form>
-    </div>
-
-    <!-- ACTIVER -->
-    <div class="card">
-        <div class="card-title">🔐 ACTIVATION AVEC VOTRE CLÉ</div>
-        <form method="POST" action="/login">
-            <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase; letter-spacing:1.5px;">
-            <button type="submit" class="btn-primary btn-success">DÉVERROUILLER LE GÉNÉRATEUR</button>
-        </form>
-    </div>
-
-    <!-- AVIS CLIENTS -->
-    <div class="card">
-        <div class="card-title">⭐ AVIS CLIENTS ({total_avis}) • Note : {avg_note}/5</div>
-        <div class="rating-summary">
-            <div class="rating-big">{avg_note}</div>
-            <div style="text-align:center;">
-                <div class="stars-gold" style="font-size:18px;">{"⭐" * int(round(avg_note))}</div>
-                <div style="font-size:11px; font-weight:700; margin-top:2px;">Avis Vérifiés</div>
-                <div style="color:var(--text-muted); font-size:10px;">Basé sur {total_avis} retours</div>
-            </div>
-        </div>
-        <div>{reviews_html}</div>
-        <hr>
-        <div style="font-size:11px; font-weight:700; color:var(--accent-cyan); text-align:center; margin-bottom:6px;">✍️ LAISSEZ VOTRE AVIS</div>
-        <form method="POST" action="/ajouter-avis">
-            <div class="rating-input">
-                <input type="radio" id="s5" name="etoiles" value="5" checked><label for="s5">★</label>
-                <input type="radio" id="s4" name="etoiles" value="4"><label for="s4">★</label>
-                <input type="radio" id="s3" name="etoiles" value="3"><label for="s3">★</label>
-                <input type="radio" id="s2" name="etoiles" value="2"><label for="s2">★</label>
-                <input type="radio" id="s1" name="etoiles" value="1"><label for="s1">★</label>
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                <input type="text" name="nom" placeholder="Votre Nom" required>
-                <input type="text" name="ville" placeholder="Votre Ville" required>
-            </div>
-            <textarea name="commentaire" placeholder="Partagez votre expérience..." rows="2" required style="margin-top:4px;"></textarea>
-            <button type="submit" class="btn-primary" style="padding:10px; font-size:11px;">⭐ PUBLIER MON AVIS</button>
-        </form>
-    </div>
-
-    <!-- FAQ -->
-    <div class="card">
-        <div class="card-title">❓ QUESTIONS FRÉQUENTES</div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Est-ce que la configuration affecte mon débit Internet ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Non, au contraire !</b> Notre optimisation améliore votre débit. WireGuard consomme moins de <b>2% de bande passante</b>. Votre vitesse reste maximale grâce à l'optimisation TTL, DNS et au routage intelligent.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Le tunnel VPN a-t-il un abonnement mensuel ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Non, 100% gratuit à vie !</b> Cloudflare WARP est entièrement gratuit. Vous payez uniquement notre configuration une seule fois. Le VPN fonctionne pour toujours sans frais mensuel.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Configuration complète même après un RESET TOTAL ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Oui, absolument à 100% !</b> Notre script recrée tout de A à Z : Bridge, DHCP, NAT, IP, Wi-Fi avec mot de passe, Firewall Pro, Optimisation Réseau, VPN. Même sur un routeur vide et réinitialisé.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Puis-je choisir mon adresse IP ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-cyan);">Oui !</b> Dans le générateur, vous pouvez taper <b>n'importe quelle IP</b> (192.168.88.1, 10.0.0.1, 172.16.1.1...) ou cliquer sur une suggestion. Le DHCP et le sous-réseau s'adaptent automatiquement.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>1 clé = combien de routeurs ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-red);">1 clé = 1 seul routeur.</b> Après génération, la clé est définitivement consommée et verrouillée. Pour configurer un autre routeur, il faut acheter une nouvelle clé.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Combien de temps prend l'installation ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Moins de <b>5 secondes chrono</b> ! Une seule commande à coller dans Winbox Terminal et tout s'applique automatiquement.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Quels modèles MikroTik sont compatibles ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Compatible avec <b>tous les modèles RouterOS v7</b> : hAP ax2/ax3, hAP ac2/ac3, RB750/760/2011/3011/4011/1100, CCR1009/2004/2116, mANTBox, LHG, SXTsq, Chateau LTE/5G. Le script s'adapte à chaque modèle.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Comment payer et recevoir ma clé ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Paiement Mobile Money au nom de <b>{NOM_COMPTE}</b> :<br>🟠 Orange Money : <b>{NUMERO_ORANGE}</b><br>🟡 Mvola : <b>{NUMERO_MVOLA}</b><br>Votre clé est envoyée par SMS après validation (max 15 min).</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Que faire si ma clé n'arrive pas après 15 min ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>{NUMERO_MVOLA}</b> ({NOM_COMPTE})<br>2. Écrivez-nous sur notre page <a href="{FB_LINK}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
-        </div>
-    </div>
-    """
-    return render(content)
 
 @app.route("/tuto")
 def tuto():
@@ -926,7 +606,7 @@ def tuto():
                     </div>
                 </div>
                 <div style="font-size:11px; color:#a7f3d0; margin-top:8px;">
-                    📶 Le <b>Wi-Fi Dual Band 2.4G & 5G</b> diffuse automatiquement dès l'injection du script !
+                    📶 Le <b>Wi-Fi Dual Band 2.4G &amp; 5G</b> diffuse automatiquement dès l'injection du script !
                 </div>
             </div>
         </div>
@@ -1177,9 +857,9 @@ def generate():
     <div class="card">
         <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
         <div class="alert-warning">
-            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | Ordinateur sur les <b>autres ports</b>.<br>
-            📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
-            🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
+            📍 <b>Branchement Physique :</b> WAN sur <b>Port 1</b> | PC sur <b>autres ports</b><br>
+            📶 Wi-Fi: <b>{ssid}</b> | 🔑 Mot de passe: <b>{wifi_pass}</b> | 🌐 IP: <b>{router_ip}</b><br>
+            🔒 <i>Clé définitivement consommée.</i>
         </div>
 
         <!-- METHODE 1 : ONE-LINER -->
