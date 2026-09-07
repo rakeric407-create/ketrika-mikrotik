@@ -16,12 +16,56 @@ NUMERO_MVOLA = "038 28 171 00"
 NUMERO_ORANGE = "037 39 755 72"
 NOM_COMPTE = "Jean Eric"
 
-def init_extra_tables():
+def init_all_tables():
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS commandes (id INTEGER PRIMARY KEY AUTOINCREMENT, client_nom TEXT, telephone TEXT, formule TEXT, montant REAL, reference_paiement TEXT, statut TEXT DEFAULT 'EN_ATTENTE', cle_generee TEXT, date_commande TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS avis (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, ville TEXT, etoiles INTEGER NOT NULL, commentaire TEXT NOT NULL, date_avis TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS licences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cle TEXT UNIQUE NOT NULL,
+            client_nom TEXT NOT NULL,
+            client_telephone TEXT,
+            type_abonnement TEXT,
+            date_creation TEXT,
+            date_expiration TEXT,
+            actif INTEGER DEFAULT 1,
+            nb_utilisations INTEGER DEFAULT 0,
+            prix_paye REAL DEFAULT 0
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS configurations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cle_licence TEXT,
+            client_final TEXT,
+            modele_mikrotik TEXT,
+            type_config TEXT,
+            options_json TEXT,
+            warp_private_key TEXT,
+            warp_public_key TEXT,
+            warp_client_ip TEXT,
+            date_creation TEXT,
+            config_id TEXT UNIQUE
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS commandes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_nom TEXT, telephone TEXT, formule TEXT, montant REAL,
+            reference_paiement TEXT, statut TEXT DEFAULT 'EN_ATTENTE',
+            cle_generee TEXT, date_commande TEXT
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS avis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT NOT NULL, ville TEXT,
+            etoiles INTEGER NOT NULL, commentaire TEXT NOT NULL,
+            date_avis TEXT
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password_hash TEXT
+        )''')
+        import hashlib
+        admin_pass = hashlib.sha256("ketrika2025".encode()).hexdigest()
+        c.execute("INSERT OR IGNORE INTO admins (username, password_hash) VALUES (?, ?)", ("admin", admin_pass))
+
         c.execute("SELECT COUNT(*) FROM avis")
         if c.fetchone()[0] < 3:
             avis_initiaux = [
@@ -31,19 +75,23 @@ def init_extra_tables():
                 ("Toky N.", "Diego Suarez", 5, "Excellente qualité de service. Support WhatsApp très réactif.", "2026-02-02")
             ]
             c.executemany("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", avis_initiaux)
-        test_keys = [("KTR-BASIC-10K", "Test Basic", "0382817100", "basic", 10000),("KTR-STANDARD-15K", "Test Standard", "0382817100", "standard", 15000),("KTR-WARP-20K", "Test Warp", "0382817100", "warp", 20000),("KTR-HOTSPOT-30K", "Test Hotspot", "0382817100", "hotspot", 30000),("KTR-PRO-50K", "Test Pro", "0382817100", "pro", 50000)]
+
+        test_keys = [
+            ("KTR-BASIC-10K", "Test Basic", "0382817100", "basic", 10000),
+            ("KTR-STANDARD-15K", "Test Standard", "0382817100", "standard", 15000),
+            ("KTR-WARP-20K", "Test Warp", "0382817100", "warp", 20000),
+            ("KTR-HOTSPOT-30K", "Test Hotspot", "0382817100", "hotspot", 30000),
+            ("KTR-PRO-50K", "Test Pro", "0382817100", "pro", 50000)
+        ]
         for k in test_keys:
-            c.execute("INSERT OR IGNORE INTO licences (cle, client_nom, client_telephone, type_abonnement, date_creation, date_expiration, actif, nb_utilisations, prix_paye) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)", (k[0], k[1], k[2], k[3], datetime.now().isoformat(), "2027-01-01", k[4]))
+            c.execute("INSERT OR IGNORE INTO licences (cle, client_nom, client_telephone, type_abonnement, date_creation, date_expiration, actif, nb_utilisations, prix_paye) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)",
+                      (k[0], k[1], k[2], k[3], datetime.now().isoformat(), "2027-01-01", k[4]))
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Erreur DB Init: {e}")
+        print(f"Erreur init: {e}")
 
-try:
-    init_db()
-    init_extra_tables()
-except Exception as e:
-    print(f"Erreur Init: {e}")
+init_all_tables()
 
 TARIFS_MODULES = {
     "basic": {"nom": "🛡️ Basic", "prix": 10000, "desc": "Config complète A à Z + Wi-Fi + Optimisation", "badge": ""},
@@ -53,7 +101,14 @@ TARIFS_MODULES = {
     "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Solution intégrale + PPPoE + QoS avancé", "badge": "PRO"}
 }
 
-MODELES_MIKROTIK = ["hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)", "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)", "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)", "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)", "CCR1009", "CCR2004", "CCR2116", "Chateau LTE/5G", "Autre RouterOS v7"]
+MODELES_MIKROTIK = [
+    "hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)",
+    "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)",
+    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)",
+    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
+    "CCR1009", "CCR2004", "CCR2116",
+    "Chateau LTE/5G", "Autre RouterOS v7"
+]
 
 BANDWIDTH_PROFILES = {
     "illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit sans restriction"},
@@ -247,18 +302,6 @@ HTML_BASE = """
         .badge-best { background: #db2777; }
         .badge-pro { background: #059669; }
 
-        .bw-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
-        @media (min-width: 500px) { .bw-grid { grid-template-columns: 1fr 1fr; } }
-        .bw-card {
-            background: #ffffff; border: 2px solid var(--border-light);
-            padding: 10px 12px; border-radius: 10px; cursor: pointer;
-            display: flex; align-items: center; gap: 10px; transition: 0.2s;
-        }
-        .bw-card:hover, .bw-card.active { border-color: var(--accent-purple); background: #faf5ff; }
-        .bw-card input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent-purple); flex-shrink: 0; cursor: pointer; margin: 0; }
-        .bw-card-text b { font-size: 12px; color: var(--text-dark); display: block; }
-        .bw-card-text span { font-size: 10px; color: var(--text-muted); }
-
         .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center; }
         .payment-title { color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; }
         .payment-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
@@ -290,6 +333,7 @@ HTML_BASE = """
         .faq-question { font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
         .faq-answer { color: var(--text-body); font-size: 11px; line-height: 1.6; margin-top: 6px; display: none; background: #f8fafc; padding: 8px 10px; border-radius: 6px; }
         .faq-item.active .faq-answer { display: block; }
+        .faq-toggle { color: var(--accent-cyan); font-size: 14px; flex-shrink: 0; }
 
         .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }
         .wifi-box { background: #f0f9ff; border: 1px dashed #7dd3fc; padding: 12px; border-radius: 10px; margin-top: 8px; }
@@ -521,6 +565,8 @@ def build_raw_script(cfg):
 /interface wireguard peers add interface=warp-vpn public-key="{cfg['warp_public']}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
 /ip address remove [find interface=warp-vpn]
 /ip address add address={cfg['warp_ip']}/32 interface=warp-vpn
+/interface list member remove [find interface=warp-vpn]
+/interface list member add interface=warp-vpn list=WAN
 /ip firewall nat remove [find comment="WARP-NAT"]
 /ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade comment="WARP-NAT"
 
@@ -628,7 +674,7 @@ def home():
             <div class="feature-detail-box">
                 <span class="fd-icon">⚡</span>
                 <div class="fd-title">TUNNEL ULTRA-RAPIDE</div>
-                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Votre débit reste maximal en toutes circonstances.</div>
+                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Votre débit reste maximal en toutes circumstances.</div>
             </div>
             <div class="feature-detail-box">
                 <span class="fd-icon">🌐</span>
@@ -797,6 +843,7 @@ def tuto():
             Suivez ce guide simple avec schémas visuels pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
         </p>
 
+        <!-- ETAPE 1 : BRANCHEMENT VISUEL -->
         <div class="step-guide" style="margin-top:15px;">
             <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT DES CÂBLES RÉSEAU</div>
             <ol>
@@ -835,6 +882,7 @@ def tuto():
             </div>
         </div>
 
+        <!-- ETAPE 2 : WINBOX VISUEL -->
         <div class="step-guide" style="margin-top:15px;">
             <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX ET SE CONNECTER EN MAC</div>
             <ol>
@@ -859,6 +907,7 @@ def tuto():
             </div>
         </div>
 
+        <!-- ETAPE 3 : TERMINAL VISUEL -->
         <div class="step-guide" style="margin-top:15px;">
             <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE ET VALIDER</div>
             <ol>
@@ -897,7 +946,7 @@ def ajouter_avis():
             etoiles = 5
         commentaire = request.form.get("commentaire", "").strip()
         if nom and commentaire:
-            conn = sqlite3.connect("ketrika.db")
+            conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
             conn.commit()
@@ -913,7 +962,7 @@ def commander():
         ref = request.form.get("ref_paiement", "").strip()
         montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
         if nom and tel and ref:
-            conn = sqlite3.connect("ketrika.db")
+            conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
             conn.commit()
@@ -1092,7 +1141,6 @@ def generate():
             🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
 
-        <!-- METHODE 1 : ONE-LINER -->
         <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE &amp; ULTRA-RAPIDE)</div>
         <div class="step-guide">
             <b>📖 Mode d'emploi pas-à-pas :</b>
@@ -1108,7 +1156,6 @@ def generate():
 
         <hr>
 
-        <!-- METHODE 2 : FICHIER .RSC ET TEXTE BRUT -->
         <div class="card-title">MÉTHODE 2 : FICHIER SCRIPT (.RSC) OU CODE BRUT COMPLET</div>
         <div class="step-guide">
             <b>📖 Mode d'emploi pas-à-pas :</b>
@@ -1126,7 +1173,6 @@ def generate():
 
         <hr>
 
-        <!-- METHODE 3 : IMPORTATION DIRECTE CLOUD -->
         <div class="card-title">MÉTHODE 3 : IMPORTATION DIRECTE (SI ROUTEUR DÉJÀ CONNECTÉ AU WEB)</div>
         <div class="step-guide">
             <b>📖 Mode d'emploi :</b> Si le port 1 de votre routeur a déjà accès à Internet, collez simplement cette commande dans le terminal Winbox :
@@ -1139,8 +1185,7 @@ def generate():
     """
     return render(content)
 
-# FICHIERS SCRIPT DE CONFIGURATION (RSC ET FETCH)
-@app.route("/config/<path:config_id>")
+@app.route("/config/<path:config_id>", methods=["GET"])
 def get_config(config_id):
     cid = config_id.replace('.rsc', '').strip()
     cfg = get_config_by_id(cid)
@@ -1148,7 +1193,7 @@ def get_config(config_id):
         return Response("# Invalide ou introuvable", mimetype="text/plain")
     return Response(build_raw_script(cfg), mimetype="text/plain")
 
-@app.route("/download/<path:config_id>")
+@app.route("/download/<path:config_id>", methods=["GET"])
 def download_config(config_id):
     cid = config_id.replace('.rsc', '').strip()
     cfg = get_config_by_id(cid)
@@ -1159,7 +1204,6 @@ def download_config(config_id):
     mem.seek(0)
     return send_file(mem, mimetype="text/plain", as_attachment=True, download_name="ketrika.rsc")
 
-# ROUTE ADMIN
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if request.method == "POST":
@@ -1203,7 +1247,7 @@ def admin_creer():
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
-# GESTIONNAIRE 404 & 500 REDIRECTION SILENCIEUSE
+# GESTIONNAIRES D'ERREURS : TOUTES LES ERREURS REDIRIGENT EN DOUCEUR VERS L'ACCUEIL
 @app.errorhandler(404)
 def handle_404(e):
     return redirect(url_for("home"))
