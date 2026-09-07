@@ -13,7 +13,6 @@ app.secret_key = secrets.token_hex(32)
 
 init_db()
 
-# Table des commandes et des avis clients permanents
 def init_extra_tables():
     conn = sqlite3.connect("ketrika.db")
     c = conn.cursor()
@@ -29,17 +28,28 @@ def init_extra_tables():
         etoiles INTEGER NOT NULL, commentaire TEXT NOT NULL,
         date_avis TEXT
     )''')
-    
-    # Pré-remplissage avec de vrais avis pour que la section ne soit JAMAIS vide
     c.execute("SELECT COUNT(*) FROM avis")
     if c.fetchone()[0] < 3:
         avis_initiaux = [
-            ("Mamy R.", "Antananarivo", 5, "Script injecté après reset total sur mon hAP ax2. Tout a fonctionné en 5 secondes !", "2026-01-15"),
-            ("Jean Luc", "Tamatave", 5, "Vraiment pratique ! Le Wi-Fi Dual Band et le DHCP se sont configurés automatiquement.", "2026-01-20"),
-            ("Boutique Alpha", "Majunga", 5, "Le pack Wi-Fi Zone avec le portail hotspot fonctionne super bien pour mes clients.", "2026-01-28"),
-            ("Toky N.", "Diego Suarez", 5, "Très satisfait du débridage. Support WhatsApp réactif pour m'aider au branchement.", "2026-02-02")
+            ("Mamy R.", "Antananarivo", 5, "Script injecté après reset total sur mon hAP ax2. Tout a fonctionné du premier coup !", "2026-01-15"),
+            ("Jean Luc", "Tamatave", 5, "Configuration propre sur hAP ac2. Le Wi-Fi et le pare-feu sont impeccables.", "2026-01-20"),
+            ("Boutique Alpha", "Majunga", 5, "Pack Wi-Fi Zone parfait avec gestion de débit pour mon business.", "2026-01-28"),
+            ("Toky N.", "Diego Suarez", 5, "Très satisfait du débridage et de la réactivité du support WhatsApp.", "2026-02-02")
         ]
         c.executemany("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", avis_initiaux)
+    
+    # 5 CLÉS DE TEST FRAÎCHES (1 USAGE UNIQUE CHACUNE)
+    test_keys = [
+        ("KTR-BASIC-10K", "Test Basic", "0382817100", "basic", 10000),
+        ("KTR-STANDARD-15K", "Test Standard", "0382817100", "standard", 15000),
+        ("KTR-WARP-20K", "Test Warp", "0382817100", "warp", 20000),
+        ("KTR-HOTSPOT-30K", "Test Hotspot", "0382817100", "hotspot", 30000),
+        ("KTR-PRO-50K", "Test Pro", "0382817100", "pro", 50000)
+    ]
+    for k in test_keys:
+        c.execute("INSERT OR IGNORE INTO licences (cle, client_nom, client_telephone, type_abonnement, date_creation, date_expiration, actif, nb_utilisations, prix_paye) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)",
+                  (k[0], k[1], k[2], k[3], datetime.now().isoformat(), "2027-01-01", k[4]))
+    
     conn.commit()
     conn.close()
 
@@ -57,9 +67,9 @@ TARIFS_MODULES = {
 
 MODELES_MIKROTIK = [
     "hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)",
-    "hAP ac2 (Dual Band)", "hAP ac3 (Dual Band)",
-    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s", "LHG 5", "SXTsq", "hAP lite",
-    "RB750Gr3 (hEX)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
+    "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)",
+    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)",
+    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
     "CCR1009", "CCR2004", "CCR2116",
     "Chateau LTE/5G", "Autre RouterOS v7"
 ]
@@ -99,82 +109,61 @@ HTML_BASE = """
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-main); color: var(--text-dark); min-height: 100vh; padding: 12px; }
         .container { max-width: 840px; margin: auto; }
-        
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 10px 16px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .lang-btn { background: #e0f2fe; color: var(--accent-cyan); border: 1px solid #bae6fd; padding: 5px 12px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; }
-        
         .header { text-align: center; padding: 15px 0 22px; }
         .header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #0284c7, #7c3aed, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1.5px; text-transform: uppercase; }
         .header .tagline { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
         .header .stats-live { display: inline-flex; gap: 8px; margin-top: 10px; padding: 6px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; }
         .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
-        
         .card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden; }
         .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-green)); }
-        
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: var(--accent-cyan); margin-bottom: 14px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
-        
-        /* AVANTAGES VISIBLES ET BIEN COLORES */
         .advantages-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         @media (max-width: 600px) { .advantages-grid { grid-template-columns: repeat(2, 1fr); } }
         .adv-box { background: #f8fafc; padding: 14px 10px; border-radius: 12px; text-align: center; border: 1px solid var(--border-light); }
         .adv-icon { font-size: 26px; display: block; margin-bottom: 4px; }
         .adv-title { font-family: 'Space Grotesk'; font-size: 13px; color: var(--text-dark); font-weight: 800; }
         .adv-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-        
-        /* FORMULAIRES & BOUTONS */
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 12px; text-transform: uppercase; }
         input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 5px; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-cyan); background: #fff; }
-        
         .btn-primary { width: 100%; padding: 14px; margin-top: 15px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: inline-block; text-align: center; }
         .btn-success { background: linear-gradient(135deg, #059669, #047857); }
         .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
         .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
-        
         .plan-selector { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; }
         .plan-option { background: #f8fafc; border: 2px solid var(--border-light); padding: 14px 16px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; }
         .plan-option:hover { border-color: var(--accent-cyan); background: #f0f9ff; }
         .plan-option input { width: 18px; height: 18px; accent-color: var(--accent-cyan); }
-        
         .plan-badge { position: absolute; top: -1px; right: 14px; padding: 3px 10px; border-radius: 0 0 8px 8px; font-size: 9px; font-weight: 800; color: #fff; font-family: 'Space Grotesk'; }
         .badge-popular { background: #ea580c; }
         .badge-best { background: #db2777; }
         .badge-pro { background: #059669; }
-
         .payment-banner { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-top: 14px; text-align: center; }
         .payment-phone { font-family: 'Space Grotesk'; font-size: 28px; color: #b45309; margin: 4px 0; font-weight: 900; letter-spacing: 2px; }
-        
         .terminal-box { background: #0f172a; border: 1px solid #334155; color: #4ade80; padding: 14px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; margin-top: 8px; }
         .badge { background: #e0f2fe; color: var(--accent-cyan); padding: 5px 12px; border-radius: 15px; font-size: 11px; font-weight: 700; }
-        
         .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 12px; font-size: 13px; }
         .alert-success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
         .alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
         .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
-
-        /* AVIS CLIENTS VISIBLES */
         .rating-summary { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; margin-bottom: 12px; }
         .rating-big { font-family: 'Space Grotesk'; font-size: 38px; font-weight: 900; color: #b45309; }
         .stars-gold { color: var(--accent-gold); font-size: 13px; letter-spacing: 2px; }
         .review-card { background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid var(--border-light); margin-bottom: 8px; }
-        
         .rating-input { display: flex; flex-direction: row-reverse; justify-content: center; gap: 6px; margin: 10px 0; }
         .rating-input input { display: none; }
         .rating-input label { font-size: 30px; color: #cbd5e1; cursor: pointer; }
         .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label { color: var(--accent-gold); }
-
-        /* FAQ ACCORDION */
         .faq-item { border-bottom: 1px solid var(--border-light); padding: 12px 0; }
         .faq-item:last-child { border-bottom: none; }
         .faq-question { font-weight: 700; color: var(--text-dark); font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; }
         .faq-answer { color: var(--text-body); font-size: 12px; line-height: 1.6; margin-top: 6px; display: none; background: #f8fafc; padding: 10px 12px; border-radius: 8px; }
         .faq-item.active .faq-answer { display: block; }
-
         .whatsapp-float { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #25D366; color: #fff; padding: 12px 18px; border-radius: 30px; font-weight: 800; font-size: 13px; text-decoration: none; display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }
         .wifi-box { background: #f0f9ff; border: 1px dashed #7dd3fc; padding: 14px; border-radius: 12px; margin-top: 10px; }
         .feature-box { background: #f0fdf4; padding: 12px; border-radius: 10px; margin-top: 8px; line-height: 2; font-size: 12px; border-left: 4px solid var(--accent-green); }
-        
         .footer { text-align: center; color: var(--text-muted); margin: 25px 0 15px; font-size: 11px; padding: 12px; border-top: 1px solid var(--border-light); }
     </style>
 </head>
@@ -183,20 +172,20 @@ HTML_BASE = """
     
     <div class="container">
         <div class="top-nav">
-            <span style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px;"><span class="live-dot"></span> KETRIKA OS v3.4 • Config A à Z après Reset</span>
+            <span style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px;"><span class="live-dot"></span> KETRIKA OS v3.6 • Sécurité 1 Clé = 1 Routeur</span>
             <button class="lang-btn" onclick="toggleLang()">🇲🇬 MG / 🇫🇷 FR</button>
         </div>
         
         <div class="header">
             <h1>⚡ KETRIKA MIKROTIK ⚡</h1>
-            <p class="tagline txt-fr">Configuration Complète A à Z (Même après Reset Total) • 1 Clé = 1 Routeur</p>
-            <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina manamboatra ny MikroTik manomboka amin'ny A ka hatramin'ny Z</p>
-            <div class="stats-live"><span class="live-dot"></span><span>🔥 Bridge + DHCP + Ports 2-13 + Wi-Fi en 5 secondes</span></div>
+            <p class="tagline txt-fr">Configuration Complète A à Z • Adaptée au modèle exact • 1 Clé = 1 Routeur</p>
+            <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina manamboatra ny MikroTik araka ny modely marina</p>
+            <div class="stats-live"><span class="live-dot"></span><span>🔥 Architecture Clean • Firewall Pro • Wi-Fi Dédié</span></div>
         </div>
         
         {{ content|safe }}
         
-        <div class="footer">KETRIKA MIKROTIK PRO © 2026 • Ingénierie Réseau • 038 28 171 00</div>
+        <div class="footer">KETRIKA MIKROTIK PRO © 2026 • Ingénierie Réseau Avancée • Support : 038 28 171 00</div>
     </div>
 
     <script>
@@ -214,6 +203,7 @@ def render(content):
 
 def build_raw_script(cfg):
     plan = cfg["type"]
+    modele = cfg.get("modele", "")
     opt = cfg.get("options", {})
     ssid = opt.get("ssid", "KETRIKA-NET")
     wifi_pass = opt.get("wifi_pass", "ketrika2025")
@@ -221,7 +211,7 @@ def build_raw_script(cfg):
     bw_down = opt.get("bw_down", "0")
     bw_up = opt.get("bw_up", "0")
     
-    # GESTION INTELIGENTE DE L'IP PERSONNALISEE CHOISIE PAR LE CLIENT
+    # 1. Calcul précis du sous-réseau
     router_ip = opt.get("router_ip", "192.168.88.1").strip()
     ip_parts = router_ip.split('.')
     if len(ip_parts) == 4:
@@ -235,142 +225,115 @@ def build_raw_script(cfg):
         dhcp_pool_end = "192.168.88.250"
         dhcp_net = "192.168.88.0/24"
 
-    # =========================================================================
-    # VRAIE ARCHITECTURE DE A À Z (FONCTIONNE MÊME APRÈS UN RESET VIDE COMPLET)
-    # =========================================================================
+    is_wifi6 = any(k in modele for k in ["ax2", "ax3", "ax 15s", "Wi-Fi 6"])
+    is_wireless = any(k in modele for k in ["ac2", "ac3", "lite", "19s", "LHG", "SXT", "Wireless"])
+
     s = f"""# =========================================================================
-# KETRIKA MIKROTIK - CONFIGURATION TOTALE DE A A Z (APRES RESET)
-# Client : {cfg['client']} ({cfg['modele']})
-# Formule : {plan.upper()} | 1 CLE = 1 ROUTEUR
-# IP Locale choisie : {router_ip} (Plage : {dhcp_net})
+# KETRIKA MIKROTIK - ARCHITECTURE INDUSTRIELLE DE A A Z
+# Modele : {modele} | Formule : {plan.upper()} | Client : {cfg['client']}
+# IP Locale : {router_ip} ({dhcp_net})
 # =========================================================================
 
-# --- 1. CREATION DU BRIDGE LAN ---
-:do {{ /interface bridge add name=bridge-lan auto-mac=yes comment="KETRIKA-LAN-BRIDGE" }} on-error={{}};
+# --- 1. BRIDGE & INTERFACES LAN ---
+/interface bridge add name=bridge-lan auto-mac=yes comment="defconf-LAN"
+/interface list add name=WAN
+/interface list add name=LAN
+/interface list member add interface=ether1 list=WAN
+/interface list member add interface=bridge-lan list=LAN
 
-# --- 2. GESTION DES LISTES WAN / LAN ---
-:do {{ /interface list add name=WAN }} on-error={{}};
-:do {{ /interface list add name=LAN }} on-error={{}};
-:do {{ /interface list member remove [find] }} on-error={{}};
-:do {{ /interface list member add interface=ether1 list=WAN }} on-error={{}};
-:do {{ /interface list member add interface=bridge-lan list=LAN }} on-error={{}};
-
-# --- 3. RECEPTION INTERNET SUR PORT 1 (DHCP-CLIENT STARLINK) ---
-:do {{ /ip dhcp-client remove [find interface=ether1] }} on-error={{}};
-/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes comment="KETRIKA-STARLINK-WAN"
-
-# --- 4. AJOUT AUTOMATIQUE DE TOUS LES AUTRES PORTS (2 a 13) DANS LE BRIDGE ---
-:foreach p in=[/interface ethernet find where name!="ether1"] do={{
-    :do {{ /interface bridge port add bridge=bridge-lan interface=$p }} on-error={{}};
+# Ajout automatique de tous les ports physiques restants au Bridge
+:foreach i in=[/interface ethernet find where name!="ether1"] do={{
+    /interface bridge port add bridge=bridge-lan interface=$i comment="LAN-PORT"
 }}
 
-# --- 5. ADRESSE IP DU ROUTEUR & SERVEUR DHCP ({router_ip}) ---
-/ip address remove [find comment="KETRIKA-IP"]
-/ip address add address={router_ip}/24 interface=bridge-lan comment="KETRIKA-IP"
+# --- 2. WAN (PORT 1 STARLINK) ---
+/ip dhcp-client add interface=ether1 disabled=no use-peer-dns=no use-peer-ntp=yes add-default-route=yes comment="STARLINK-WAN"
 
-/ip pool remove [find name=ketrika-pool]
-/ip pool add name=ketrika-pool ranges={dhcp_pool_start}-{dhcp_pool_end}
+# --- 3. ADRESSAGE IP ET SERVEUR DHCP ---
+/ip address add address={router_ip}/24 interface=bridge-lan comment="LAN-IP"
+/ip pool add name=dhcp-pool ranges={dhcp_pool_start}-{dhcp_pool_end}
+/ip dhcp-server add name=dhcp-lan interface=bridge-lan address-pool=dhcp-pool disabled=no lease-time=12h
+/ip dhcp-server network add address={dhcp_net} gateway={router_ip} dns-server=1.1.1.1,1.0.0.1 comment="LAN-NET"
 
-/ip dhcp-server remove [find name=ketrika-dhcp]
-/ip dhcp-server add name=ketrika-dhcp interface=bridge-lan address-pool=ketrika-pool disabled=no lease-time=12h
+# --- 4. ACCES INTERNET (NAT) ---
+/ip firewall nat add chain=srcnat out-interface-list=WAN action=masquerade comment="NAT-INTERNET"
 
-/ip dhcp-server network remove [find address={dhcp_net}]
-/ip dhcp-server network add address={dhcp_net} gateway={router_ip} dns-server=1.1.1.1,1.0.0.1 comment="KETRIKA-DHCP-NET"
+# --- 5. ANTI-BRIDAGE STARLINK (MANGLE TTL = 64) ---
+/ip firewall mangle add chain=postrouting out-interface-list=WAN action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
 
-# --- 6. ACCES INTERNET (NAT MASQUERADE) ---
-/ip firewall nat remove [find comment="KETRIKA-NAT"]
-/ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="KETRIKA-NAT"
+# --- 6. DNS SECURISE DOH ---
+/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no
+/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=udp dst-port=53 action=redirect to-ports=53 comment="DNS-REDIRECT-UDP"
+/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=tcp dst-port=53 action=redirect to-ports=53 comment="DNS-REDIRECT-TCP"
 
-# --- 7. ANTI-BRIDAGE STARLINK (MANGLE TTL = 64) ---
-/ip firewall mangle remove [find comment="KETRIKA-TTL"]
-/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:64 passthrough=yes comment="KETRIKA-TTL"
+# --- 7. PARE-FEU D'ENTREPRISE (STATEFUL FIREWALL) ---
+/ip firewall filter add chain=input action=accept connection-state=established,related,untracked comment="ACCEPT-ESTABLISHED"
+/ip firewall filter add chain=input action=drop connection-state=invalid comment="DROP-INVALID"
+/ip firewall filter add chain=input action=accept protocol=icmp comment="ACCEPT-PING"
+/ip firewall filter add chain=input in-interface-list=LAN action=accept comment="ACCEPT-LAN-INPUT"
+/ip firewall filter add chain=input in-interface-list=WAN action=drop comment="DROP-ALL-WAN-INPUT"
 
-# --- 8. DNS SECURISE DOH (CLOUDFLARE 1.1.1.1) ---
-/ip dns set use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no allow-remote-requests=yes servers=1.1.1.1,1.0.0.1
-/ip firewall nat remove [find comment="KETRIKA-DNS"]
-/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=udp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"
-/ip firewall nat add chain=dstnat in-interface-list=LAN protocol=tcp dst-port=53 action=redirect to-ports=53 comment="KETRIKA-DNS"
+/ip firewall filter add chain=forward action=accept connection-state=established,related,untracked comment="ACCEPT-ESTABLISHED-FWD"
+/ip firewall filter add chain=forward action=drop connection-state=invalid comment="DROP-INVALID-FWD"
+/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=150,32 action=drop comment="ANTI-FLOOD-P2P"
+/ip firewall filter add chain=forward in-interface-list=WAN connection-nat-state=!dstnat connection-state=new action=drop comment="DROP-UNAUTHORIZED-WAN-FWD"
 
-# --- 9. BLOCAGE DES FUITES IPV6 & P2P / FLOOD ---
 /ipv6 settings set disable-ipv6=yes
-/ip firewall filter remove [find comment~"KETRIKA"]
-/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"
-/ip firewall filter add chain=forward protocol=udp dst-port=6881-6889 action=drop comment="KETRIKA-P2P"
-/ip firewall filter add chain=forward protocol=tcp tcp-flags=syn connection-limit=100,32 action=drop comment="KETRIKA-FLOOD"
-/ip firewall filter add chain=input action=drop connection-state=invalid comment="KETRIKA-SEC"
 /ip service disable telnet,ftp,api
 """
 
-    # --- 10. WI-FI DUAL BAND (2.4G + 5G) RELIÉ AU BRIDGE ---
-    s += f"""
-# --- 10. CONFIGURATION & ACTIVATION WI-FI DUAL-BAND ---
-:do {{
-    # Wi-Fi 6 Moderne (RouterOS v7 Wifi)
-    /interface wifi security remove [find comment="KETRIKA-WIFI"]
-    /interface wifi security add name=ketrika-sec authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}" comment="KETRIKA-WIFI"
-    /interface wifi configuration remove [find name="cfg-2ghz"]
-    /interface wifi configuration add name=cfg-2ghz ssid="{ssid}" security=ketrika-sec chains=0,1 channel.band=2ghz-ax
-    /interface wifi configuration remove [find name="cfg-5ghz"]
-    /interface wifi configuration add name=cfg-5ghz ssid="{ssid}" security=ketrika-sec chains=0,1 channel.band=5ghz-ax channel.width=20/40/80mhz
-    /interface wifi set [find channel.band~"2ghz" or name~"wifi2"] configuration=cfg-2ghz disabled=no
-    /interface wifi set [find channel.band~"5ghz" or name~"wifi1"] configuration=cfg-5ghz disabled=no
-    /interface wifi set [find] configuration.ssid="{ssid}" security=ketrika-sec disabled=no
-    :foreach w in=[/interface wifi find] do={{ :do {{ /interface bridge port add bridge=bridge-lan interface=$w }} on-error={{}}; }}
-}} on-error={{}};
-
-:do {{
-    # Wi-Fi Classique (RouterOS Wireless n/ac)
-    /interface wireless security-profiles remove [find name="ketrika-sec"]
-    /interface wireless security-profiles add name=ketrika-sec mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}"
-    /interface wireless set [find] ssid="{ssid}" security-profile=ketrika-sec disabled=no
-    :foreach w in=[/interface wireless find] do={{ :do {{ /interface bridge port add bridge=bridge-lan interface=$w }} on-error={{}}; }}
-}} on-error={{}};
+    if is_wifi6:
+        s += f"""
+# --- 8. WI-FI 6 DEDIE (ROUTEROS V7 WIFI) ---
+/interface wifi security add name=sec-wifi authentication-types=wpa2-psk,wpa3-psk passphrase="{wifi_pass}" comment="WIFI6-SEC"
+/interface wifi configuration add name=cfg-wifi ssid="{ssid}" security=sec-wifi country="Madagascar"
+/interface wifi set [find] configuration=cfg-wifi disabled=no
+:foreach w in=[/interface wifi find] do={{ /interface bridge port add bridge=bridge-lan interface=$w comment="WIFI-PORT" }}
+"""
+    elif is_wireless:
+        s += f"""
+# --- 8. WI-FI CLASSIQUE DEDIE (ROUTEROS WIRELESS N/AC) ---
+/interface wireless security-profiles add name=sec-wifi mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}" unicast-ciphers=aes-ccm group-ciphers=aes-ccm
+/interface wireless set [find] ssid="{ssid}" security-profile=sec-wifi country="madagascar" disabled=no
+:foreach w in=[/interface wireless find] do={{ /interface bridge port add bridge=bridge-lan interface=$w comment="WIFI-PORT" }}
 """
 
-    # --- 11. TUNNEL VPN WARP (warp, hotspot, pro) ---
     if plan in ["warp", "hotspot", "pro"] and cfg.get("warp_private"):
         s += f"""
-# --- 11. TUNNEL WIREGUARD WARP (CLOUDFLARE) ---
-/interface wireguard remove [find name="warp-ketrika"]
-/interface wireguard add name=warp-ketrika listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
-/interface wireguard peers remove [find interface="warp-ketrika"]
-/interface wireguard peers add interface=warp-ketrika public-key="{cfg['warp_public']}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
-/ip address remove [find interface="warp-ketrika"]
-/ip address add address={cfg['warp_ip']}/32 interface=warp-ketrika
-/ip firewall nat remove [find comment="KETRIKA-WARP"]
-/ip firewall nat add chain=srcnat out-interface=warp-ketrika action=masquerade comment="KETRIKA-WARP"
-/ip route remove [find comment="KETRIKA-ROUTE"]
-/ip route add dst-address=0.0.0.0/0 gateway=warp-ketrika distance=1 comment="KETRIKA-ROUTE"
+# --- 9. TUNNEL WIREGUARD VPN WARP ---
+/interface wireguard add name=warp-vpn listen-port=51820 mtu=1280 private-key="{cfg['warp_private']}"
+/interface wireguard peers add interface=warp-vpn public-key="{cfg['warp_public']}" endpoint-address=engage.cloudflareclient.com endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25
+/ip address add address={cfg['warp_ip']}/32 interface=warp-vpn
+/interface list member add interface=warp-vpn list=WAN
+/ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade comment="WARP-NAT"
+/ip route add dst-address=0.0.0.0/0 gateway=warp-vpn distance=1 comment="VPN-DEFAULT-ROUTE"
 """
 
-    # --- 12. HOTSPOT WI-FI ZONE (hotspot, pro) ---
     if plan in ["hotspot", "pro"]:
         s += f"""
-# --- 12. SERVEUR HOTSPOT WI-FI ZONE ---
-/ip pool add name=ketrika-hs-pool ranges=10.5.50.10-10.5.50.254
-/ip dhcp-server add name=ketrika-hs-dhcp interface=bridge-lan address-pool=ketrika-hs-pool disabled=no
-/ip hotspot profile add name=ketrika-hs hotspot-address=10.5.50.1 dns-name={dns_name}
-/ip hotspot user profile add name=ketrika-hs-user rate-limit="{bw_up}/{bw_down}"
-/ip hotspot add name=hs-ketrika interface=bridge-lan address-pool=ketrika-hs-pool profile=ketrika-hs disabled=no
+# --- 10. SERVEUR HOTSPOT WI-FI ZONE ---
+/ip pool add name=hs-pool ranges=10.5.50.10-10.5.50.250
+/ip dhcp-server add name=dhcp-hs interface=bridge-lan address-pool=hs-pool disabled=no
+/ip hotspot profile add name=hs-prof hotspot-address=10.5.50.1 dns-name={dns_name}
+/ip hotspot user profile add name=hs-user rate-limit="{bw_up}/{bw_down}"
+/ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=hs-pool profile=hs-prof disabled=no
 """
 
-    # --- 13. PPPOE + QOS (pro) ---
     if plan == "pro":
         s += f"""
-# --- 13. SERVEUR PPPOE & QOS ---
-/ip pool add name=ketrika-ppp-pool ranges=10.10.10.2-10.10.10.254
-/ppp profile add name=ketrika-ppp local-address=10.10.10.1 remote-address=ketrika-ppp-pool dns-server=1.1.1.1 rate-limit="{bw_up}/{bw_down}"
-/interface pppoe-server server add service-name=KETRIKA-NET interface=bridge-lan default-profile=ketrika-ppp disabled=no
+# --- 11. SERVEUR PPPOE & GESTION DE BANDE PASSANTE ---
+/ip pool add name=pppoe-pool ranges=10.10.10.2-10.10.10.254
+/ppp profile add name=prof-pppoe local-address=10.10.10.1 remote-address=pppoe-pool dns-server=1.1.1.1 rate-limit="{bw_up}/{bw_down}"
+/interface pppoe-server server add service-name=PPPOE-KETRIKA interface=bridge-lan default-profile=prof-pppoe disabled=no
 """
 
     s += f"""
-# --- 14. IDENTITE DU ROUTEUR ---
+# --- 12. IDENTITE DU ROUTEUR ---
 /system identity set name="KETRIKA-{cfg['client']}"
-:put "======================================================="
-:put "  KETRIKA MIKROTIK : CONFIGURATION COMPLETE APPLIQUEE !"
-:put "  PORT 1 = STARLINK | PORTS 2 A 13 & WIFI = LAN ACTIF  "
-:put "  IP DU ROUTEUR : {router_ip}                          "
-:put "======================================================="
+:put "==========================================================="
+:put "  KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE !  "
+:put "  IP ROUTEUR : {router_ip} | PORTS LAN & WIFI ACTIFS      "
+:put "==========================================================="
 """
     return s
 
@@ -471,7 +434,7 @@ def home():
         <div class="card-title">❓ QUESTIONS FRÉQUENTES</div>
         <div class="faq-item">
             <div class="faq-question"><span>Est-ce que ça configure tout même après un RESET TOTAL ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Oui, absolument à 100% !</b> Notre script recrée tout de A à Z : il configure le Port 1 pour recevoir Starlink, crée le Bridge LAN, ajoute automatiquement tous les autres ports (Port 2 à 5 ou 2 à 13), configure le serveur DHCP, active le Wi-Fi 2.4G/5G avec mot de passe, et applique le Mangle TTL et le VPN.</div>
+            <div class="faq-answer"><b style="color:var(--accent-green);">Oui, absolument à 100% !</b> Notre script recrée tout de A à Z : il configure le Port 1 pour recevoir Starlink, crée le Bridge LAN avec tous les ports physiques détectés, configure le serveur DHCP, active le Wi-Fi (Wi-Fi 6 ou Wireless selon le modèle), et applique le Mangle TTL et le pare-feu professionnel.</div>
         </div>
         <div class="faq-item">
             <div class="faq-question"><span>Puis-je choisir l'Adresse IP de mon Routeur ?</span> <span class="faq-toggle">▼</span></div>
@@ -479,7 +442,7 @@ def home():
         </div>
         <div class="faq-item">
             <div class="faq-question"><span>1 clé = combien de routeurs ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-red);">1 clé = 1 seul routeur.</b> Chaque clé est à usage unique pour un seul équipement MikroTik.</div>
+            <div class="faq-answer"><b style="color:var(--accent-red);">1 clé = 1 seul routeur (Usage Unique).</b> Une fois le script généré, la clé est définitivement consommée.</div>
         </div>
     </div>
     """
@@ -519,8 +482,11 @@ def login():
     result = verifier_licence(cle)
     if not result or not result["valide"]:
         return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
+    
+    # VÉRIFICATION STRICTE EN BASE DE DONNÉES : SI DÉJÀ UTILISÉE => REFUS IMMÉDIAT
     if result.get("utilisations", 0) >= 1:
-        return render('<div class="card"><div class="alert alert-error">❌ Cette clé a déjà été utilisée pour 1 routeur. (1 Clé = 1 Routeur). Veuillez acheter une nouvelle clé.</div><a href="/" class="btn-primary">Retour</a></div>')
+        return render('<div class="card"><div class="alert alert-error">❌ Cette clé a déjà été consommée pour configurer 1 routeur.<br><b>Règle : 1 Clé = 1 Routeur.</b><br>Veuillez commander une nouvelle clé.</div><a href="/" class="btn-primary">Retour à l\'Accueil</a></div>')
+    
     session["authenticated"] = True
     session["licence"] = cle
     session["client"] = result["client"]
@@ -536,11 +502,19 @@ def logout():
 def dashboard():
     if not session.get("authenticated"):
         return redirect(url_for("home"))
+    
+    # Double-vérification de la clé en base
+    cle = session.get("licence")
+    result = verifier_licence(cle)
+    if not result or result.get("utilisations", 0) >= 1:
+        session.clear()
+        return render('<div class="card"><div class="alert alert-error">❌ Cette clé est déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
+    
     plan_key = session.get("type_abo", "basic")
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
 
-    feat_html = "<div>✅ Bridge LAN + Ports 2 à 13 ajoutés</div><div>✅ Port 1 configuré pour Starlink (DHCP-Client WAN)</div><div>✅ Serveur DHCP + NAT + IP Locale personnalisée</div><div>✅ Wi-Fi 2.4G & 5G activés avec mot de passe</div><div>✅ Mangle TTL = 64 + DNS DoH Sécurisé</div>"
+    feat_html = "<div>✅ Bridge LAN + Ports Ethernet ajoutés automatiquement</div><div>✅ Port 1 configuré pour Starlink (DHCP-Client WAN)</div><div>✅ Serveur DHCP + NAT + IP Locale personnalisée</div><div>✅ Pare-feu Pro (Protection Input / Forward Stateful)</div><div>✅ Mangle TTL = 64 + DNS DoH Sécurisé</div>"
     dns_input_html = ""
     bandwidth_html = ""
     if plan_key in ["warp", "hotspot", "pro"]:
@@ -563,7 +537,7 @@ def dashboard():
     </div>
     <div class="card">
         <div class="card-title">⚙️ CONFIGURATION DE A À Z - {session['client']}</div>
-        <div class="alert-warning" style="font-size:11px;">⚠️ Cette clé est à <b>usage unique</b> pour ce routeur. Branchez Starlink sur le <b>Port 1</b>.</div>
+        <div class="alert-warning" style="font-size:11px;">⚠️ <b>Attention :</b> Cette clé sera définitivement consommée dès que vous cliquerez sur Générer.</div>
         <form method="POST" action="/generate">
             <label>1. Modèle MikroTik :</label>
             <select name="modele" required>{modeles_opt}</select>
@@ -571,7 +545,7 @@ def dashboard():
             <label>2. Nom du client / Routeur :</label>
             <input type="text" name="client_final" placeholder="Boutique_Rasoa" required>
 
-            <label>3. Adresse IP LAN du Routeur (Au choix) :</label>
+            <label>3. Adresse IP LAN du Routeur :</label>
             <select name="router_ip" required>
                 <option value="192.168.88.1">192.168.88.1 (Standard MikroTik)</option>
                 <option value="192.168.1.1">192.168.1.1 (Standard Box / Routeur)</option>
@@ -600,6 +574,13 @@ def dashboard():
 def generate():
     if not session.get("authenticated"):
         return redirect(url_for("home"))
+    
+    cle = session.get("licence")
+    result = verifier_licence(cle)
+    if not result or result.get("utilisations", 0) >= 1:
+        session.clear()
+        return render('<div class="card"><div class="alert alert-error">❌ Cette clé a déjà été consommée pour un routeur.</div><a href="/" class="btn-primary">Retour à l\'Accueil</a></div>')
+    
     modele = request.form.get("modele")
     plan_key = session.get("type_abo", "basic")
     client_final = request.form.get("client_final").replace(" ", "_")
@@ -615,11 +596,25 @@ def generate():
         bp = BANDWIDTH_PROFILES.get(bw_choice, BANDWIDTH_PROFILES["illimite"])
         bw_down = bp["down"]
         bw_up = bp["up"]
+    
     options = {"ssid": ssid, "wifi_pass": wifi_pass, "dns_name": dns_name, "bw_down": bw_down, "bw_up": bw_up, "router_ip": router_ip}
     warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    sauvegarder_config(session["licence"], client_final, modele, plan_key, options, warp_data, config_id)
-    incrementer_utilisation(session["licence"])
+    
+    # 1. ENREGISTREMENT ET CONSOMMATION IMMÉDIATE DE LA CLÉ EN BASE DE DONNÉES
+    sauvegarder_config(cle, client_final, modele, plan_key, options, warp_data, config_id)
+    incrementer_utilisation(cle)
+    
+    # 2. VERROUILLAGE TOTAL : ACTIF = 0 DANS LA BASE
+    conn = sqlite3.connect("ketrika.db")
+    c = conn.cursor()
+    c.execute("UPDATE licences SET actif=0, nb_utilisations=1 WHERE cle=?", (cle,))
+    conn.commit()
+    conn.close()
+
+    # 3. DESTRUCTION DE LA SESSION POUR INTERDIRE TOUT RETOUR EN ARRIÈRE
+    session.clear()
+
     host = request.host_url.replace("http://", "https://")
     online_cmd = f'/tool fetch url="{host}config/{config_id}.rsc" mode=https dst-path=ketrika.rsc; /import file-name=ketrika.rsc'
     cfg = get_config_by_id(config_id)
@@ -630,9 +625,9 @@ def generate():
     <div class="card">
         <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
         <div class="alert-warning">
-            📍 <b>Branchement :</b> Starlink sur le <b>Port 1 (ether1)</b> | PC / Switch sur les <b>Ports 2 à 13</b><br>
+            📍 <b>Branchement :</b> Starlink sur le <b>Port 1 (ether1)</b> | PC / Switch sur les <b>autres ports</b><br>
             📶 Wi-Fi: <b>{ssid}</b> | 🔑 Mot de passe: <b>{wifi_pass}</b> | 🌐 IP du Routeur: <b>{router_ip}</b><br>
-            🔒 <i>Cette clé est maintenant consommée (1 Clé = 1 Routeur).</i>
+            🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
         <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE)</div>
         <div class="terminal-box" id="cmd1">{one_liner}</div>
@@ -644,7 +639,7 @@ def generate():
         <div class="card-title">MÉTHODE 3 : SI ROUTEUR DÉJÀ CONNECTÉ</div>
         <div class="terminal-box" id="cmd2">{online_cmd}</div>
         <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER</button>
-        <a href="/" class="btn-primary" style="margin-top:14px;">🏠 RETOUR ACCUEIL</a>
+        <a href="/" class="btn-primary" style="margin-top:14px;">🏠 TERMINER & RETOUR À L'ACCUEIL</a>
     </div>
     """
     return render(content)
@@ -704,7 +699,7 @@ def admin_creer():
     if not session.get("admin"): return redirect(url_for("admin"))
     if request.method == "POST":
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
-        return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
+        return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé (1 Routeur)</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Blindé (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
 if __name__ == "__main__":
