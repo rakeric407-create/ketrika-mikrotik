@@ -5,4 +5,4 @@ Flask-Mail
 gunicorn
 Werkzeug
 requests
-PyNaCl
+cryptography
