@@ -25,13 +25,13 @@ BINANCE_ID = "1229612637"
 USDT_BEP20 = "0x0c4bcb1beabbff154f7d445a549f1e5b42de9088"
 
 # ==========================================
-# CONFIGURATION EMAIL AUTOMATIQUE
+# CONFIGURATION EMAIL (GMAIL)
 # ==========================================
-SMTP_EMAIL = "rakeric407@gmail.com" 
-SMTP_PASSWORD = "leqd ikph dahr jblk" # <--- COLLEZ VOTRE CODE ICI SANS ESPACES
+SMTP_EMAIL = "rakeric407@gmail.com"
+SMTP_PASSWORD = "leqdikphdahrjblk"
 
 def envoyer_email_cle(destinataire, nom, cle, pack_nom):
-    if not destinataire or "@" not in destinataire or "VOTRE_MOT" in SMTP_PASSWORD:
+    if not destinataire or "@" not in destinataire:
         return False
     try:
         sujet = f"✅ Votre Clé KETRIKA - {pack_nom}"
@@ -40,24 +40,24 @@ def envoyer_email_cle(destinataire, nom, cle, pack_nom):
         <body style="font-family: Arial, sans-serif; color: #333;">
             <div style="max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
                 <div style="background: linear-gradient(135deg, #0284c7, #059669); color: white; padding: 30px; text-align: center;">
-                    <h1 style="margin: 0; font-size: 24px;">⚡ KETRIKA MIKROTIK ⚡</h1>
+                    <h1 style="margin: 0; font-size: 24px;">⚡ KETRIKA MIKROTIK </h1>
                     <p style="margin: 5px 0 0; opacity: 0.9;">Votre licence est activée</p>
                 </div>
                 <div style="padding: 30px; background: #fff;">
                     <p>Bonjour <b>{nom}</b>,</p>
-                    <p>Votre paiement a été validé. Voici votre clé d'activation unique pour configurer votre routeur MikroTik :</p>
+                    <p>Votre paiement a été validé avec succès. Voici votre clé d'activation unique pour configurer votre routeur MikroTik :</p>
                     <div style="background: #f8fafc; border: 2px dashed #0284c7; padding: 20px; font-size: 22px; font-weight: bold; text-align: center; color: #0284c7; letter-spacing: 4px; margin: 20px 0; border-radius: 10px;">
                         {cle}
                     </div>
                     <p style="font-size: 13px; color: #64748b;"><i>Note : Cette clé est valable pour 1 seul routeur (usage unique).</i></p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                    <p><b>🚀 Prochaines étapes :</b></p>
+                    <p><b>🚀 Comment utiliser votre clé ?</b></p>
                     <ol>
-                        <li>Allez sur <a href="https://ketrika-mikrotik.onrender.com" style="color:#0284c7;">notre site officiel</a></li>
+                        <li>Ouvrez le site : <a href="https://ketrika-mikrotik.onrender.com" style="color:#0284c7;">ketrika-mikrotik.onrender.com</a></li>
                         <li>Entrez votre clé dans la section <b>Activation</b>.</li>
-                        <li>Suivez le guide pour injecter le script dans Winbox.</li>
+                        <li>Générez votre script personnalisé et injectez-le dans Winbox.</li>
                     </ol>
-                    <p>Besoin d'aide ? Contactez-nous sur WhatsApp : <b>038 28 171 00</b>.</p>
+                    <p>Besoin d'aide ? Contactez notre support WhatsApp : <b>038 28 171 00</b>.</p>
                 </div>
                 <div style="background: #f1f5f9; text-align: center; padding: 15px; font-size: 11px; color: #94a3b8;">
                     © 2026 KETRIKA MIKROTIK PRO - Madagascar
@@ -66,14 +66,19 @@ def envoyer_email_cle(destinataire, nom, cle, pack_nom):
         </body>
         </html>
         """
-        msg = MIMEMultipart(); msg['From'] = f"KETRIKA MIKROTIK <{SMTP_EMAIL}>"; msg['To'] = destinataire; msg['Subject'] = sujet
+        msg = MIMEMultipart()
+        msg['From'] = f"KETRIKA MIKROTIK <{SMTP_EMAIL}>"
+        msg['To'] = destinataire
+        msg['Subject'] = sujet
         msg.attach(MIMEText(message_html, 'html'))
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login(SMTP_EMAIL, SMTP_PASSWORD); server.send_message(msg); server.quit()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
         return True
     except Exception: return False
 
-def init_all_tables():
+def init_extra_tables():
     try:
         conn = sqlite3.connect(DB_FILE); c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS licences (id INTEGER PRIMARY KEY AUTOINCREMENT, cle TEXT UNIQUE NOT NULL, client_nom TEXT NOT NULL, client_telephone TEXT, type_abonnement TEXT, date_creation TEXT, date_expiration TEXT, actif INTEGER DEFAULT 1, nb_utilisations INTEGER DEFAULT 0, prix_paye REAL DEFAULT 0)''')
@@ -86,15 +91,15 @@ def init_all_tables():
         conn.commit(); conn.close()
     except Exception: pass
 
-init_all_tables()
+init_extra_tables()
 init_db()
 
 TARIFS_MODULES = {
     "basic": {"nom": "🛡️ Basic", "prix": 10000, "prix_usd": 2.50, "desc": "Config A à Z + IP Libre + Optimisation + Wi-Fi", "badge": ""},
     "standard": {"nom": "⭐ Standard", "prix": 15000, "prix_usd": 3.75, "desc": "Basic + Wi-Fi Dual Band 5G + Sécurité+", "badge": "POPULAIRE"},
     "warp": {"nom": "🚀 Premium VPN", "prix": 20000, "prix_usd": 5.00, "desc": "Standard + Tunnel WireGuard confidentiel gratuit", "badge": "MEILLEUR CHOIX"},
-    "hotspot": {"nom": "🎫 Wi-Fi Zone", "prix": 30000, "desc": "Premium + Portail Hotspot + Débit contrôlé + DNS", "badge": ""},
-    "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "Solution intégrale + Multi-WAN + PPPoE + QoS", "badge": "PRO STUDIO"}
+    "hotspot": {"nom": "🎫 Wi-Fi Zone", "prix": 30000, "prix_usd": 7.50, "desc": "Premium + Portail Hotspot + Débit contrôlé + DNS", "badge": ""},
+    "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "prix_usd": 12.50, "desc": "Solution intégrale + Multi-WAN + PPPoE + QoS", "badge": "PRO STUDIO"}
 }
 
 MODELES_MIKROTIK = ["hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)", "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)", "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)", "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)", "CCR1009", "CCR2004", "CCR2116", "Chateau LTE/5G", "Autre RouterOS v7"]
@@ -107,86 +112,79 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>KETRIKA MIKROTIK PRO • Solution Réseau Professionnelle</title>
+    <meta name="google-site-verification" content="a8G-WaLOM4cff6QkaeNJSjm6eavmu0DPif8RBdUnjLI" />
+    <title>KETRIKA MIKROTIK PRO</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-main: #eef2ff; --bg-card: #ffffff; --accent-cyan: #0284c7; --accent-green: #059669; --accent-purple: #7c3aed; --accent-orange: #ea580c; --accent-gold: #f59e0b; --accent-red: #dc2626; --accent-pink: #db2777; --text-dark: #0f172a; --text-body: #334155; --text-muted: #64748b; --border-light: #e2e8f0; }
+        :root { --bg-main: #eef2ff; --bg-card: #ffffff; --accent-cyan: #0284c7; --accent-green: #059669; --accent-purple: #7c3aed; --accent-orange: #ea580c; --accent-gold: #f59e0b; --text-dark: #0f172a; --text-body: #334155; --text-muted: #64748b; --border-light: #e2e8f0; }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 100%); color: var(--text-dark); min-height: 100vh; padding: 10px; }
         .container { max-width: 860px; margin: auto; }
-        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 14px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 4px 20px rgba(2,132,199,0.06); gap: 8px; flex-wrap: wrap; }
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 14px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 4px 15px rgba(2,132,199,0.06); gap: 8px; flex-wrap: wrap; }
         .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); text-decoration: none; }
         .nav-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
         .top-links { display: flex; gap: 6px; align-items: center; }
         .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 12px; background: linear-gradient(135deg, #1877f2, #0d6efd); border-radius: 10px; }
         .header { text-align: center; padding: 14px 5px 20px; }
         .logo-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; }
-        .logo-aura { position: absolute; inset: -3px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink)); filter: blur(8px); opacity: 0.7; }
+        .logo-aura { position: absolute; inset: -3px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), #db2777); filter: blur(8px); opacity: 0.7; }
         .logo-box { position: relative; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #0f172a, #1e293b); border: 2px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(2,132,199,0.3); }
+        .logo-box svg { width: 42px; height: 42px; }
         .header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px; line-height: 1.2; }
         .card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(15,23,42,0.05); position: relative; overflow: hidden; }
         .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink), var(--accent-green)); }
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: var(--accent-cyan); margin-bottom: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
         .hero-card { background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%); color: #fff; padding: 22px; border-radius: 18px; margin-bottom: 14px; box-shadow: 0 10px 30px rgba(2,132,199,0.25); }
-        .feature-detail-box { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }
-        .adv-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 6px; border-radius: 12px; text-align: center; border: 1px solid var(--border-light); }
-        .step-box { background: #f0fdfa; border: 1px solid #bae6fd; padding: 14px; border-radius: 14px; text-align: center; }
-        label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
-        input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 4px; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit; }
+        .advantages-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        @media (min-width: 500px) { .advantages-grid { grid-template-columns: repeat(4, 1fr); } }
+        .adv-box { background: #f8fafc; padding: 12px 6px; border-radius: 10px; text-align: center; border: 1px solid var(--border-light); }
         .btn-primary { width: 100%; padding: 14px; margin-top: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: block; text-align: center; }
         .plan-option { background: #f8fafc; border: 2px solid var(--border-light); padding: 12px 10px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; gap: 8px; }
         .plan-option.selected { border-color: var(--accent-cyan); background: #f0f9ff; }
-        .plan-price { text-align: right; }
-        .plan-price b { color: var(--accent-green); font-size: 15px; font-family: 'Space Grotesk'; white-space: nowrap; }
         .pay-tabs { display: flex; gap: 6px; margin-top: 10px; }
         .pay-tab-btn { flex: 1; padding: 10px 5px; text-align: center; background: #f1f5f9; border: 1px solid var(--border-light); border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer; font-family: 'Space Grotesk'; }
         .pay-tab-btn.active { background: var(--accent-cyan); color: #fff; border-color: var(--accent-cyan); }
         .pay-tab-content { display: none; margin-top: 10px; }
         .pay-tab-content.active { display: block; }
-        .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; text-align: center; }
         .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 10px; margin-bottom: 8px; }
         .crypto-box { background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 14px; text-align: center; }
         .crypto-code { background: #1e293b; color: #38bdf8; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 5px 0; }
         .terminal-box { background: #0f172a; border: 1px solid #334155; color: #4ade80; padding: 12px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; margin-top: 6px; line-height: 1.5; }
-        .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }
-        .ai-chat-float { position: fixed; bottom: 18px; left: 18px; z-index: 9999; background: linear-gradient(135deg, #0284c7, #7c3aed); color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; }
-        .footer { text-align: center; color: var(--text-muted); margin: 20px 0 75px; font-size: 10px; padding: 10px; border-top: 1px solid var(--border-light); }
-        .bw-card { background: #ffffff; border: 2px solid var(--border-light); padding: 10px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
-        .bw-card.active { border-color: var(--accent-purple); background: #faf5ff; }
-        .bw-card input { width: 18px; height: 18px; margin: 0; }
+        .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; }
+        .faq-item { border-bottom: 1px solid var(--border-light); padding: 10px 0; }
+        .faq-question { font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; }
+        .faq-answer { color: var(--text-body); font-size: 11px; line-height: 1.6; margin-top: 5px; display: none; background: #f8fafc; padding: 10px; border-radius: 6px; }
+        .faq-item.active .faq-answer { display: block; }
+        .live-dashboard { background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin: 12px 0; color: #fff; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .dash-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; }
+        .dash-label { font-size: 10px; color: #94a3b8; }
+        .dash-value { font-family: 'Space Grotesk'; font-size: 16px; font-weight: 900; color: #38bdf8; }
     </style>
 </head>
 <body>
-    <a href="https://wa.me/261382817100?text=Bonjour%20KETRIKA%2C%20je%20souhaite%20une%20assistance" target="_blank" class="whatsapp-float">💬 <span>WhatsApp</span></a>
-    <div class="ai-chat-float" onclick="alert('Assistant IA KETRIKA\\nPosez vos questions par WhatsApp pour une réponse rapide !')">🤖 <span>Assistant IA</span></div>
+    <a href="https://wa.me/261382817100" target="_blank" class="whatsapp-float">💬 <span>Assistance</span></a>
 
     <div class="container">
         <div class="top-nav">
             <a href="/" class="nav-brand"><div class="nav-logo-icon">⚡</div><span>KETRIKA MIKROTIK</span></a>
-            <div class="top-links">
-                <a href="/tuto" class="btn-tuto">📖 Guide &amp; Tuto</a>
-                <a href="{{ fb_link }}" target="_blank" class="btn-fb">📘 Facebook</a>
-                <button class="lang-btn" onclick="toggleLang()">🇲🇬/🇫🇷</button>
-            </div>
+            <div class="top-links"><a href="/tuto">📖 Tuto</a><a href="{{ fb_link }}" target="_blank">📘 FB</a><button class="lang-btn" onclick="toggleLang()">🇲🇬/🇫🇷</button></div>
         </div>
 
         <div class="header">
-            <div class="logo-wrapper"><div class="logo-aura"></div><div class="logo-box"><svg viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00f2fe" /><stop offset="100%" stop-color="#7c3aed" /></linearGradient></defs><rect x="2" y="14" width="20" height="8" rx="2" fill="rgba(0,242,254,0.1)"></rect><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#00f2fe" stroke="#00f2fe" stroke-width="1.5"></path></svg></div></div>
+            <div class="logo-wrapper"><div class="logo-aura"></div><div class="logo-box"><svg viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00f2fe" /><stop offset="100%" stop-color="#7c3aed" /></linearGradient></defs><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#00f2fe" /></svg></div></div>
             <h1>KETRIKA MIKROTIK</h1>
-            <p class="tagline txt-fr">Solution Professionnelle d'Optimisation Réseau MikroTik</p>
-            <div class="stats-live"><span class="live-dot"></span><span>Config en 5 secondes • 1 Clé = 1 Routeur • Support E-mail Auto</span></div>
+            <p class="tagline">Solution Professionnelle MikroTik</p>
         </div>
 
         {{ content|safe }}
 
-        <div class="footer">KETRIKA MIKROTIK PRO © 2026 • <a href="{{ fb_link }}" target="_blank">Facebook Officiel</a> • 📞 038 28 171 00 (Jean Eric)</div>
+        <div class="footer">KETRIKA MIKROTIK PRO © 2026 • 📞 038 28 171 00 (Jean Eric)</div>
     </div>
     <script>
-        function toggleLang() { let f=document.querySelectorAll('.txt-fr'), m=document.querySelectorAll('.txt-mg'); f.forEach(e=>e.style.display=e.style.display==='none'?'':'none'); m.forEach(e=>e.style.display=e.style.display==='none'?'':'none'); }
-        function copyText(elemId, btnId) { let e=document.getElementById(elemId); let t=e.innerText||e.value; navigator.clipboard.writeText(t).then(()=>{ let b=document.getElementById(btnId); let o=b.innerHTML; b.innerHTML='✅ COPIÉ !'; b.classList.add('copied'); setTimeout(()=>{b.innerHTML=o; b.classList.remove('copied');},2000);}); }
-        function setIP(ip) { document.getElementById('router_ip').value = ip; }
+        function toggleLang() { let f=document.querySelectorAll('.txt-fr'), m=document.querySelectorAll('.txt-mg'); f.forEach(e=>e.style.display=e.style.display==='none'?'':'none'); m.forEach(e=>m.style.display=m.style.display==='none'?'':'none'); }
         function selectPayTab(n) { document.querySelectorAll('.pay-tab-btn').forEach(b=>b.classList.remove('active')); document.querySelectorAll('.pay-tab-content').forEach(c=>c.classList.remove('active')); document.getElementById('tab_btn_'+n).classList.add('active'); document.getElementById('tab_content_'+n).classList.add('active'); }
-        function selectBW(v) { document.querySelectorAll('.bw-card').forEach(c=>c.classList.remove('active')); document.getElementById('card_'+v).classList.add('active'); document.getElementById('bw_'+v).checked=true; document.getElementById('custom-bw-box').style.display=(v==='custom'?'grid':'none'); }
+        function copyText(e,b) { let el=document.getElementById(e); let t=el.innerText||el.value; navigator.clipboard.writeText(t).then(()=>{ let btn=document.getElementById(b); let o=btn.innerHTML; btn.innerHTML='✅ COPIÉ !'; setTimeout(()=>btn.innerHTML=o,2000);}); }
     </script>
 </body>
 </html>
@@ -234,8 +232,6 @@ def build_raw_script(cfg):
         s += f':if ([:len [/routing table find name=to-warp]] = 0) do={{ /routing table add name=to-warp fib }}\n/interface wireguard add name=warp-vpn listen-port=51820 mtu=1280 private-key="{cfg["warp_private"]}"\n/interface wireguard peers add interface=warp-vpn public-key="{cfg["warp_public"]}" endpoint-address=162.159.192.1 endpoint-port=2408 allowed-address=0.0.0.0/0 persistent-keepalive=25\n/ip address add address={cfg["warp_ip"]}/32 interface=warp-vpn\n/ip firewall nat add chain=srcnat out-interface=warp-vpn action=masquerade\n/ip route add dst-address=0.0.0.0/0 gateway=warp-vpn routing-table=to-warp\n/ip firewall mangle add chain=prerouting in-interface-list=LAN dst-address-type=!local action=mark-routing new-routing-mark=to-warp passthrough=yes\n'
     if plan in ["hotspot", "pro"]:
         s += f'/ip hotspot profile add name=hs-prof hotspot-address={router_ip} dns-name={dns_name}\n/ip hotspot user profile add name=hs-user rate-limit="{bw_up}/{bw_down}"\n/ip hotspot add name=hotspot-ketrika interface=bridge-lan address-pool=dhcp-pool profile=hs-prof disabled=no\n'
-    if plan == "pro":
-        s += f'/ip pool add name=pppoe-pool ranges=10.10.10.2-10.10.10.254\n/ppp profile add name=prof-pppoe local-address=10.10.10.1 remote-address=pppoe-pool dns-server=1.1.1.1 rate-limit="{bw_up}/{bw_down}"\n/interface pppoe-server server add service-name=PPPOE-KETRIKA interface=bridge-lan default-profile=prof-pppoe disabled=no\n'
     s += f'/system identity set name="KETRIKA-{cfg["client"]}"\n'
     return s
 
@@ -250,82 +246,86 @@ def home():
     plans_html = ""
     for k, v in TARIFS_MODULES.items():
         sel = "selected" if k == "standard" else ""; ck = "checked" if k == "standard" else ""
-        badge = f'<div class="plan-badge badge-popular">{v["badge"]}</div>' if v["badge"] else ""
-        plans_html += f'<label class="plan-option {sel}" id="opt_{k}" for="plan_{k}">{badge}<div class="plan-info"><b>{v["nom"]}</b><div>{v["desc"]}</div></div><div class="plan-price"><b>{v["prix"]:,} Ar</b><small>${v["prix_usd"]:.2f} USD</small><input type="radio" name="formule" id="plan_{k}" value="{k}" {ck} onchange="document.querySelectorAll(\'.plan-option\').forEach(e=>e.classList.remove(\'selected\')); document.getElementById(\'opt_{k}\').classList.add(\'selected\');"></div></label>'
+        plans_html += f'<label class="plan-option {sel}" id="opt_{k}" for="plan_{k}"><div class="plan-info"><b>{v["nom"]}</b><div>{v["desc"]}</div></div><div class="plan-price"><b>{v["prix"]:,} Ar</b><small>${v["prix_usd"]:.2f} USD</small><input type="radio" name="formule" id="plan_{k}" value="{k}" {ck} onchange="document.querySelectorAll(\'.plan-option\').forEach(e=>e.classList.remove(\'selected\')); document.getElementById(\'opt_{k}\').classList.add(\'selected\');"></div></label>'
 
     content = f"""
+    <div class="live-dashboard">
+        <div style="display:flex; justify-content:space-between; font-size:12px;"><b>📊 SPÉCIFICATIONS TECHNIQUES</b><span class="badge" style="background:#0284c7; color:#fff;">LIVE</span></div>
+        <div class="dashboard-grid">
+            <div class="dash-item"><div class="dash-label">LATENCE</div><div class="dash-value green">&lt; 24 ms</div></div>
+            <div class="dash-item"><div class="dash-label">CRYPT</div><div class="dash-value">ChaCha20</div></div>
+            <div class="dash-item"><div class="dash-label">DNS</div><div class="dash-value">1.1.1.1</div></div>
+            <div class="dash-item"><div class="dash-label">STABILITÉ</div><div class="dash-value green">99.9%</div></div>
+        </div>
+    </div>
+    <div class="card"><div class="trust-badges-grid">
+        <div class="trust-badge-card"><span>🛡️</span><div class="trust-badge-title">v7 Certifié</div></div>
+        <div class="trust-badge-card"><span>🔒</span><div class="trust-badge-title">No Logs</div></div>
+        <div class="trust-badge-card"><span>⚡</span><div class="trust-badge-title">Injection 5s</div></div>
+        <div class="trust-badge-card"><span>🇲🇬</span><div class="trust-badge-title">Support 7j/7</div></div>
+    </div></div>
     <div class="card"><div class="card-title">🛒 COMMANDER UN PACK</div>
     <form method="POST" action="/commander">
         <div class="plan-selector">{plans_html}</div>
-        <div class="pay-tabs">
-            <div class="pay-tab-btn active" id="tab_btn_momo" onclick="selectPayTab('momo')">Madagascar</div>
-            <div class="pay-tab-btn" id="tab_btn_binance" onclick="selectPayTab('binance')">International (USD)</div>
-        </div>
-        <div class="pay-tab-content active" id="tab_content_momo">
-            <div class="payment-banner"><div class="payment-grid">
-                <div class="payment-box"><div class="method">🟠 Orange Money</div><div class="number">{NUMERO_ORANGE}</div></div>
-                <div class="payment-box"><div class="method">🟡 Mvola</div><div class="number">{NUMERO_MVOLA}</div></div>
-            </div></div>
-        </div>
-        <div class="pay-tab-content" id="tab_content_binance">
-            <div class="crypto-box">
-                <b>Binance Pay ID: {BINANCE_ID}</b><br>
-                <b>USDT BEP-20:</b><div class="crypto-code">{USDT_BEP20}</div>
-                <small>Ou contactez-nous pour un lien de paiement par Carte.</small>
-            </div>
-        </div>
-        <input type="text" name="nom" placeholder="Votre Nom complet" required>
-        <input type="email" name="email" placeholder="Votre Adresse E-mail (RECOIT LE CODE)" required>
-        <input type="text" name="ref_paiement" placeholder="Référence du paiement SMS/TxID" required>
-        <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
+        <div class="pay-tabs"><div class="pay-tab-btn active" id="tab_btn_momo" onclick="selectPayTab('momo')">Madagascar</div><div class="pay-tab-btn" id="tab_btn_binance" onclick="selectPayTab('binance')">International</div></div>
+        <div class="pay-tab-content active" id="tab_content_momo"><div class="payment-banner"><div class="payment-grid"><div class="payment-box"><div class="method">🟠 Orange Money</div><div class="number">{NUMERO_ORANGE}</div></div><div class="payment-box"><div class="method">🟡 Mvola</div><div class="number">{NUMERO_MVOLA}</div></div></div></div></div>
+        <div class="pay-tab-content" id="tab_content_binance"><div class="crypto-box">Binance ID: <b>{BINANCE_ID}</b><div class="crypto-code">{USDT_BEP20}</div><small>Réseau BEP-20 (BSC)</small></div></div>
+        <input type="text" name="nom" placeholder="Votre Nom" required><input type="email" name="email" placeholder="Votre Email (REÇOIT LE CODE)" required><input type="text" name="ref_paiement" placeholder="Réf transaction" required><button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
     </form></div>
-    <div class="card"><div class="card-title">🔐 ACTIVATION</div>
-    <form method="POST" action="/login"><input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase;"><button type="submit" class="btn-primary btn-success">DÉVERROUILLER LE GÉNÉRATEUR</button></form></div>
-    <div class="card"><div class="card-title">⭐ AVIS CLIENTS • {avg}/5</div>{reviews_html}</div>
+    <div class="card"><div class="card-title">🔐 ACTIVATION</div><form method="POST" action="/login"><input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase;"><button type="submit" class="btn-primary btn-success">DÉVERROUILLER</button></form></div>
+    <div class="card"><div class="card-title">⭐ AVIS CLIENTS</div>{reviews_html}</div>
     """
     return render(content)
 
 @app.route("/dashboard")
 def dashboard():
     if not session.get("authenticated"): return redirect(url_for("home"))
-    plan_key = session.get("type_abo", "basic"); plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
-    modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
+    plan_key = session.get("type_abo", "basic"); modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
     ip_chips = "".join([f'<span class="ip-chip" onclick="setIP(\'{ip}\')">{ip}</span>' for ip in IP_SUGGESTIONS])
     content = f"""
-    <div class="top-nav" style="margin-bottom:10px;"><span class="badge">{plan_info['nom']}</span><a href="/logout" style="color:var(--accent-red); font-size:11px; font-weight:700; text-decoration:none;">Fermer</a></div>
+    <div class="top-nav" style="margin-bottom:10px;"><span class="badge">{plan_key.upper()}</span><a href="/logout" style="color:var(--accent-red); font-size:11px; text-decoration:none;">Fermer ✕</a></div>
     <div class="card"><form method="POST" action="/generate">
         <label>1. Modèle MikroTik :</label><select name="modele" required>{modeles_opt}</select>
         <label>2. Identifiant Client :</label><input type="text" name="client_final" required>
         <label>3. Adresse IP du Routeur :</label><input type="text" name="router_ip" id="router_ip" value="192.168.88.1" required><div class="ip-suggestions">{ip_chips}</div>
-        <div class="wifi-box"><label>Nom Wi-Fi (SSID) :</label><input type="text" name="ssid" value="KETRIKA-NET" required><label>Mot de passe :</label><input type="text" name="wifi_pass" value="ketrika2025" required>
-        {('<label>DNS Hotspot :</label><input type="text" name="dns_name" value="wifizone.wifi" required>' if plan_key in ["hotspot", "pro"] else '')}</div>
-        <button type="submit" class="btn-primary">🚀 GÉNÉRER LA CONFIGURATION</button>
+        <div class="wifi-box"><label>Wi-Fi (SSID) :</label><input type="text" name="ssid" value="KETRIKA-NET" required><label>Mot de passe :</label><input type="text" name="wifi_pass" value="ketrika2025" required></div>
+        <button type="submit" class="btn-primary">🚀 GÉNÉRER CONFIGURATION</button>
     </form></div>"""
     return render(content)
 
 @app.route("/generate", methods=["POST"])
 def generate():
     if not session.get("authenticated"): return redirect(url_for("home"))
-    cle = session.get("licence"); modele = request.form.get("modele", ""); plan_key = session.get("type_abo", "basic"); client_final = request.form.get("client_final", "Client").replace(" ", "_")
-    options = {"ssid": request.form.get("ssid"), "wifi_pass": request.form.get("wifi_pass"), "dns_name": request.form.get("dns_name", "ketrika.wifi"), "router_ip": request.form.get("router_ip", "192.168.88.1"), "bw_down": "0", "bw_up": "0"}
+    cle = session.get("licence"); plan_key = session.get("type_abo", "basic")
     warp_data = creer_config_warp_complete() if plan_key in ["warp", "hotspot", "pro"] else {}
     config_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    sauvegarder_config(cle, client_final, modele, plan_key, options, warp_data, config_id)
-    incrementer_utilisation(cle); conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("UPDATE licences SET actif=0, nb_utilisations=1 WHERE cle=?", (cle,)); conn.commit(); conn.close(); session.clear()
-    cfg = get_config_by_id(config_id); raw_s = build_raw_script(cfg); clean_s = clean_script_for_oneliner(raw_s); one_liner = f'/system script add name=ketrika_run source="{clean_s}"; /system script run ketrika_run; /system script remove ketrika_run'
-    return render(f'<div class="card"><h3>✅ Prêt pour {client_final}</h3><div class="terminal-box" id="c1">{one_liner}</div><button class="btn-copy" id="b1" onclick="copyText(\'c1\',\'b1\')">📋 COPIER</button><hr><a href="/download/{config_id}.rsc" class="btn-primary btn-success">📥 TÉLÉCHARGER</a><a href="/" class="btn-primary">TERMINER</a></div>')
+    options = {"ssid": request.form.get("ssid"), "wifi_pass": request.form.get("wifi_pass"), "router_ip": request.form.get("router_ip", "192.168.88.1"), "dns_name": "ketrika.wifi", "bw_down": "0", "bw_up": "0"}
+    sauvegarder_config(cle, request.form.get("client_final"), request.form.get("modele"), plan_key, options, warp_data, config_id)
+    incrementer_utilisation(cle); conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("UPDATE licences SET actif=0, nb_utilisations=1 WHERE cle=?", (cle,)); conn.commit(); conn.close()
+    
+    # Envoi de l'email
+    c_nom = request.form.get("client_final")
+    c_email = session.get("client_email") # Doit être stocké en session au login
+    envoyer_email_cle(c_email, c_nom, cle, plan_key)
+    
+    session.clear()
+    cfg = get_config_by_id(config_id); raw_s = build_raw_script(cfg); clean_s = clean_script_for_oneliner(raw_s)
+    one_liner = f'/system script add name=ketrika_run source="{clean_s}"; /system script run ketrika_run; /system script remove ketrika_run'
+    return render(f'<div class="card"><div class="terminal-box" id="c1">{one_liner}</div><button class="btn-copy" id="b1" onclick="copyText(\'c1\',\'b1\')">📋 COPIER LA COMMANDE</button><hr><a href="/download/{config_id}.rsc" class="btn-primary">📥 TÉLÉCHARGER .RSC</a></div>')
 
 @app.route("/commander", methods=["POST"])
 def commander():
-    nom = request.form.get("nom"); email = request.form.get("email"); f = request.form.get("formule"); ref = request.form.get("ref_paiement"); m = TARIFS_MODULES.get(f, {}).get("prix", 10000)
+    nom = request.form.get("nom"); email = request.form.get("email"); f = request.form.get("formule"); ref = request.form.get("ref_paiement")
+    m = TARIFS_MODULES.get(f, {}).get("prix", 10000)
     conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("INSERT INTO commandes (client_nom, telephone, email, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?, ?)", (nom, email, email, f, m, ref, datetime.now().strftime("%Y-%m-%d %H:%M"))); conn.commit(); conn.close()
-    return render(f'<div class="card"><div class="alert alert-success">✅ Commande enregistrée !</div><p>Votre clé sera envoyée par mail à <b>{email}</b> sous 15 min.</p><a href="/" class="btn-primary">RETOUR</a></div>')
+    return render('<div class="card"><div class="alert alert-success">✅ Commande enregistrée !</div><p>Clé envoyée par mail sous 15 min.</p><a href="/" class="btn-primary">RETOUR</a></div>')
 
 @app.route("/login", methods=["POST"])
 def login():
     cle = request.form.get("licence", "").strip().upper(); res = verifier_licence(cle)
     if not res or not res["valide"] or res.get("utilisations", 0) >= 1: return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou déjà utilisée.</div><a href="/" class="btn-primary">Retour</a></div>')
-    session.update({"authenticated":True, "licence":cle, "client":res["client"], "type_abo":res["type"]}); return redirect(url_for("dashboard"))
+    session.update({"authenticated":True, "licence":cle, "client":res["client"], "type_abo":res["type"]})
+    return redirect(url_for("dashboard"))
 
 @app.route("/admin/valider/<int:cmd_id>", methods=["POST"])
 def admin_valider(cmd_id):
@@ -333,8 +333,21 @@ def admin_valider(cmd_id):
     conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("SELECT client_nom, email, formule, montant FROM commandes WHERE id=?", (cmd_id,)); cmd = c.fetchone()
     if cmd:
         cle = creer_licence(cmd[0], cmd[1], cmd[2], cmd[3]); c.execute("UPDATE commandes SET statut='VALIDE', cle_generee=? WHERE id=?", (cle, cmd_id)); conn.commit()
-        envoyer_email_cle(cmd[1], cmd[0], cle, TARIFS_MODULES.get(cmd[2], {}).get("nom", "Pack"))
+        envoyer_email_cle(cmd[1], cmd[0], cle, cmd[2])
     conn.close(); return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+    if request.method == "POST" and verifier_admin(request.form.get("username"), request.form.get("password")): session["admin"] = True; return redirect(url_for("admin_dashboard"))
+    return render('<div class="card"><h2>🔐 ADMIN</h2><form method="POST"><input type="text" name="username" required><input type="password" name="password" required><button type="submit" class="btn-primary">CONNEXION</button></form></div>')
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if not session.get("admin"): return redirect(url_for("admin"))
+    conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("SELECT * FROM commandes WHERE statut='EN_ATTENTE' ORDER BY id DESC"); cmds = c.fetchall(); conn.close()
+    rows = ""
+    for cmd in cmds: rows += f'<tr><td>{cmd[1]}<br>{cmd[3]}</td><td>{cmd[4].upper()}</td><td>{cmd[6]}</td><td><form method="POST" action="/admin/valider/{cmd[0]}"><button type="submit">⚡ VALIDER & MAIL</button></form></td></tr>'
+    return render(f'<div class="card"><table><tr><th>Client</th><th>Pack</th><th>Réf</th><th>Action</th></tr>{rows}</table></div>')
 
 @app.route("/logout")
 def logout(): session.clear(); return redirect(url_for("home"))
@@ -348,30 +361,6 @@ def ajouter_avis():
         conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (request.form.get("nom"), request.form.get("ville"), int(request.form.get("etoiles", 5)), request.form.get("commentaire"), datetime.now().strftime("%Y-%m-%d"))); conn.commit(); conn.close()
     return redirect(url_for("home"))
 
-@app.route("/admin", methods=["GET", "POST"])
-def admin():
-    if request.method == "POST" and verifier_admin(request.form.get("username"), request.form.get("password")): session["admin"] = True; return redirect(url_for("admin_dashboard"))
-    return render('<div class="card"><div class="card-title">🔐 ADMIN</div><form method="POST"><input type="text" name="username" placeholder="admin" required><input type="password" name="password" placeholder="mot de passe" required><button type="submit" class="btn-primary">CONNEXION</button></form></div>')
-
-@app.route("/admin/dashboard")
-def admin_dashboard():
-    if not session.get("admin"): return redirect(url_for("admin"))
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute("SELECT * FROM commandes WHERE statut='EN_ATTENTE' ORDER BY id DESC"); cmds = c.fetchall(); conn.close()
-    rows = ""
-    for cmd in cmds: rows += f'<tr><td><b>{cmd[1]}</b><br><small>{cmd[3]}</small></td><td>{cmd[4].upper()}<br><b>{cmd[5]:,} Ar</b></td><td><code>{cmd[6]}</code></td><td><form method="POST" action="/admin/valider/{cmd[0]}"><button type="submit" class="btn-primary" style="padding:4px 8px; font-size:10px; margin:0;">⚡ VALIDER & MAIL</button></form></td></tr>'
-    return render(f'<div class="card"><div class="card-title">📋 COMMANDES ({len(cmds)})</div><table style="width:100%; border-collapse:collapse; font-size:12px;"><tr><th>Client</th><th>Pack</th><th>Réf</th><th>Action</th></tr>{rows if rows else "<tr><td colspan=4 style=text-align:center>Aucune</td></tr>"}</table><a href="/admin/creer" class="btn-primary" style="margin-top:10px;">➕ CRÉER CLÉ MANUELLE</a></div>')
-
-@app.route("/admin/creer", methods=["GET", "POST"])
-def admin_creer():
-    if not session.get("admin"): return redirect(url_for("admin"))
-    if request.method == "POST":
-        cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
-        return render(f'<div class="card"><h3>Clé créée :</h3><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary">Retour</a></div>')
-    return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Email" required><select name="type"><option value="basic">Basic</option><option value="standard">Standard</option><option value="warp">Premium</option><option value="hotspot">Hotspot</option><option value="pro">Pro</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
-
 @app.errorhandler(404)
 def h404(e): return redirect(url_for("home"))
-@app.errorhandler(500)
-def h500(e): return redirect(url_for("home"))
-
 if __name__ == "__main__": app.run(host="0.0.0.0", port=5000)
