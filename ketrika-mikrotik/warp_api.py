@@ -1,4 +1,4 @@
-# warp_api.py - KETRIKA MIKROTIK - Moteur Sans Dépendance Externe
+# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX sans Reboot
 import secrets
 import base64
 import requests
@@ -6,7 +6,49 @@ import re
 import ipaddress
 
 # =======================================================
-# MOTEUR CRYPTOGRAPHIQUE X25519 PURE PYTHON
+# VALIDATEUR STRICT DE CONFIGURATION
+# =======================================================
+class ConfigValidator:
+    @staticmethod
+    def validate_ip(ip_str):
+        try:
+            ipaddress.IPv4Address(ip_str)
+            return True
+        except:
+            return False
+
+    @staticmethod
+    def validate_network(net_str):
+        try:
+            ipaddress.IPv4Network(net_str, strict=False)
+            return True
+        except:
+            return False
+
+    @staticmethod
+    def auto_fix_order(order):
+        if not ConfigValidator.validate_ip(order.lan_gateway):
+            order.lan_gateway = '192.168.88.1'
+        if not ConfigValidator.validate_network(order.lan_network):
+            order.lan_network = '192.168.88.0/24'
+        
+        # Nettoyage SSID & Mot de passe
+        cleaned_ssid = re.sub(r'[^\w\s\-\.]', '', str(order.ssid or "WiFiZone-Ketrika"))
+        order.ssid = cleaned_ssid[:32].strip() or "WiFiZone-Ketrika"
+        
+        pwd = str(order.wifi_password or "Ketrika2024")
+        order.wifi_password = pwd if len(pwd) >= 8 else "Ketrika2024"
+        
+        try:
+            ttl = int(order.ttl_value)
+            order.ttl_value = ttl if 1 <= ttl <= 255 else 65
+        except:
+            order.ttl_value = 65
+            
+        return order
+
+# =======================================================
+# MOTEUR CRYPTO X25519 PURE PYTHON
 # =======================================================
 P = 2**255 - 19
 A24 = 121665
@@ -73,8 +115,6 @@ def generate_warp_config_for_client():
             }
     except Exception:
         pass
-    
-    # Configuration stable et instantanée
     return {
         'private_key': priv,
         'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
@@ -84,8 +124,11 @@ def generate_warp_config_for_client():
     }
 
 # =======================================================
-# NETTOYAGE & VALIDATION MATÉRIEL
+# DÉTECTION CONFIGURATION MATÉRIEL AC / AX
 # =======================================================
+def format_limit(v):
+    return '0' if v in ('nolimit', '0', '', None) else str(v)
+
 def is_ax_model(m):
     return any(k in m for k in ['ax', 'AX', 'C52', 'C53', 'hAP ax'])
 
@@ -95,65 +138,88 @@ def is_wifi_model(m):
 def has_5ghz(m):
     return not any(k in m for k in ['hAP lite', 'RB941']) and is_wifi_model(m)
 
+def generate_wifi_config(order):
+    m, s, p = order.mikrotik_model, order.ssid, order.wifi_password
+    if not is_wifi_model(m):
+        return "\n# Ce materiel ne dispose pas de module WiFi integre.\n"
+
+    if is_ax_model(m):
+        # Configuration WiFi 6 (AX) - ROS v7 (wifi1 & wifi2)
+        cfg = f"""
+# === CONFIGURATION SANS FIL WIFI 6 AX ===
+:do {{
+    /interface wifi set wifi1 configuration.mode=ap configuration.ssid="{s}" \\
+        security.authentication-types=wpa2-psk security.passphrase="{p}" \\
+        disabled=no
+}} on-error={{}}
+"""
+        if has_5ghz(m):
+            cfg += f"""
+:do {{
+    /interface wifi set wifi2 configuration.mode=ap configuration.ssid="{s}-5G" \\
+        security.authentication-types=wpa2-psk security.passphrase="{p}" \\
+        disabled=no
+}} on-error={{}}
+"""
+    else:
+        # Configuration WiFi Legacy (AC) - ROS v7 (wlan1 & wlan2)
+        cfg = f"""
+# === CONFIGURATION SANS FIL WIFI AC ===
+:do {{
+    /interface wireless set wlan1 mode=ap-bridge ssid="{s}" wireless-protocol=802.11 \\
+        frequency=2412 band=2ghz-b/g/n channel-width=20/40mhz-Ce disabled=no
+    /interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk \\
+        wpa2-pre-shared-key="{p}" mode=dynamic-keys
+}} on-error={{}}
+"""
+        if has_5ghz(m):
+            cfg += f"""
+:do {{
+    /interface wireless set wlan2 mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 \\
+        frequency=5180 band=5ghz-a/n/ac channel-width=20/40/80mhz-Ceee disabled=no
+}} on-error={{}}
+"""
+    return cfg
+
+# =======================================================
+# GÉNÉRATEUR SCRIPT COMPLET (PRO SANS REBOOT)
+# =======================================================
 def generate_full_script(order):
     from database import MIKROTIK_MODELS
-
-    # Auto-correction sécurité
-    try:
-        ipaddress.IPv4Address(order.lan_gateway)
-    except:
-        order.lan_gateway = '192.168.88.1'
-
-    try:
-        ipaddress.IPv4Network(order.lan_network, strict=False)
-    except:
-        order.lan_network = '192.168.88.0/24'
-
+    order = ConfigValidator.auto_fix_order(order)
     info = MIKROTIK_MODELS.get(order.mikrotik_model, {'ports': 5, 'wifi': True, 'wifi5g': False})
     ports = info['ports']
-    wan = order.wan_interface or 'ether1'
-    gw = order.lan_gateway
-    net = order.lan_network
-    pool = order.dhcp_pool or '192.168.88.10-192.168.88.250'
-    ttl = order.ttl_value or 65
-    dl = '0' if order.dl_limit in ('nolimit', '0', '', None) else str(order.dl_limit)
-    ul = '0' if order.ul_limit in ('nolimit', '0', '', None) else str(order.ul_limit)
-    ssid = re.sub(r'[^\w\s\-\.]', '', str(order.ssid or "WiFiZone-Ketrika"))[:32].strip() or "WiFiZone-Ketrika"
-    pwd = str(order.wifi_password or "Ketrika2024")
-    if len(pwd) < 8: pwd = "Ketrika2024"
-
+    wan, gw, net = order.wan_interface, order.lan_gateway, order.lan_network
+    pool, ttl = order.dhcp_pool, order.ttl_value
+    dl, ul = format_limit(order.dl_limit), format_limit(order.ul_limit)
     is_hs = order.plan_type == 'hotspot'
     needs_warp = order.plan_type in ('warp', 'hotspot')
 
-    # Ports asynchrones
+    # Association intelligente des ports physiques et sans fil au Bridge
     bp = ""
     for i in range(2, ports + 1):
         bp += f"/interface bridge port add bridge=bridge1 interface=ether{i}; "
-    if is_wifi_model(order.mikrotik_model):
-        bp += "/interface bridge port add bridge=bridge1 interface=wlan1; "
-        if has_5ghz(order.mikrotik_model):
-            bp += "/interface bridge port add bridge=bridge1 interface=wlan2; "
-
-    # WiFi
-    wcfg = ""
+    
     if is_wifi_model(order.mikrotik_model):
         if is_ax_model(order.mikrotik_model):
-            wcfg = f'\n:do {{ /interface wifi set wlan1 configuration.mode=ap configuration.ssid="{ssid}" security.authentication-types=wpa2-psk security.passphrase="{pwd}" channel.frequency=2412 channel.width=20/40mhz-Ce disabled=no }} on-error={{}}\n'
+            bp += "/interface bridge port add bridge=bridge1 interface=wifi1; "
             if has_5ghz(order.mikrotik_model):
-                wcfg += f':do {{ /interface wifi set wlan2 configuration.mode=ap configuration.ssid="{ssid}-5G" security.authentication-types=wpa2-psk security.passphrase="{pwd}" channel.frequency=5180 channel.width=20/40/80mhz-Ceee disabled=no }} on-error={{}}\n'
+                bp += "/interface bridge port add bridge=bridge1 interface=wifi2; "
         else:
-            wcfg = f'\n:do {{ /interface wireless set wlan1 mode=ap-bridge ssid="{ssid}" wireless-protocol=802.11 frequency=2412 band=2ghz-b/g/n channel-width=20/40mhz-Ce disabled=no\n/interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk wpa2-pre-shared-key="{pwd}" mode=dynamic-keys }} on-error={{}}\n'
+            bp += "/interface bridge port add bridge=bridge1 interface=wlan1; "
             if has_5ghz(order.mikrotik_model):
-                wcfg += f':do {{ /interface wireless set wlan2 mode=ap-bridge ssid="{ssid}-5G" wireless-protocol=802.11 frequency=5180 band=5ghz-a/n/ac channel-width=20/40/80mhz-Ceee disabled=no }} on-error={{}}\n'
+                bp += "/interface bridge port add bridge=bridge1 interface=wlan2; "
 
-    # QoS Queue
-    rl = "\n# Mode Illimite : Debit maximal sans limitation\n" if dl == '0' else f"""
+    wcfg = generate_wifi_config(order)
+
+    # Limitation bande passante
+    rl = "\n# Mode Illimite : Aucun bridage de vitesse\n" if dl == '0' else f"""
 :if ([/queue type find name=pcq-dl-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
 :if ([/queue type find name=pcq-ul-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Cloudflare Tunnel
+    # Cloudflare Secure Tunnel
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
@@ -179,7 +245,7 @@ def generate_full_script(order):
     if is_hs:
         rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
         hs = f"""
-# === HOTSPOT WIFI ZONE ===
+# === PORTAIL HOTSPOT WIFI ZONE ===
 :do {{ /ip dhcp-server remove [find interface=bridge1 name=dhcp-lan] }} on-error={{}}
 :do {{ /ip hotspot remove hotspot-ketrika }} on-error={{}}
 :delay 1s
@@ -196,7 +262,6 @@ def generate_full_script(order):
         if order.pppoe_enabled:
             rl_p = f"rate-limit={ul}/{dl}" if dl != '0' else ""
             hs += f"""
-# === SERVEUR PPPoE ===
 :do {{
     /ip pool add name=pool-pppoe ranges=192.168.99.10-192.168.99.250
     /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 name=pppoe-ketrika {rl_p} remote-address=pool-pppoe
@@ -205,7 +270,7 @@ def generate_full_script(order):
 }} on-error={{}}
 """
         if order.voucher_enabled:
-            hs += "\n# === VOUCHERS PRE-GENERES ===\n/ip hotspot user\n"
+            hs += "\n/ip hotspot user\n"
             for _ in range(10):
                 c = secrets.token_hex(4).upper()
                 hs += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
@@ -224,7 +289,7 @@ def generate_full_script(order):
 # Licence : {order.license_key} (1 SEUL ROUTEUR)
 # =============================================
 
-:put "Configuration KETRIKA en cours..."
+:put "KETRIKA - Configuration en cours..."
 :delay 1s
 
 # 1. VERROUILLAGE MATERIEL DANS LE ROUTEUR
@@ -243,10 +308,10 @@ def generate_full_script(order):
 # 5. DHCP SERVEUR LAN
 {dhcp}
 
-# 6. CONFIGURATION SANS FIL
+# 6. CONFIGURATION SANS FIL WIFI DETECTE
 {wcfg}
 
-# 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE)
+# 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
 /system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
 
 # 8. DNS & NAT
@@ -268,8 +333,15 @@ def generate_full_script(order):
     /ip firewall filter add chain=forward in-interface=bridge1 out-interface={wan} action=accept
 }} on-error={{}}
 {warp}{hs}{rl}
+
+# === 10. SOFT RESET PORT WAN (FORCE L'OBTENTION IP SANS REBOOT) ===
+:log info "KETRIKA: Soft Reset WAN..."
+/interface ethernet disable {wan}
+:delay 2s
+/interface ethernet enable {wan}
+
 :put "================================================"
-:put "  CONFIGURATION KETRIKA REUSSIE !"
+:put "  CONFIGURATION KETRIKA REUSSIE SANS REBOOT !"
 :put "  Licence : {order.license_key}"
 :put "  Materiel : {order.mikrotik_model}"
 :put "================================================"
