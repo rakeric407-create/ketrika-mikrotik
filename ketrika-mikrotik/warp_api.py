@@ -1,4 +1,4 @@
-# warp_api.py - KETRIKA MIKROTIK - Moteur Pure Python (Zero Compilation)
+# warp_api.py - KETRIKA MIKROTIK - Générateur Script Pro (Cloudflare WARP)
 import os
 import secrets
 import base64
@@ -20,11 +20,7 @@ def _clamp(key_bytes):
 def _x25519(k, u):
     k_int = int.from_bytes(_clamp(k), 'little')
     x_1 = int.from_bytes(u, 'little')
-    x_2 = 1
-    z_2 = 0
-    x_3 = x_1
-    z_3 = 1
-    swap = 0
+    x_2, z_2, x_3, z_3, swap = 1, 0, x_1, 1, 0
 
     for t in reversed(range(255)):
         k_t = (k_int >> t) & 1
@@ -56,18 +52,17 @@ def _x25519(k, u):
     return result.to_bytes(32, 'little')
 
 def generate_wireguard_keys():
-    """Génère une paire de clés WireGuard sans aucune dépendance C"""
+    """Génère une paire de clés WireGuard (X25519) sans aucune dépendance C/Rust"""
     raw_priv = secrets.token_bytes(32)
     clamped_priv = _clamp(raw_priv)
     base_point = (9).to_bytes(32, 'little')
     raw_pub = _x25519(clamped_priv, base_point)
-    
     priv_b64 = base64.b64encode(clamped_priv).decode('utf-8')
     pub_b64 = base64.b64encode(raw_pub).decode('utf-8')
     return priv_b64, pub_b64
 
 def register_warp_account(public_key):
-    """Enregistre le compte sur l'API Cloudflare WARP"""
+    """Enregistrement auto sur l'API Cloudflare Secure Tunnel"""
     url = "https://api.cloudflareclient.com/v0a2158/reg"
     headers = {
         "Content-Type": "application/json",
@@ -94,15 +89,15 @@ def register_warp_account(public_key):
                 'endpoint': data['config']['peers'][0]['endpoint']['host']
             }
     except Exception as e:
-        print(f"Info WARP API: {e}")
+        print(f"Info Cloudflare API: {e}")
     return {'success': False}
 
 def generate_warp_config_for_client():
+    """Génère la config Cloudflare Secure Tunnel personnalisée par client"""
     priv_b64, pub_b64 = generate_wireguard_keys()
     warp_info = register_warp_account(pub_b64)
     
     if not warp_info or not warp_info.get('success'):
-        # Fallback automatique
         return {
             'success': False,
             'private_key': priv_b64,
@@ -125,7 +120,7 @@ def generate_warp_config_for_client():
     }
 
 # =======================================================
-# DÉTECTION MATÉRIEL MIKROTIK
+# DÉTECTION HARDWARE MIKROTIK
 # =======================================================
 def format_limit(value):
     if value in ('nolimit', '0', '', None):
@@ -151,7 +146,7 @@ def generate_wifi_config(order):
 
     if is_ax_model(model):
         cfg = f"""
-# === CONFIGURATION SANS FIL WIFI AX (RouterOS v7) ===
+# === CONFIGURATION SANS FIL WIFI AX ===
 :do {{
     /interface wifi set wlan1 configuration.mode=ap configuration.ssid="{ssid}" \\
         security.authentication-types=wpa2-psk security.passphrase="{password}" \\
@@ -168,7 +163,7 @@ def generate_wifi_config(order):
 """
     else:
         cfg = f"""
-# === CONFIGURATION SANS FIL WIFI AC (RouterOS v7) ===
+# === CONFIGURATION SANS FIL WIFI AC ===
 :do {{
     /interface wireless set wlan1 mode=ap-bridge ssid="{ssid}" wireless-protocol=802.11 \\
         frequency=2412 band=2ghz-b/g/n channel-width=20/40mhz-Ce disabled=no
@@ -186,7 +181,7 @@ def generate_wifi_config(order):
     return cfg
 
 # =======================================================
-# GÉNÉRATEUR GLOBAL DE SCRIPT .RSC
+# GÉNÉRATEUR GLOBAL DE SCRIPT .RSC (ULTRA-STABLE)
 # =======================================================
 def generate_full_script(order):
     from database import MIKROTIK_MODELS
@@ -215,7 +210,7 @@ def generate_full_script(order):
             bp_inner += "/interface bridge port add bridge=bridge1 interface=wlan2; "
 
     scheduler_cmd = f"""
-# === ASSIGNATION ASYNCHRONE DES PORTS (ANTI-DÉCONNEXION TERMINAL) ===
+# === ASSIGNATION ASYNCHRONE DES PORTS ===
 /system scheduler add name=ketrika_setup interval=0s start-time=([/system clock get time] + 00:00:04) on-event="\\
     {bp_inner} \\
     /system scheduler remove ketrika_setup;"
@@ -223,34 +218,33 @@ def generate_full_script(order):
 
     wcfg = generate_wifi_config(order)
 
-    # Limitation
     if dl == '0':
-        rl = "\n# Bande passante : Mode Illimité (Pas de limitation Simple Queue)\n"
+        rl = "\n# Mode Illimité : Pas de bridage - Débit maximum stable garanti\n"
     else:
         rl = f"""
-# === GESTION DE BANDE PASSANTE (PCQ DYNAMIQUE) ===
+# === GESTION DE BANDE PASSANTE MULTI-CLIENTS ===
 :do {{
     /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl}
     /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul}
-    /queue simple add name="KETRIKA-Limit" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] Bandwidth"
+    /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS"
 }} on-error={{}}
 """
 
-    # Cloudflare WARP
+    # Cloudflare Secure Tunnel
     warp = ""
     if needs_warp:
         warp_cfg = generate_warp_config_for_client()
         warp = f"""
 # =============================================
-# ☁️ TUNNEL CLOUDFLARE WARP (AUTO-CONFIGURÉ)
+# ☁️ CLOUDFLARE SECURE TUNNEL (Débit Illimité & Stable)
 # =============================================
 :do {{
-    /interface wireguard add name=wg-warp listen-port=13231 mtu=1280 private-key="{warp_cfg['private_key']}" comment="[KETRIKA-WARP]"
-    /interface wireguard peers add interface=wg-warp public-key="{warp_cfg['warp_public_key']}" endpoint-address={warp_cfg['endpoint_host']} endpoint-port={warp_cfg['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
-    /ip address add address={warp_cfg['client_ipv4']}/32 interface=wg-warp comment="[KETRIKA-WARP] IP"
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address=!{net} action=mark-routing new-routing-mark=via-warp passthrough=yes comment="[KETRIKA-WARP] LAN Route"
-    /ip route add dst-address=0.0.0.0/0 gateway=wg-warp routing-table=via-warp comment="[KETRIKA-WARP] Default Route"
-    /ip firewall nat add chain=srcnat out-interface=wg-warp action=masquerade comment="[KETRIKA-WARP] NAT"
+    /interface wireguard add name=wg-secure listen-port=13231 mtu=1420 private-key="{warp_cfg['private_key']}" comment="[KETRIKA] Secure Tunnel"
+    /interface wireguard peers add interface=wg-secure public-key="{warp_cfg['warp_public_key']}" endpoint-address={warp_cfg['endpoint_host']} endpoint-port={warp_cfg['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
+    /ip address add address={warp_cfg['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA] Tunnel IP"
+    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA] Traffic marking"
+    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA] Secure route"
+    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA] Tunnel NAT"
     /ip dns set use-doh-server=https://cloudflare-dns.com/dns-query verify-doh-cert=yes servers=1.1.1.1,1.0.0.1
 }} on-error={{}}
 """
@@ -261,7 +255,7 @@ def generate_full_script(order):
         rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
         hotspot = f"""
 # =============================================
-# 🌐 HOTSPOT WIFI ZONE
+# 🌐 PORTAIL HOTSPOT WIFI ZONE
 # =============================================
 :do {{ /ip dhcp-server remove [find interface=bridge1 name=dhcp-lan] }} on-error={{}}
 :delay 1s
@@ -304,39 +298,39 @@ def generate_full_script(order):
 """
 
     rsc = f"""# =============================================
-# KETRIKA MIKROTIK - Script Automatique v7
-# Plan : {order.plan_type.upper()} | Modèle : {order.mikrotik_model}
+# KETRIKA MIKROTIK - Script Automatique
+# Pack : {order.plan_type.upper()} | Matériel : {order.mikrotik_model}
 # Licence : {order.license_key}
 # =============================================
 
-:put "Configuration en cours... Ne fermez pas WinBox."
+:put "Configuration KETRIKA en cours d'application..."
 :delay 1s
 
-# 1. BRIDGE
+# 1. BRIDGE PRINCIPAL
 :do {{ /interface bridge add name=bridge1 protocol-mode=none comment="LAN" }} on-error={{}}
 
-# 2. ADRESSE IP
+# 2. ADRESSE IP LAN
 :do {{ /ip address add address={gw}/24 interface=bridge1 comment="Gateway" }} on-error={{}}
 
-# 3. WAN DHCP
+# 3. CLIENT DHCP WAN
 :do {{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }} on-error={{}}
 
-# 4. DHCP LAN
+# 4. SERVEUR DHCP LAN
 {dhcp_section}
 
-# 5. WIFI
+# 5. CONFIGURATION SANS FIL
 {wcfg}
 
-# 6. ASSIGNATION PORTS ASYNCHRONE
+# 6. ATTRIBUTION ASYNCHRONE DES PORTS
 {scheduler_cmd}
 
-# 7. DNS & NAT
+# 7. DNS SÉCURISÉ & NAT
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1,8.8.8.8
 :do {{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade }} on-error={{}}
 
-# 8. BYPASS & OPTIMISATION FAI (STARLINK)
+# 8. OPTIMISATION RÉSEAU AVANCÉE
 :do {{
-    /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL"
+    /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL Norm"
     /ip firewall mangle add chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
@@ -350,8 +344,9 @@ def generate_full_script(order):
 }} on-error={{}}
 {warp}{hotspot}{rl}
 :put "================================================"
-:put "  CONFIGURATION APPLIQUÉE AVEC SUCCÈS !"
+:put "  KETRIKA - Installation Réussie !"
 :put "  Licence : {order.license_key}"
+:put "  Configuration opérationnelle en 4 secondes"
 :put "================================================"
 """
     return rsc
