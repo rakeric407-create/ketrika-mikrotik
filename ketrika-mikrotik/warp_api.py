@@ -1,4 +1,4 @@
-# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX avec Reboot Automatique
+# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX avec TTL Dynamique et Reboot
 import secrets
 import base64
 import requests
@@ -12,7 +12,7 @@ class ConfigValidator:
     @staticmethod
     def validate_ip(ip_str):
         try:
-            ipaddress.IPv4Address(ip_str)
+            ipaddress.IPv4Address(str(ip_str).strip())
             return True
         except:
             return False
@@ -20,7 +20,7 @@ class ConfigValidator:
     @staticmethod
     def validate_network(net_str):
         try:
-            ipaddress.IPv4Network(net_str, strict=False)
+            ipaddress.IPv4Network(str(net_str).strip(), strict=False)
             return True
         except:
             return False
@@ -39,9 +39,14 @@ class ConfigValidator:
         pwd = str(order.wifi_password or "Ketrika2024")
         order.wifi_password = pwd if len(pwd) >= 8 else "Ketrika2024"
         
+        # Validation du TTL
         try:
-            ttl = int(order.ttl_value)
-            order.ttl_value = ttl if 1 <= ttl <= 255 else 65
+            ttl_val = str(order.ttl_value or '').strip().lower()
+            if ttl_val in ('0', 'none', 'disabled', ''):
+                order.ttl_value = 'disabled'
+            else:
+                ttl = int(ttl_val)
+                order.ttl_value = ttl if 1 <= ttl <= 255 else 65
         except:
             order.ttl_value = 65
             
@@ -107,6 +112,7 @@ def generate_warp_config_for_client():
         if res.status_code in (200, 201):
             d = res.json()
             raw_v4 = d['config']['interface']['addresses']['v4']
+            # Extraction propre de l'IP Cloudflare sans masque double /32
             client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
             return {
                 'private_key': priv,
@@ -146,7 +152,6 @@ def generate_wifi_config(order):
         return "\n# Ce materiel ne dispose pas de module WiFi integre.\n"
 
     if is_ax_model(m):
-        # Configuration WiFi 6 (AX) - ROS v7 (wifi1 & wifi2)
         cfg = f"""
 # === CONFIGURATION SANS FIL WIFI 6 AX ===
 :do {{
@@ -164,7 +169,6 @@ def generate_wifi_config(order):
 }} on-error={{}}
 """
     else:
-        # Configuration WiFi Legacy (AC) - ROS v7 (wlan1 & wlan2)
         cfg = f"""
 # === CONFIGURATION SANS FIL WIFI AC ===
 :do {{
@@ -184,7 +188,7 @@ def generate_wifi_config(order):
     return cfg
 
 # =======================================================
-# GÉNÉRATEUR SCRIPT COMPLET AVEC REBOOT
+# GÉNÉRATEUR SCRIPT COMPLET
 # =======================================================
 def generate_full_script(order):
     from database import MIKROTIK_MODELS
@@ -192,7 +196,7 @@ def generate_full_script(order):
     info = MIKROTIK_MODELS.get(order.mikrotik_model, {'ports': 5, 'wifi': True, 'wifi5g': False})
     ports = info['ports']
     wan, gw, net = order.wan_interface, order.lan_gateway, order.lan_network
-    pool, ttl = order.dhcp_pool, order.ttl_value
+    pool = order.dhcp_pool
     dl, ul = format_limit(order.dl_limit), format_limit(order.ul_limit)
     is_hs = order.plan_type == 'hotspot'
     needs_warp = order.plan_type in ('warp', 'hotspot')
@@ -221,7 +225,18 @@ def generate_full_script(order):
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Cloudflare Secure Tunnel (Route & Table v7 Fixe)
+    # Génération du bloc TTL en fonction du choix du client sur le site
+    if order.ttl_value == 'disabled':
+        ttl_script = "\n# Optimisation TTL : Desactivee par le client\n"
+    else:
+        ttl_script = f"""
+# 9. OPTIMISATION RESEAU & CHANGEMENT DYNAMIQUE TTL (CHOIX CLIENT: {order.ttl_value})
+/ip firewall mangle remove [find comment~"KETRIKA-TTL"]
+/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:{order.ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
+/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{order.ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
+"""
+
+    # Cloudflare Secure Tunnel (Route, IP /32 et table FIB de RouterOS v7)
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
@@ -322,10 +337,8 @@ def generate_full_script(order):
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1,8.8.8.8
 :if ([/ip firewall nat find comment~"KETRIKA"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA]" }}
 
-# 9. OPTIMISATION RESEAU MULTI-CLIENTS
+# 9. OPTIMISATION DU FIREWALL & SYN-MSS
 :do {{
-    /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL"
-    /ip firewall mangle chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
     /ip firewall filter add chain=forward out-interface={wan} protocol=icmp action=drop
@@ -336,15 +349,18 @@ def generate_full_script(order):
     /ip firewall filter add chain=forward connection-state=invalid action=drop
     /ip firewall filter add chain=forward in-interface=bridge1 out-interface={wan} action=accept
 }} on-error={{}}
+
+{ttl_script}
 {warp}{hs}{rl}
 
-# === 10. REDEMARRAGE AUTOMATIQUE DU ROUTEUR ===
+# === 10. REBOOT AUTOMATIQUE DU ROUTEUR (APPLIQUE LES PLANS DE ROUTAGE) ===
 :log info "KETRIKA: Configuration terminee, reboot dans 3s..."
 :put "================================================"
 :put "  CONFIGURATION KETRIKA APPLIQUEE AVEC SUCCES !"
-:put "  Licence : {order.license_key}"
-:put "  Materiel : {order.mikrotik_model}"
-:put "  Redemarrage du routeur en cours..."
+:put "  Licence  : {order.license_key}"
+:put "  Routeur  : {order.mikrotik_model}"
+:put "  TTL Base : {order.ttl_value}"
+:put "  Le routeur va redemarrer automatiquement dans 3 secondes..."
 :put "================================================"
 
 /system scheduler add name=ketrika_reboot interval=0s start-time=([/system clock get time] + 00:00:03) on-event="/system scheduler remove ketrika_reboot; /system reboot;"
