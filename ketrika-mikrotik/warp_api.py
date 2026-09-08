@@ -106,9 +106,8 @@ def generate_warp_config_for_client():
             timeout=5)
         if res.status_code in (200, 201):
             d = res.json()
-            # Nettoyage automatique du masque /32 eventuel renvoye par l'API
-            raw_v4 = d['config']['interface']['addresses']['v4']
-            client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
+            raw_ip = d['config']['interface']['addresses']['v4']
+            client_ip = raw_ip.split('/')[0] if '/' in raw_ip else raw_ip
             return {
                 'private_key': priv,
                 'client_ipv4': client_ip,
@@ -144,48 +143,44 @@ def has_5ghz(m):
 def generate_wifi_config(order):
     m, s, p = order.mikrotik_model, order.ssid, order.wifi_password
     if not is_wifi_model(m):
-        return "\n# Ce materiel ne dispose pas de module WiFi integre.\n"
+        return "\n# Materiel sans module WiFi integre.\n"
 
     if is_ax_model(m):
-        # Configuration WiFi 6 (AX) - ROS v7 (wifi1 & wifi2)
         cfg = f"""
 # === CONFIGURATION SANS FIL WIFI 6 AX ===
 :do {{
-    /interface wifi set wifi1 configuration.mode=ap configuration.ssid="{s}" \\
-        security.authentication-types=wpa2-psk security.passphrase="{p}" \\
-        disabled=no
+    /interface wifi set [find name=wifi1] configuration.mode=ap configuration.ssid="{s}" \\
+        security.authentication-types=wpa2-psk security.passphrase="{p}" disabled=no
 }} on-error={{}}
 """
         if has_5ghz(m):
             cfg += f"""
 :do {{
-    /interface wifi set wifi2 configuration.mode=ap configuration.ssid="{s}-5G" \\
-        security.authentication-types=wpa2-psk security.passphrase="{p}" \\
-        disabled=no
+    /interface wifi set [find name=wifi2] configuration.mode=ap configuration.ssid="{s}-5G" \\
+        security.authentication-types=wpa2-psk security.passphrase="{p}" disabled=no
 }} on-error={{}}
 """
     else:
-        # Configuration WiFi Legacy (AC) - ROS v7 (wlan1 & wlan2)
         cfg = f"""
 # === CONFIGURATION SANS FIL WIFI AC ===
 :do {{
-    /interface wireless set wlan1 mode=ap-bridge ssid="{s}" wireless-protocol=802.11 \\
-        frequency=2412 band=2ghz-b/g/n channel-width=20/40mhz-Ce disabled=no
     /interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk \\
         wpa2-pre-shared-key="{p}" mode=dynamic-keys
+    /interface wireless set [find name=wlan1] mode=ap-bridge ssid="{s}" wireless-protocol=802.11 \\
+        frequency=2412 band=2ghz-b/g/n channel-width=20/40mhz-Ce disabled=no
 }} on-error={{}}
 """
         if has_5ghz(m):
             cfg += f"""
 :do {{
-    /interface wireless set wlan2 mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 \\
+    /interface wireless set [find name=wlan2] mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 \\
         frequency=5180 band=5ghz-a/n/ac channel-width=20/40/80mhz-Ceee disabled=no
 }} on-error={{}}
 """
     return cfg
 
 # =======================================================
-# GÉNÉRATEUR SCRIPT COMPLET (PRO SANS REBOOT)
+# GÉNÉRATEUR SCRIPT COMPLET
 # =======================================================
 def generate_full_script(order):
     from database import MIKROTIK_MODELS
@@ -198,49 +193,56 @@ def generate_full_script(order):
     is_hs = order.plan_type == 'hotspot'
     needs_warp = order.plan_type in ('warp', 'hotspot')
 
-    # Association intelligente des ports physiques et sans fil au Bridge
-    bp = ""
+    # Ajout sécurisé des ports au bridge (sans jamais écraser ni déconnecter Winbox)
+    bp_list = []
     for i in range(2, ports + 1):
-        bp += f"/interface bridge port add bridge=bridge1 interface=ether{i}; "
+        bp_list.append(f':if ([:len [/interface bridge port find bridge=bridge1 interface=ether{i}]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=ether{i} }}')
     
     if is_wifi_model(order.mikrotik_model):
         if is_ax_model(order.mikrotik_model):
-            bp += "/interface bridge port add bridge=bridge1 interface=wifi1; "
+            bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wifi1]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wifi1 }}')
             if has_5ghz(order.mikrotik_model):
-                bp += "/interface bridge port add bridge=bridge1 interface=wifi2; "
+                bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wifi2]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wifi2 }}')
         else:
-            bp += "/interface bridge port add bridge=bridge1 interface=wlan1; "
+            bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wlan1]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wlan1 }}')
             if has_5ghz(order.mikrotik_model):
-                bp += "/interface bridge port add bridge=bridge1 interface=wlan2; "
+                bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wlan2]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wlan2 }}')
 
+    bp_commands = "\n".join(bp_list)
     wcfg = generate_wifi_config(order)
 
-    # Limitation bande passante
+    # QoS Bande Passante
     rl = "\n# Mode Illimite : Aucun bridage de vitesse\n" if dl == '0' else f"""
-:if ([/queue type find name=pcq-dl-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
-:if ([/queue type find name=pcq-ul-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
-:if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
+:if ([:len [/queue type find name=pcq-dl-ketrika]] = 0) do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
+:if ([:len [/queue type find name=pcq-ul-ketrika]] = 0) do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
+:if ([:len [/queue simple find name=KETRIKA-Speed]] = 0) do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Cloudflare Secure Tunnel (CORRIGÉ TABLE & CIDR)
+    # Cloudflare Secure Tunnel (Correction Route & Table ROS v7)
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
         warp = f"""
-# === CLOUDFLARE SECURE TUNNEL ===
-:do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
-:do {{ /interface wireguard remove wg-secure }} on-error={{}}
-:do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
-:do {{ /routing table remove [find name=via-secure] }} on-error={{}}
-:delay 1s
+# === CLOUDFLARE SECURE TUNNEL (ROS v7 STABLE) ===
 :do {{
-    /routing table add name=via-secure fib
+    :if ([:len [/routing table find name=via-secure]] = 0) do={{
+        /routing table add name=via-secure fib
+    }}
+    /interface wireguard peers remove [find interface=wg-secure]
+    /interface wireguard remove [find name=wg-secure]
+    /ip route remove [find comment~"KETRIKA-WARP"]
+    /ip address remove [find comment~"KETRIKA-WARP"]
+    /ip firewall mangle remove [find comment~"KETRIKA-WARP"]
+    /ip firewall nat remove [find comment~"KETRIKA-WARP"]
+}} on-error={{}}
+
+:do {{
     /interface wireguard add name=wg-secure listen-port=13231 mtu=1420 private-key="{wc['private_key']}" comment="[KETRIKA]"
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
-    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA]"
-    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA]"
-    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA]"
+    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA-WARP]"
+    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA-WARP]"
+    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=no comment="[KETRIKA-WARP]"
+    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA-WARP]"
     /ip dns set use-doh-server=https://cloudflare-dns.com/dns-query verify-doh-cert=yes servers=1.1.1.1,1.0.0.1
 }} on-error={{}}
 """
@@ -251,9 +253,12 @@ def generate_full_script(order):
         rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
         hs = f"""
 # === PORTAIL HOTSPOT WIFI ZONE ===
-:do {{ /ip dhcp-server remove [find interface=bridge1 name=dhcp-lan] }} on-error={{}}
-:do {{ /ip hotspot remove hotspot-ketrika }} on-error={{}}
-:delay 1s
+:do {{
+    /ip dhcp-server remove [find interface=bridge1 name=dhcp-lan]
+    /ip hotspot remove [find name=hotspot-ketrika]
+    /ip hotspot profile remove [find name=hsprof-ketrika]
+}} on-error={{}}
+
 :do {{
     /ip hotspot profile add dns-name="wifi.ketrika.mg" hotspot-address={gw} login-by=http-chap,http-pap name=hsprof-ketrika use-radius=no
     /ip hotspot add address-pool=pool-lan disabled=no interface=bridge1 name=hotspot-ketrika profile=hsprof-ketrika
@@ -268,10 +273,10 @@ def generate_full_script(order):
             rl_p = f"rate-limit={ul}/{dl}" if dl != '0' else ""
             hs += f"""
 :do {{
-    /ip pool add name=pool-pppoe ranges=192.168.99.10-192.168.99.250
-    /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 name=pppoe-ketrika {rl_p} remote-address=pool-pppoe
-    /interface pppoe-server server add default-profile=pppoe-ketrika disabled=no interface=bridge1 one-session-per-host=yes service-name=KETRIKA
-    /ppp secret add name=client1 password=pass123 profile=pppoe-ketrika service=pppoe
+    :if ([:len [/ip pool find name=pool-pppoe]] = 0) do={{ /ip pool add name=pool-pppoe ranges=192.168.99.10-192.168.99.250 }}
+    :if ([:len [/ppp profile find name=pppoe-ketrika]] = 0) do={{ /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 name=pppoe-ketrika {rl_p} remote-address=pool-pppoe }}
+    :if ([:len [/interface pppoe-server server find service-name=KETRIKA]] = 0) do={{ /interface pppoe-server server add default-profile=pppoe-ketrika disabled=no interface=bridge1 one-session-per-host=yes service-name=KETRIKA }}
+    :if ([:len [/ppp secret find name=client1]] = 0) do={{ /ppp secret add name=client1 password=pass123 profile=pppoe-ketrika service=pppoe }}
 }} on-error={{}}
 """
         if order.voucher_enabled:
@@ -280,74 +285,63 @@ def generate_full_script(order):
                 c = secrets.token_hex(4).upper()
                 hs += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
 
-    dhcp = f":do {{ /ip pool add name=pool-lan ranges={pool} }} on-error={{}}" if is_hs else f"""
+    dhcp = f":if ([:len [/ip pool find name=pool-lan]] = 0) do={{ /ip pool add name=pool-lan ranges={pool} }}" if is_hs else f"""
 :do {{
-    /ip pool add name=pool-lan ranges={pool}
-    /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no
-    /ip dhcp-server network add address={net} gateway={gw} dns-server=1.1.1.1,8.8.8.8 netmask=24
+    :if ([:len [/ip pool find name=pool-lan]] = 0) do={{ /ip pool add name=pool-lan ranges={pool} }}
+    :if ([:len [/ip dhcp-server find name=dhcp-lan]] = 0) do={{ /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no }}
+    :if ([:len [/ip dhcp-server network find address="{net}"]] = 0) do={{ /ip dhcp-server network add address={net} gateway={gw} dns-server=1.1.1.1,8.8.8.8 netmask=24 }}
 }} on-error={{}}
 """
 
     return f"""# =============================================
-# KETRIKA MIKROTIK - SCRIPT VERROUILLE (ROUTEROS V7)
+# KETRIKA MIKROTIK - SCRIPT STABLE (ROUTEROS V7)
 # Pack : {order.plan_type.upper()} | Routeur : {order.mikrotik_model}
-# Licence : {order.license_key} (1 SEUL ROUTEUR)
+# Licence : {order.license_key}
 # =============================================
 
-:put "KETRIKA - Configuration en cours..."
-:delay 1s
+:put "KETRIKA - Application de la configuration..."
 
-# 1. VERROUILLAGE MATERIEL DANS LE ROUTEUR
+# 1. VERROUILLAGE LICENCE
 /system note set note="KETRIKA-LICENCE: {order.license_key} | Routeur: {order.mikrotik_model} | Client: {order.client_name}"
 /system identity set name="KETRIKA-{order.order_id}"
 
 # 2. BRIDGE PRINCIPAL
-:if ([/interface bridge find name=bridge1] = "") do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
+:if ([:len [/interface bridge find name=bridge1]] = 0) do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
 
-# 3. IP GATEWAY
-:if ([/ip address find address="{gw}/24"] = "") do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
+# 3. IP GATEWAY LAN
+:if ([:len [/ip address find address="{gw}/24"]] = 0) do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
 
 # 4. DHCP CLIENT WAN
-:if ([/ip dhcp-client find interface={wan}] = "") do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
+:if ([:len [/ip dhcp-client find interface={wan}]] = 0) do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
 
 # 5. DHCP SERVEUR LAN
 {dhcp}
 
-# 6. CONFIGURATION SANS FIL WIFI DETECTE
+# 6. PORTS DU BRIDGE (AJOUT SANS COUPURE WINBOX)
+{bp_commands}
+
+# 7. CONFIGURATION SANS FIL DETECTEE
 {wcfg}
 
-# 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
-/system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
-
-# 8. DNS & NAT
+# 8. DNS & NAT WAN
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1,8.8.8.8
-:if ([/ip firewall nat find comment~"KETRIKA"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA]" }}
+:if ([:len [/ip firewall nat find comment~"KETRIKA-WAN"]] = 0) do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
 
-# 9. OPTIMISATION RESEAU MULTI-CLIENTS
+# 9. OPTIMISATIONS TCP & TTL
 :do {{
-    /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL"
-    /ip firewall mangle add chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
-    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
-    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
-    /ip firewall filter add chain=forward out-interface={wan} protocol=icmp action=drop
-    /ip firewall filter add chain=output out-interface={wan} protocol=icmp action=drop
-    /ip firewall filter add chain=input connection-state=established,related action=accept
-    /ip firewall filter add chain=input connection-state=invalid action=drop
-    /ip firewall filter add chain=forward connection-state=established,related action=accept
-    /ip firewall filter add chain=forward connection-state=invalid action=drop
-    /ip firewall filter add chain=forward in-interface=bridge1 out-interface={wan} action=accept
+    :if ([:len [/ip firewall mangle find comment~"KETRIKA-TTL"]] = 0) do={{
+        /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA-TTL]"
+        /ip firewall mangle add chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
+        /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
+        /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
+    }}
 }} on-error={{}}
-{warp}{hs}{rl}
 
-# === 10. SOFT RESET PORT WAN (FORCE L'OBTENTION IP SANS REBOOT) ===
-:log info "KETRIKA: Soft Reset WAN..."
-/interface ethernet disable {wan}
-:delay 2s
-/interface ethernet enable {wan}
+{warp}
+{hs}
+{rl}
 
 :put "================================================"
-:put "  CONFIGURATION KETRIKA REUSSIE SANS REBOOT !"
-:put "  Licence : {order.license_key}"
-:put "  Materiel : {order.mikrotik_model}"
+:put "  CONFIGURATION KETRIKA TERMINEE AVEC SUCCES !"
 :put "================================================"
 """
