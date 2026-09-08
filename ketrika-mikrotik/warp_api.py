@@ -1,4 +1,4 @@
-# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX Hotspot & Cloudflare WARP
+# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX avec Popup Hotspot Automatique Garanti
 import secrets
 import base64
 import requests
@@ -6,7 +6,6 @@ import re
 import ipaddress
 import datetime
 
-# Dictionnaire matériel intégré (Anti-erreur 500 d'import)
 DEFAULT_MODELS = {
     'hAP lite (RB941)': {'ports': 4, 'wifi': True, 'wifi5g': False},
     'hAP ac2': {'ports': 5, 'wifi': True, 'wifi5g': True},
@@ -20,7 +19,6 @@ DEFAULT_MODELS = {
 }
 
 def safe_get(obj, key, default=""):
-    """Récupère une valeur en toute sécurité (Objet ORM, Dict ou None)"""
     try:
         if obj is None:
             return default
@@ -144,11 +142,7 @@ def generate_warp_config_for_client():
                 "serial_number": secrets.token_hex(16),
                 "locale": "en_US"
             },
-            headers={
-                "Content-Type": "application/json",
-                "User-Agent": "okhttp/3.12.1",
-                "CF-Client-Version": "a-6.30-3596"
-            },
+            headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
             timeout=4
         )
         if res.status_code in (200, 201):
@@ -174,7 +168,7 @@ def generate_warp_config_for_client():
     }
 
 # =======================================================
-# DÉTECTION CONFIGURATION MATÉRIEL AC / AX
+# HELPERS MATÉRIEL
 # =======================================================
 def format_limit(v):
     return '0' if v in ('nolimit', '0', '', None) else str(v)
@@ -302,14 +296,14 @@ def generate_full_script(order):
 
     wcfg = generate_wifi_config(order)
 
-    # QoS Bande Passante
+    # QoS
     rl = "\n# Mode Illimite : Aucun bridage de vitesse\n" if dl == '0' else f"""
 :if ([/queue type find name=pcq-dl-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
 :if ([/queue type find name=pcq-ul-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Gestion Dynamique du TTL
+    # TTL Script
     if ttl_value == 'disabled':
         ttl_script = "\n# Optimisation TTL : Desactivee par le client\n"
     else:
@@ -320,7 +314,7 @@ def generate_full_script(order):
 /ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
 """
 
-    # Cloudflare Secure Tunnel (Avec secours WAN pour garantir internet)
+    # Tunnel WireGuard (avec secours WAN et filtrage hotspot=auth)
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
@@ -337,22 +331,21 @@ def generate_full_script(order):
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
     /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
     
-    # Routage Mangle qui respecte le trafic local
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA]"
+    # Ne router vers Wireguard QUE les clients authentifies (permet la popup pour les nouveaux)
+    /ip firewall mangle add chain=prerouting in-interface=bridge1 hotspot=auth dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA-WARP]"
     
-    # Route principale Wireguard + Route de secours WAN
     /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure distance=1 comment="[KETRIKA-WARP]"
     /ip route add dst-address=0.0.0.0/0 gateway={wan} routing-table=via-secure distance=2 comment="[KETRIKA-WAN-BACKUP]"
     /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA]"
 }} on-error={{}}
 """
 
-    # Hotspot avec Portail Captif Garanti et Popup Automatique
+    # Hotspot avec Portail Captif & Popup Automatique
     hs = ""
     if is_hs:
         rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
         hs = f"""
-# === PORTAIL HOTSPOT WIFI ZONE (POPUP AUTOMATIQUE) ===
+# === PORTAIL HOTSPOT WIFI ZONE (POPUP AUTOMATIQUE GARANTIE) ===
 :do {{ /ip hotspot remove [find name=hotspot-ketrika] }} on-error={{}}
 :do {{ /ip hotspot profile remove [find name=hsprof-ketrika] }} on-error={{}}
 :delay 1s
@@ -364,6 +357,16 @@ def generate_full_script(order):
     /ip hotspot user profile add name=1semaine {rl_hs} shared-users=3 session-timeout=7d idle-timeout=15m
     /ip hotspot user profile add name=1mois {rl_hs} shared-users=3 session-timeout=30d idle-timeout=30m
     /ip hotspot user add name=admin password=admin123 profile=1mois
+    
+    # 1. DNS Static obligatoire pour la resolution de wifi.ketrika.mg
+    /ip dns static add name="wifi.ketrika.mg" address={gw} comment="[KETRIKA-HOTSPOT]"
+    
+    # 2. Forcer la capture DNS pour les smartphones avec DNS custom
+    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=udp dst-port=53 action=redirect to-ports=53 comment="[HOTSPOT-DNS-FORCE]"
+    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=tcp dst-port=53 action=redirect to-ports=53 comment="[HOTSPOT-DNS-FORCE]"
+    
+    # 3. Option DHCP 114 (Declenchement Popup RFC 8910 pour iOS et Android)
+    /ip dhcp-server option add name=captive-portal code=114 value="s'http://{gw}/login'"
 }} on-error={{}}
 """
         if safe_get(order, 'pppoe_enabled', False):
@@ -382,13 +385,14 @@ def generate_full_script(order):
                 c = secrets.token_hex(4).upper()
                 hs += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
 
-    # Configuration DHCP (DNS 192.168.88.1 pour declencher la popup Hotspot)
-    dns_server_dhcp = gw if is_hs else "1.1.1.1,8.8.8.8"
+    # Configuration DHCP LAN
+    opt_dhcp = "dhcp-option=captive-portal" if is_hs else ""
+    dns_dhcp = gw if is_hs else "1.1.1.1,8.8.8.8"
     dhcp = f"""
 :do {{
     /ip pool add name=pool-lan ranges={pool}
     /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no
-    /ip dhcp-server network add address={net} gateway={gw} dns-server={dns_server_dhcp} netmask=24
+    /ip dhcp-server network add address={net} gateway={gw} dns-server={dns_dhcp} {opt_dhcp} netmask=24
 }} on-error={{}}
 """
 
