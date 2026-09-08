@@ -3,6 +3,9 @@ from database import *
 from warp_api import creer_config_warp_complete
 import sqlite3, secrets, string, random, io, os, traceback
 from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
@@ -11,7 +14,9 @@ app.url_map.strict_slashes = False
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "ketrika.db")
 
-# COORDONNÉES OFFICIELLES KETRIKA
+# ==========================================
+# CONFIGURATIONS OFFICIELLES
+# ==========================================
 FB_LINK = "https://www.facebook.com/loza.nama.376"
 NUMERO_MVOLA = "038 28 171 00"
 NUMERO_ORANGE = "037 39 755 72"
@@ -19,81 +24,91 @@ NOM_COMPTE = "Jean Eric"
 BINANCE_ID = "1229612637"
 USDT_BEP20 = "0x0c4bcb1beabbff154f7d445a549f1e5b42de9088"
 
+# ==========================================
+# CONFIGURATION EMAIL (À REMPLIR)
+# ==========================================
+SMTP_EMAIL = "votre.email@gmail.com"  # Mettez votre adresse Gmail ici
+SMTP_PASSWORD = "votre_mot_de_passe_application"  # Mettez votre "Mot de passe d'application" Google ici
+
+def envoyer_email_cle(destinataire, nom, cle, pack_nom):
+    if not destinataire or "@" not in destinataire or SMTP_EMAIL == "votre.email@gmail.com":
+        return False
+    try:
+        sujet = "✅ Votre Clé d'Activation KETRIKA MIKROTIK"
+        message_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+                <div style="background: linear-gradient(135deg, #0284c7, #059669); color: white; padding: 20px; text-align: center;">
+                    <h2 style="margin: 0;">⚡ KETRIKA MIKROTIK ⚡</h2>
+                </div>
+                <div style="padding: 20px;">
+                    <p>Bonjour <b>{nom}</b>,</p>
+                    <p>Merci pour votre confiance. Votre commande pour le pack <b>{pack_nom}</b> a été validée avec succès !</p>
+                    <p>Voici votre clé d'activation à usage unique (1 Clé = 1 Routeur) :</p>
+                    <div style="background: #f1f5f9; border-left: 4px solid #0284c7; padding: 15px; font-size: 18px; font-weight: bold; text-align: center; letter-spacing: 2px;">
+                        {cle}
+                    </div>
+                    <br>
+                    <p><b>Comment l'utiliser ?</b></p>
+                    <ol>
+                        <li>Allez sur le site : <a href="https://ketrika-mikrotik.onrender.com" style="color: #0284c7;">ketrika-mikrotik.onrender.com</a></li>
+                        <li>Entrez cette clé dans la section "Activation".</li>
+                        <li>Générez votre script et collez-le dans Winbox !</li>
+                    </ol>
+                    <p>Si vous avez besoin d'aide, n'hésitez pas à nous contacter sur <a href="https://wa.me/261382817100" style="color: #059669;">WhatsApp (038 28 171 00)</a>.</p>
+                </div>
+                <div style="background: #f8fafc; text-align: center; padding: 10px; font-size: 11px; color: #64748b;">
+                    © 2026 KETRIKA MIKROTIK PRO - Madagascar
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        msg = MIMEMultipart()
+        msg['From'] = f"KETRIKA MIKROTIK <{SMTP_EMAIL}>"
+        msg['To'] = destinataire
+        msg['Subject'] = sujet
+        msg.attach(MIMEText(message_html, 'html'))
+
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Erreur Envoi Email: {e}")
+        return False
+
 def init_all_tables():
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS licences (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cle TEXT UNIQUE NOT NULL,
-            client_nom TEXT NOT NULL,
-            client_telephone TEXT,
-            type_abonnement TEXT,
-            date_creation TEXT,
-            date_expiration TEXT,
-            actif INTEGER DEFAULT 1,
-            nb_utilisations INTEGER DEFAULT 0,
-            prix_paye REAL DEFAULT 0
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS configurations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cle_licence TEXT,
-            client_final TEXT,
-            modele_mikrotik TEXT,
-            type_config TEXT,
-            options_json TEXT,
-            warp_private_key TEXT,
-            warp_public_key TEXT,
-            warp_client_ip TEXT,
-            date_creation TEXT,
-            config_id TEXT UNIQUE
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS commandes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_nom TEXT, telephone TEXT, formule TEXT, montant REAL,
-            reference_paiement TEXT, statut TEXT DEFAULT 'EN_ATTENTE',
-            cle_generee TEXT, date_commande TEXT
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS avis (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT NOT NULL, ville TEXT,
-            etoiles INTEGER NOT NULL, commentaire TEXT NOT NULL,
-            date_avis TEXT
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password_hash TEXT
-        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS licences (id INTEGER PRIMARY KEY AUTOINCREMENT, cle TEXT UNIQUE NOT NULL, client_nom TEXT NOT NULL, client_telephone TEXT, type_abonnement TEXT, date_creation TEXT, date_expiration TEXT, actif INTEGER DEFAULT 1, nb_utilisations INTEGER DEFAULT 0, prix_paye REAL DEFAULT 0)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS configurations (id INTEGER PRIMARY KEY AUTOINCREMENT, cle_licence TEXT, client_final TEXT, modele_mikrotik TEXT, type_config TEXT, options_json TEXT, warp_private_key TEXT, warp_public_key TEXT, warp_client_ip TEXT, date_creation TEXT, config_id TEXT UNIQUE)''')
+        
+        # Mise a jour automatique de la table commandes pour ajouter la colonne email
+        c.execute('''CREATE TABLE IF NOT EXISTS commandes (id INTEGER PRIMARY KEY AUTOINCREMENT, client_nom TEXT, telephone TEXT, email TEXT, formule TEXT, montant REAL, reference_paiement TEXT, statut TEXT DEFAULT 'EN_ATTENTE', cle_generee TEXT, date_commande TEXT)''')
+        try: c.execute("ALTER TABLE commandes ADD COLUMN email TEXT") 
+        except: pass
+
+        c.execute('''CREATE TABLE IF NOT EXISTS avis (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, ville TEXT, etoiles INTEGER NOT NULL, commentaire TEXT NOT NULL, date_avis TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT)''')
         import hashlib
-        admin_pass = hashlib.sha256("ketrika2025".encode()).hexdigest()
-        c.execute("INSERT OR IGNORE INTO admins (username, password_hash) VALUES (?, ?)", ("admin", admin_pass))
+        c.execute("INSERT OR IGNORE INTO admins (username, password_hash) VALUES (?, ?)", ("admin", hashlib.sha256("ketrika2025".encode()).hexdigest()))
 
         c.execute("SELECT COUNT(*) FROM avis")
         if c.fetchone()[0] < 3:
-            avis_initiaux = [
+            c.executemany("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", [
                 ("Mamy R.", "Antananarivo", 5, "Script injecté après reset total sur mon hAP ax2. Configuration parfaite du premier coup !", "2026-01-15"),
                 ("Jean Luc", "Tamatave", 5, "Configuration propre sur hAP ac2. Wi-Fi et pare-feu impeccables.", "2026-01-20"),
                 ("Boutique Alpha", "Majunga", 5, "Pack Wi-Fi Zone parfait avec gestion de débit pour mon business.", "2026-01-28"),
-                ("David M.", "La Réunion", 5, "Paiement USDT par Binance Pay instantané. Clé reçue en 5 min. Excellent !", "2026-02-01"),
+                ("David M.", "La Réunion", 5, "Paiement USDT par Binance Pay instantané. Clé reçue par mail en 5 min. Excellent !", "2026-02-01"),
                 ("Toky N.", "Diego Suarez", 5, "Très satisfait de l'optimisation réseau et de la réactivité WhatsApp.", "2026-02-02")
-            ]
-            c.executemany("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", avis_initiaux)
-
-        test_keys = [
-            ("KTR-BASIC-10K", "Test Basic", "0382817100", "basic", 10000),
-            ("KTR-STANDARD-15K", "Test Standard", "0382817100", "standard", 15000),
-            ("KTR-WARP-20K", "Test Warp", "0382817100", "warp", 20000),
-            ("KTR-HOTSPOT-30K", "Test Hotspot", "0382817100", "hotspot", 30000),
-            ("KTR-PRO-50K", "Test Pro", "0382817100", "pro", 50000)
-        ]
-        for k in test_keys:
-            c.execute("INSERT OR IGNORE INTO licences (cle, client_nom, client_telephone, type_abonnement, date_creation, date_expiration, actif, nb_utilisations, prix_paye) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)",
-                      (k[0], k[1], k[2], k[3], datetime.now().isoformat(), "2027-01-01", k[4]))
+            ])
         conn.commit()
         conn.close()
-    except Exception as e:
-        print(f"Erreur init DB: {e}")
+    except Exception as e: print(f"Erreur init DB: {e}")
 
 init_all_tables()
 
@@ -105,23 +120,9 @@ TARIFS_MODULES = {
     "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "prix_usd": 12.50, "desc": "Solution intégrale + Multi-WAN + PPPoE + QoS", "badge": "PRO STUDIO"}
 }
 
-MODELES_MIKROTIK = [
-    "hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)",
-    "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)",
-    "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)",
-    "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)",
-    "CCR1009", "CCR2004", "CCR2116",
-    "Chateau LTE/5G", "Autre RouterOS v7"
-]
+MODELES_MIKROTIK = ["hAP ax2 (Dual Band Wi-Fi 6)", "hAP ax3 (Dual Band Wi-Fi 6)", "hAP ac2 (Dual Band Wireless)", "hAP ac3 (Dual Band Wireless)", "mANTBox ax 15s (Wi-Fi 6)", "mANTBox 19s (Wireless)", "LHG 5", "SXTsq", "hAP lite (Wireless 2.4G)", "RB750Gr3 (hEX - Sans Wi-Fi)", "RB760iGS (hEX S)", "RB2011", "RB3011", "RB4011", "RB1100 (13 Ports)", "CCR1009", "CCR2004", "CCR2116", "Chateau LTE/5G", "Autre RouterOS v7"]
 
-BANDWIDTH_PROFILES = {
-    "illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit sans restriction"},
-    "ultra": {"nom": "🚀 ULTRA (10M/5M)", "down": "10M", "up": "5M", "desc": "10 Mbps ↓ / 5 Mbps ↑"},
-    "rapide": {"nom": "⭐ RAPIDE (5M/2M)", "down": "5M", "up": "2M", "desc": "5 Mbps ↓ / 2 Mbps ↑"},
-    "standard": {"nom": "📶 STANDARD (2M/1M)", "down": "2M", "up": "1M", "desc": "2 Mbps ↓ / 1 Mbps ↑"},
-    "eco": {"nom": "🔒 ÉCO (1M/512K)", "down": "1M", "up": "512k", "desc": "1 Mbps ↓ / 512 Kbps ↑"},
-    "custom": {"nom": "🎯 SUR MESURE", "down": "3M", "up": "1M", "desc": "Entrez vos limites"}
-}
+BANDWIDTH_PROFILES = {"illimite": {"nom": "⚡ ILLIMITÉ", "down": "0", "up": "0", "desc": "Plein débit sans restriction"},"ultra": {"nom": "🚀 ULTRA (10M/5M)", "down": "10M", "up": "5M", "desc": "10 Mbps ↓ / 5 Mbps ↑"},"rapide": {"nom": "⭐ RAPIDE (5M/2M)", "down": "5M", "up": "2M", "desc": "5 Mbps ↓ / 2 Mbps ↑"},"standard": {"nom": "📶 STANDARD (2M/1M)", "down": "2M", "up": "1M", "desc": "2 Mbps ↓ / 1 Mbps ↑"},"eco": {"nom": "🔒 ÉCO (1M/512K)", "down": "1M", "up": "512k", "desc": "1 Mbps ↓ / 512 Kbps ↑"},"custom": {"nom": "🎯 SUR MESURE", "down": "3M", "up": "1M", "desc": "Entrez vos limites"}}
 
 IP_SUGGESTIONS = ["192.168.88.1", "192.168.1.1", "192.168.0.1", "192.168.10.1", "192.168.100.1", "10.0.0.1", "10.0.1.1", "10.10.10.1", "172.16.0.1", "172.16.1.1", "172.20.0.1"]
 
@@ -135,344 +136,110 @@ HTML_BASE = """
     <title>KETRIKA MIKROTIK PRO • Solution Réseau Professionnelle</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root {{
-            --bg-main: #eef2ff;
-            --bg-card: #ffffff;
-            --accent-cyan: #0284c7;
-            --accent-green: #059669;
-            --accent-purple: #7c3aed;
-            --accent-orange: #ea580c;
-            --accent-gold: #f59e0b;
-            --accent-red: #dc2626;
-            --accent-pink: #db2777;
-            --text-dark: #0f172a;
-            --text-body: #334155;
-            --text-muted: #64748b;
-            --border-light: #e2e8f0;
-        }}
-        * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
-        body {{ 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 100%);
-            color: var(--text-dark); min-height: 100vh; padding: 10px;
-            -webkit-font-smoothing: antialiased;
-        }}
-        .container {{ max-width: 860px; margin: auto; }}
-
-        /* NAVBAR */
-        .top-nav {{ 
-            display: flex; justify-content: space-between; align-items: center; 
-            margin-bottom: 12px; padding: 10px 14px; 
-            background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
-            border: 1px solid var(--border-light); border-radius: 14px; 
-            box-shadow: 0 4px 15px rgba(2,132,199,0.06); gap: 6px; flex-wrap: wrap;
-        }}
-        .nav-brand {{ display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); text-decoration: none; }}
-        .nav-logo-icon {{ width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }}
-        .top-links {{ display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }}
-        .top-links a {{ font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 11px; border-radius: 10px; transition: 0.2s; white-space: nowrap; }}
-        .btn-fb {{ background: linear-gradient(135deg, #1877f2, #0d6efd); }}
-        .btn-tuto {{ background: linear-gradient(135deg, #7c3aed, #6d28d9); }}
-        .lang-btn {{ background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; }}
-
-        /* HEADER */
-        .header {{ text-align: center; padding: 14px 5px 20px; }}
-        .logo-wrapper {{
-            position: relative; width: 80px; height: 80px; margin: 0 auto 10px;
-            display: flex; align-items: center; justify-content: center;
-        }}
-        .logo-aura {{
-            position: absolute; inset: -3px; border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink));
-            filter: blur(8px); opacity: 0.7;
-        }}
-        .logo-box {{
-            position: relative; width: 100%; height: 100%; border-radius: 50%;
-            background: linear-gradient(135deg, #0f172a, #1e293b);
-            border: 2px solid rgba(255,255,255,0.9);
-            display: flex; align-items: center; justify-content: center;
-        }}
-        .logo-box svg {{ width: 42px; height: 42px; }}
-
-        .header h1 {{ 
-            font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 900; 
-            background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); 
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-            letter-spacing: 1px; line-height: 1.2;
-        }}
-        @media (min-width: 500px) {{ .header h1 {{ font-size: 34px; }} }}
-        .header .tagline {{ color: var(--text-body); font-size: 13px; margin-top: 6px; font-weight: 600; }}
-        .header .stats-live {{ 
-            display: inline-flex; gap: 6px; margin-top: 10px; padding: 5px 12px; 
-            background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; 
-            border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; 
-            align-items: center;
-        }}
-        .live-dot {{ width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }}
-
-        .card {{ 
-            background: var(--bg-card); border: 1px solid var(--border-light); 
-            border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; 
-            box-shadow: 0 4px 15px rgba(15,23,42,0.05); position: relative; overflow: hidden;
-        }}
-        @media (min-width: 500px) {{ .card {{ padding: 22px; }} }}
-        .card::before {{ content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink), var(--accent-green)); }}
-        .card-title {{ font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }}
-        @media (min-width: 500px) {{ .card-title {{ font-size: 15px; }} }}
-
-        /* DASHBOARD LIVE PERFORMANCE */
-        .live-dashboard {{
-            background: #0f172a; border: 1px solid #334155; border-radius: 14px;
-            padding: 16px; margin: 12px 0; color: #fff; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-        }}
-        .dashboard-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }}
-        @media (min-width: 600px) {{ .dashboard-grid {{ grid-template-columns: repeat(4, 1fr); }} }}
-        .dash-item {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; }}
-        .dash-label {{ font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }}
-        .dash-value {{ font-family: 'Space Grotesk'; font-size: 16px; font-weight: 900; color: #38bdf8; margin-top: 2px; }}
-        .dash-value.green {{ color: #4ade80; }}
-
-        /* BADGES DE CONFIANCE */
-        .trust-badges-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }}
-        @media (min-width: 600px) {{ .trust-badges-grid {{ grid-template-columns: repeat(4, 1fr); }} }}
-        .trust-badge-card {{ background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid var(--border-light); padding: 10px 8px; border-radius: 10px; text-align: center; }}
-        .trust-badge-icon {{ font-size: 20px; display: block; margin-bottom: 2px; }}
-        .trust-badge-title {{ font-size: 11px; font-weight: 800; color: var(--text-dark); }}
-        .trust-badge-desc {{ font-size: 9px; color: var(--text-muted); margin-top: 2px; }}
-
-        .hero-card {{
-            background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
-            color: #fff; padding: 20px 16px; border-radius: 18px; margin-bottom: 14px;
-            box-shadow: 0 10px 30px rgba(2,132,199,0.25);
-        }}
-        @media (min-width: 500px) {{ .hero-card {{ padding: 24px; }} }}
-        .hero-card h2 {{ font-family: 'Space Grotesk'; font-size: 19px; font-weight: 900; margin-bottom: 6px; }}
-        .hero-card > p {{ font-size: 12px; opacity: 0.95; margin-bottom: 12px; line-height: 1.5; }}
-        .features-detail {{ display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }}
-        @media (min-width: 500px) {{ .features-detail {{ grid-template-columns: repeat(2, 1fr); }} }}
-        @media (min-width: 800px) {{ .features-detail {{ grid-template-columns: repeat(3, 1fr); gap: 10px; }} }}
-        .feature-detail-box {{ background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }}
-        .feature-detail-box .fd-icon {{ font-size: 22px; display: block; margin-bottom: 4px; }}
-        .feature-detail-box .fd-title {{ font-family: 'Space Grotesk'; font-size: 12px; font-weight: 800; margin-bottom: 3px; }}
-        .feature-detail-box .fd-desc {{ font-size: 11px; opacity: 0.9; line-height: 1.4; }}
-
-        .advantages-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }}
-        @media (min-width: 500px) {{ .advantages-grid {{ grid-template-columns: repeat(4, 1fr); gap: 10px; }} }}
-        .adv-box {{ background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 6px; border-radius: 10px; text-align: center; border: 1px solid var(--border-light); }}
-        .adv-icon {{ font-size: 22px; display: block; margin-bottom: 3px; }}
-        .adv-title {{ font-family: 'Space Grotesk'; font-size: 11px; color: var(--text-dark); font-weight: 800; }}
-        .adv-desc {{ font-size: 10px; color: var(--text-muted); margin-top: 2px; }}
-
-        .steps-grid {{ display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }}
-        @media (min-width: 500px) {{ .steps-grid {{ grid-template-columns: repeat(3, 1fr); gap: 10px; }} }}
-        .step-box {{ background: linear-gradient(135deg, #f0fdfa, #eff6ff); border: 1px solid #bae6fd; padding: 12px 10px; border-radius: 12px; text-align: center; }}
-        .step-num {{ width: 30px; height: 30px; margin: 0 auto 6px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; font-weight: 900; font-size: 15px; }}
-        .step-title {{ font-family: 'Space Grotesk'; font-size: 13px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }}
-        .step-desc {{ font-size: 10px; color: var(--text-muted); line-height: 1.4; }}
-
-        .visual-container {{ background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0; border: 1px solid #334155; color: #fff; text-align: center; }}
-        .ports-bar {{ display: flex; justify-content: center; gap: 6px; margin: 14px 0; flex-wrap: wrap; }}
-        .port-indicator {{ background: #1e293b; border: 2px solid #475569; border-radius: 8px; padding: 8px 12px; font-family: 'Space Grotesk'; font-size: 11px; min-width: 70px; }}
-        .port-indicator.wan {{ border-color: #0284c7; background: rgba(2,132,199,0.2); }}
-        .port-indicator.wan b {{ color: #38bdf8; display: block; }}
-        .port-indicator.lan {{ border-color: #10b981; background: rgba(16,185,129,0.15); }}
-        .port-indicator.lan b {{ color: #4ade80; display: block; }}
-
-        .winbox-mockup {{ background: #1e293b; border-radius: 8px; border: 1px solid #475569; text-align: left; overflow: hidden; margin: 10px 0; }}
-        .winbox-top {{ background: #334155; padding: 6px 12px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #cbd5e1; }}
-        .winbox-body {{ padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; }}
-        .winbox-item {{ background: rgba(2,132,199,0.25); border: 1px solid #0284c7; padding: 6px 10px; border-radius: 4px; display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; margin-top: 6px; }}
-
-        .step-guide {{ background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-top: 10px; }}
-        .step-guide ol {{ padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }}
-        .step-guide li {{ margin-bottom: 4px; }}
-        .step-guide b {{ color: var(--accent-cyan); }}
-
-        label {{ display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }}
-        input[type="text"], input[type="tel"], input[type="password"], select, textarea {{ 
-            width: 100%; padding: 12px 14px; margin-top: 4px; 
-            background: #f8fafc; border: 1px solid var(--border-light); 
-            border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit;
-        }}
-
-        .ip-suggestions {{ display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }}
-        .ip-chip {{ background: linear-gradient(135deg, #e0f2fe, #f0f9ff); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #bae6fd; font-family: 'Courier New', monospace; }}
-
-        .btn-primary {{ 
-            width: 100%; padding: 14px; margin-top: 12px; 
-            background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; 
-            border: none; border-radius: 10px; font-size: 13px; font-weight: 800; 
-            cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; 
-            text-decoration: none; display: block; text-align: center;
-        }}
-        .btn-success {{ background: linear-gradient(135deg, #059669, #047857); }}
-        .btn-copy {{ background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }}
-        .btn-copy.copied {{ background: linear-gradient(135deg, #059669, #047857); }}
-
-        .plan-selector {{ display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 6px; }}
-        .plan-option {{ 
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); 
-            padding: 12px 10px; border-radius: 12px; cursor: pointer; 
-            display: flex; justify-content: space-between; align-items: center; 
-            position: relative; gap: 8px;
-        }}
-        .plan-option.selected, .plan-option:hover {{ border-color: var(--accent-cyan); background: #f0f9ff; }}
-        .plan-option input[type="radio"] {{ width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; cursor: pointer; }}
-        .plan-info {{ flex: 1; min-width: 0; }}
-        .plan-info b {{ font-size: 13px; display: block; }}
-        @media (min-width: 500px) {{ .plan-info b {{ font-size: 14px; }} }}
-        .plan-info div {{ color: var(--text-muted); font-size: 10px; margin-top: 2px; }}
-        .plan-price {{ text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }}
-        .plan-price b {{ color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }}
-        .plan-price small {{ color: var(--text-muted); font-size: 10px; font-weight: 700; }}
-        .plan-badge {{ position: absolute; top: -1px; right: 10px; padding: 2px 8px; border-radius: 0 0 6px 6px; font-size: 8px; font-weight: 800; color: #fff; font-family: 'Space Grotesk'; }}
-        .badge-popular {{ background: #ea580c; }}
-        .badge-best {{ background: #db2777; }}
-        .badge-pro {{ background: #059669; }}
-
-        .pay-tabs {{ display: flex; gap: 6px; margin-top: 10px; }}
-        .pay-tab-btn {{
-            flex: 1; padding: 10px 5px; text-align: center; background: #f1f5f9; border: 1px solid var(--border-light);
-            border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer; font-family: 'Space Grotesk';
-        }}
-        .pay-tab-btn.active {{ background: var(--accent-cyan); color: #fff; border-color: var(--accent-cyan); }}
-        .pay-tab-content {{ display: none; margin-top: 10px; }}
-        .pay-tab-content.active {{ display: block; }}
-
-        .payment-banner {{ background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; text-align: center; }}
-        .payment-title {{ color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; }}
-        .payment-grid {{ display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }}
-        @media (min-width: 500px) {{ .payment-grid {{ grid-template-columns: 1fr 1fr; }} }}
-        .payment-box {{ background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 10px; }}
-        .payment-box .method {{ font-size: 11px; font-weight: 800; }}
-        .payment-box .number {{ font-family: 'Space Grotesk'; font-size: 17px; font-weight: 900; color: #b45309; margin: 3px 0; }}
-        .payment-box .name {{ font-size: 10px; color: var(--text-muted); }}
-        .payment-warning {{ background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px; margin-top: 8px; font-size: 11px; color: #991b1b; font-weight: 700; line-height: 1.4; }}
-
-        .crypto-box {{ background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 14px; text-align: center; }}
-        .crypto-title {{ font-family: 'Space Grotesk'; font-size: 14px; font-weight: 800; color: #f59e0b; }}
-        .crypto-code {{ background: #1e293b; color: #38bdf8; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 5px 0; }}
-
-        .terminal-box {{ background: #0f172a; border: 1px solid #334155; color: #4ade80; padding: 12px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; margin-top: 6px; line-height: 1.5; }}
-        .badge {{ background: #e0f2fe; color: var(--accent-cyan); padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; }}
-        .alert {{ padding: 10px 12px; border-radius: 10px; margin-bottom: 10px; font-size: 12px; }}
-        .alert-success {{ background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }}
-        .alert-error {{ background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }}
-        .alert-warning {{ background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }}
-
-        .rating-summary {{ display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; margin-bottom: 10px; }}
-        .rating-big {{ font-family: 'Space Grotesk'; font-size: 32px; font-weight: 900; color: #b45309; }}
-        .stars-gold {{ color: var(--accent-gold); font-size: 12px; letter-spacing: 2px; }}
-        .review-card {{ background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid var(--border-light); margin-bottom: 6px; }}
-        .rating-input {{ display: flex; flex-direction: row-reverse; justify-content: center; gap: 4px; margin: 8px 0; }}
-        .rating-input input {{ display: none; }}
-        .rating-input label {{ font-size: 26px; color: #cbd5e1; cursor: pointer; }}
-        .rating-input label:hover, .rating-input label:hover ~ label, .rating-input input:checked ~ label {{ color: var(--accent-gold); }}
-
-        .faq-item {{ border-bottom: 1px solid var(--border-light); padding: 10px 0; }}
-        .faq-item:last-child {{ border-bottom: none; }}
-        .faq-question {{ font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }}
-        .faq-answer {{ color: var(--text-body); font-size: 11px; line-height: 1.6; margin-top: 6px; display: none; background: #f8fafc; padding: 8px 10px; border-radius: 6px; }}
-        .faq-item.active .faq-answer {{ display: block; }}
-        .faq-toggle {{ color: var(--accent-cyan); font-size: 14px; flex-shrink: 0; }}
-
-        /* WIDGET ASSISTANT IA FLOTTANT */
-        .ai-chat-float {{
-            position: fixed; bottom: 20px; left: 20px; z-index: 9999;
-            background: linear-gradient(135deg, #0284c7, #7c3aed); color: #fff;
-            padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px;
-            box-shadow: 0 6px 20px rgba(2,132,199,0.4); cursor: pointer;
-            display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk';
-            transition: 0.3s;
-        }}
-        .ai-chat-float:hover {{ transform: scale(1.08); }}
-
-        .ai-chat-window {{
-            position: fixed; bottom: 70px; left: 20px; z-index: 9999;
-            width: 320px; max-width: 90vw; background: #ffffff;
-            border: 1px solid var(--border-light); border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden;
-            display: none; flex-direction: column; height: 400px;
-        }}
-        .ai-chat-window.open {{ display: flex; }}
-        .ai-chat-header {{
-            background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff;
-            padding: 12px; display: flex; justify-content: space-between; align-items: center;
-            font-family: 'Space Grotesk'; font-size: 12px; font-weight: 800;
-        }}
-        .ai-chat-body {{
-            flex: 1; padding: 12px; overflow-y: auto; display: flex;
-            flex-direction: column; gap: 8px; font-size: 11px; line-height: 1.5; background: #f8fafc;
-        }}
-        .ai-msg {{ padding: 8px 12px; border-radius: 10px; max-width: 85%; }}
-        .ai-msg.bot {{ background: #e0f2fe; color: #0369a1; align-self: flex-start; border-bottom-left-radius: 2px; }}
-        .ai-msg.user {{ background: #7c3aed; color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }}
-        .ai-chat-footer {{ padding: 8px; border-top: 1px solid var(--border-light); display: flex; gap: 4px; background: #fff; }}
-        .ai-chat-footer input {{ padding: 8px 10px; font-size: 11px; margin: 0; }}
-        .ai-chat-footer button {{ padding: 8px 12px; font-size: 11px; margin: 0; width: auto; background: var(--accent-cyan); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }}
-
-        .whatsapp-float {{ position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }}
-        .wifi-box {{ background: #f0f9ff; border: 1px dashed #7dd3fc; padding: 12px; border-radius: 10px; margin-top: 8px; }}
-        .feature-box {{ background: #f0fdf4; padding: 10px; border-radius: 8px; margin-top: 6px; line-height: 1.9; font-size: 11px; border-left: 4px solid var(--accent-green); }}
-        .footer {{ text-align: center; color: var(--text-muted); margin: 20px 0 70px; font-size: 10px; padding: 10px; border-top: 1px solid var(--border-light); }}
-        .footer a {{ color: var(--accent-cyan); text-decoration: none; font-weight: 700; }}
-        hr {{ border: none; border-top: 1px solid var(--border-light); margin: 12px 0; }}
+        :root { --bg-main: #eef2ff; --bg-card: #ffffff; --accent-cyan: #0284c7; --accent-green: #059669; --accent-purple: #7c3aed; --accent-orange: #ea580c; --accent-gold: #f59e0b; --text-dark: #0f172a; --text-body: #334155; --text-muted: #64748b; --border-light: #e2e8f0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 100%); color: var(--text-dark); min-height: 100vh; padding: 10px; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 860px; margin: auto; }
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 14px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: 0 4px 15px rgba(2,132,199,0.06); gap: 6px; flex-wrap: wrap; }
+        .nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-weight: 800; font-size: 13px; color: var(--text-dark); text-decoration: none; }
+        .nav-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+        .top-links { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .top-links a { font-size: 11px; color: #fff; text-decoration: none; font-weight: 700; padding: 6px 11px; border-radius: 10px; transition: 0.2s; white-space: nowrap; }
+        .btn-fb { background: linear-gradient(135deg, #1877f2, #0d6efd); }
+        .btn-tuto { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+        .lang-btn { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: var(--accent-purple); border: 1px solid #c4b5fd; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .header { text-align: center; padding: 14px 5px 20px; }
+        .logo-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; }
+        .logo-aura { position: absolute; inset: -3px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), #db2777); filter: blur(8px); opacity: 0.7; }
+        .logo-box { position: relative; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #0f172a, #1e293b); border: 2px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; }
+        .logo-box svg { width: 42px; height: 42px; }
+        .header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #0284c7, #7c3aed, #db2777, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px; line-height: 1.2; }
+        @media (min-width: 500px) { .header h1 { font-size: 34px; } }
+        .header .tagline { color: var(--text-body); font-size: 13px; margin-top: 6px; font-weight: 600; }
+        .header .stats-live { display: inline-flex; gap: 6px; margin-top: 10px; padding: 5px 12px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; border-radius: 20px; font-size: 11px; color: var(--accent-green); font-weight: 700; align-items: center; }
+        .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; display: inline-block; }
+        .card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(15,23,42,0.05); position: relative; overflow: hidden; }
+        @media (min-width: 500px) { .card { padding: 22px; } }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), #db2777, var(--accent-green)); }
+        .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .hero-card { background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%); color: #fff; padding: 20px 16px; border-radius: 18px; margin-bottom: 14px; box-shadow: 0 10px 30px rgba(2,132,199,0.25); }
+        .hero-card h2 { font-family: 'Space Grotesk'; font-size: 19px; font-weight: 900; margin-bottom: 6px; }
+        .hero-card > p { font-size: 12px; opacity: 0.95; margin-bottom: 12px; line-height: 1.5; }
+        .features-detail { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+        @media (min-width: 500px) { .features-detail { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 800px) { .features-detail { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+        .feature-detail-box { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }
+        .feature-detail-box .fd-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+        .feature-detail-box .fd-title { font-family: 'Space Grotesk'; font-size: 12px; font-weight: 800; margin-bottom: 3px; }
+        .feature-detail-box .fd-desc { font-size: 11px; opacity: 0.9; line-height: 1.4; }
+        .advantages-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        @media (min-width: 500px) { .advantages-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; } }
+        .adv-box { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 12px 6px; border-radius: 10px; text-align: center; border: 1px solid var(--border-light); }
+        .adv-icon { font-size: 22px; display: block; margin-bottom: 3px; }
+        .adv-title { font-family: 'Space Grotesk'; font-size: 11px; color: var(--text-dark); font-weight: 800; }
+        .adv-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+        .steps-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+        @media (min-width: 500px) { .steps-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+        .step-box { background: linear-gradient(135deg, #f0fdfa, #eff6ff); border: 1px solid #bae6fd; padding: 12px 10px; border-radius: 12px; text-align: center; }
+        .step-num { width: 30px; height: 30px; margin: 0 auto 6px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk'; font-weight: 900; font-size: 15px; }
+        .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
+        .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+        label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
+        input[type="text"], input[type="tel"], input[type="password"], input[type="email"], select, textarea { width: 100%; padding: 12px 14px; margin-top: 4px; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-dark); font-size: 14px; font-family: inherit; }
+        .btn-primary { width: 100%; padding: 14px; margin-top: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: 'Space Grotesk'; text-transform: uppercase; text-decoration: none; display: block; text-align: center; }
+        .btn-success { background: linear-gradient(135deg, #059669, #047857); }
+        .btn-copy { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; width: 100%; font-family: 'Space Grotesk'; text-transform: uppercase; margin-top: 8px; font-size: 12px; }
+        .btn-copy.copied { background: linear-gradient(135deg, #059669, #047857); }
+        .plan-selector { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 6px; }
+        .plan-option { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px solid var(--border-light); padding: 12px 10px; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; position: relative; gap: 8px; }
+        .plan-option.selected, .plan-option:hover { border-color: var(--accent-cyan); background: #f0f9ff; }
+        .plan-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-cyan); flex-shrink: 0; cursor: pointer; }
+        .plan-info { flex: 1; min-width: 0; }
+        .plan-info b { font-size: 13px; display: block; }
+        .plan-info div { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
+        .plan-price { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .plan-price b { color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }
+        .plan-price small { color: var(--accent-cyan); font-size: 10px; font-weight: 700; }
+        .plan-badge { position: absolute; top: -1px; right: 10px; padding: 2px 8px; border-radius: 0 0 6px 6px; font-size: 8px; font-weight: 800; color: #fff; font-family: 'Space Grotesk'; }
+        .badge-popular { background: #ea580c; }
+        .badge-best { background: #db2777; }
+        .badge-pro { background: #059669; }
+        .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center; }
+        .payment-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+        @media (min-width: 500px) { .payment-grid { grid-template-columns: 1fr 1fr; } }
+        .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 10px; }
+        .payment-box .method { font-size: 11px; font-weight: 800; }
+        .payment-box .number { font-family: 'Space Grotesk'; font-size: 17px; font-weight: 900; color: #b45309; margin: 3px 0; }
+        .payment-box .name { font-size: 10px; color: var(--text-muted); }
+        .terminal-box { background: #0f172a; border: 1px solid #334155; color: #4ade80; padding: 12px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; margin-top: 6px; line-height: 1.5; }
+        .alert { padding: 10px 12px; border-radius: 10px; margin-bottom: 10px; font-size: 12px; }
+        .alert-success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+        .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }
+        .footer { text-align: center; color: var(--text-muted); margin: 20px 0 70px; font-size: 10px; padding: 10px; border-top: 1px solid var(--border-light); }
+        .footer a { color: var(--accent-cyan); text-decoration: none; font-weight: 700; }
     </style>
 </head>
 <body>
     <a href="https://wa.me/261382817100?text=Bonjour%20KETRIKA%2C%20je%20souhaite%20une%20assistance" target="_blank" class="whatsapp-float">💬 <span>WhatsApp</span></a>
 
-    <!-- ASSISTANT IA FLOTTANT -->
-    <div class="ai-chat-float" onclick="toggleAIChat()">🤖 <span>Assistant IA</span></div>
-    
-    <div class="ai-chat-window" id="aiWindow">
-        <div class="ai-chat-header">
-            <span>🤖 Assistant IA KETRIKA</span>
-            <span style="cursor:pointer;" onclick="toggleAIChat()">✕</span>
-        </div>
-        <div class="ai-chat-body" id="aiBody">
-            <div class="ai-msg bot">
-                👋 <b>Bonjour ! Je suis l'Assistant IA KETRIKA.</b><br>
-                Posez-moi vos questions sur le choix des packs, le paiement ou la configuration MikroTik !
-            </div>
-            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
-                <span onclick="sendQuickAI('Quel pack choisir ?')" style="background:#fff; border:1px solid #bae6fd; color:#0284c7; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:10px; font-weight:700;">💡 Quel pack ?</span>
-                <span onclick="sendQuickAI('Comment payer ?')" style="background:#fff; border:1px solid #bae6fd; color:#0284c7; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:10px; font-weight:700;">📱 Comment payer ?</span>
-                <span onclick="sendQuickAI('Comment brancher ?')" style="background:#fff; border:1px solid #bae6fd; color:#0284c7; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:10px; font-weight:700;">🔌 Branchements ?</span>
-            </div>
-        </div>
-        <div class="ai-chat-footer">
-            <input type="text" id="aiInput" placeholder="Posez votre question..." onkeypress="if(event.key==='Enter') sendAIMessage()">
-            <button onclick="sendAIMessage()">OK</button>
-        </div>
-    </div>
-
     <div class="container">
-        <!-- TOP NAV -->
         <div class="top-nav">
             <a href="/" class="nav-brand">
-                <div class="nav-logo-icon">⚡</div>
-                <span>KETRIKA MIKROTIK</span>
+                <div class="nav-logo-icon">⚡</div><span>KETRIKA MIKROTIK</span>
             </a>
             <div class="top-links">
                 <a href="/tuto" class="btn-tuto">📖 Guide &amp; Tuto</a>
                 <a href="{{ fb_link }}" target="_blank" class="btn-fb">📘 Facebook</a>
-                <button class="lang-btn" onclick="toggleLang()">🇲🇬/🇫🇷</button>
             </div>
         </div>
 
-        <!-- HEADER -->
         <div class="header">
             <div class="logo-wrapper">
                 <div class="logo-aura"></div>
                 <div class="logo-box">
                     <svg viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <defs>
-                            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#00f2fe" />
-                                <stop offset="100%" stop-color="#7c3aed" />
-                            </linearGradient>
-                        </defs>
+                        <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00f2fe" /><stop offset="100%" stop-color="#7c3aed" /></linearGradient></defs>
                         <rect x="2" y="14" width="20" height="8" rx="2" fill="rgba(0,242,254,0.1)"></rect>
                         <path d="M6 18h.01"></path><path d="M10 18h.01"></path><path d="M14 18h.01"></path><path d="M18 18h.01"></path>
                         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#00f2fe" stroke="#00f2fe" stroke-width="1.5"></path>
@@ -481,24 +248,17 @@ HTML_BASE = """
             </div>
             <h1>KETRIKA MIKROTIK</h1>
             <p class="tagline txt-fr">Solution Professionnelle d'Optimisation Réseau MikroTik</p>
-            <p class="tagline txt-mg" style="display:none;">Fitaovana matihanina hanatsarana ny MikroTik</p>
-            <div class="stats-live"><span class="live-dot"></span><span>Config en 5 secondes • Support 7j/7 • 1 Clé = 1 Routeur</span></div>
+            <div class="stats-live"><span class="live-dot"></span><span>Config en 5 secondes • 1 Clé = 1 Routeur • Support 7j/7</span></div>
         </div>
 
         {{ content|safe }}
 
         <div class="footer">
-            KETRIKA MIKROTIK PRO © 2026 • <a href="{{ fb_link }}" target="_blank">📘 Facebook Officiel</a> • <a href="/tuto">📖 Guide d'Installation</a><br>📞 038 28 171 00 (Jean Eric)
+            KETRIKA MIKROTIK PRO © 2026 • <a href="{{ fb_link }}" target="_blank">📘 Facebook Officiel</a> • 📞 038 28 171 00 (Jean Eric)
         </div>
     </div>
 
     <script>
-        let currentLang = 'fr';
-        function toggleLang() { 
-            currentLang = currentLang === 'fr' ? 'mg' : 'fr'; 
-            document.querySelectorAll('.txt-fr').forEach(e => e.style.display = currentLang === 'fr' ? '' : 'none'); 
-            document.querySelectorAll('.txt-mg').forEach(e => e.style.display = currentLang === 'mg' ? '' : 'none'); 
-        }
         function copyText(elemId, btnId) { 
             const el = document.getElementById(elemId);
             const text = el.innerText || el.value; 
@@ -517,61 +277,6 @@ HTML_BASE = """
             document.querySelectorAll('.pay-tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById('tab_btn_' + tabName).classList.add('active');
             document.getElementById('tab_content_' + tabName).classList.add('active');
-        }
-
-        document.querySelectorAll('.faq-question').forEach(q => { 
-            q.addEventListener('click', () => q.parentElement.classList.toggle('active')); 
-        });
-
-        // LOGIQUE D'ASSISTANT IA
-        function toggleAIChat() {
-            const win = document.getElementById('aiWindow');
-            win.classList.toggle('open');
-        }
-
-        function sendQuickAI(text) {
-            document.getElementById('aiInput').value = text;
-            sendAIMessage();
-        }
-
-        function sendAIMessage() {
-            const input = document.getElementById('aiInput');
-            const text = input.value.trim();
-            if(!text) return;
-
-            const body = document.getElementById('aiBody');
-            
-            const uDiv = document.createElement('div');
-            uDiv.className = 'ai-msg user';
-            uDiv.innerText = text;
-            body.appendChild(uDiv);
-            input.value = '';
-
-            setTimeout(() => {
-                const bDiv = document.createElement('div');
-                bDiv.className = 'ai-msg bot';
-                
-                const q = text.toLowerCase();
-                let resp = "";
-
-                if(q.includes('pack') || q.includes('choisir') || q.includes('prix') || q.includes('formule')) {
-                    resp = "<b>💡 Quel pack choisir ?</b><br>• <b>10.000 Ar / $2.50 (Basic)</b>: Config A-Z + Wi-Fi simple.<br>• <b>15.000 Ar / $3.75 (Standard)</b>: Wi-Fi Dual Band 5G.<br>• <b>20.000 Ar / $5.00 (Premium VPN)</b>: Inclus le tunnel WireGuard gratuit à vie !<br>• <b>30.000 Ar / $7.50 (Wi-Fi Zone)</b>: Portail Hotspot + Tickets.<br>• <b>50.000 Ar / $12.50 (Pro WISP)</b>: PPPoE + QoS complet.";
-                } else if(q.includes('payer') || q.includes('mvola') || q.includes('orange') || q.includes('binance') || q.includes('carte') || q.includes('mode')) {
-                    resp = "<b>📱 Comment payer ?</b><br>• 🇲🇬 <b>Madagascar</b>: Mvola 0382817100 / Orange Money 0373975572 (Jean Eric)<br>• 🟡 <b>Binance Pay</b>: ID 1229612637 (USDT BEP-20: 0x0c4bcb...)<br>• 💳 <b>Carte Bancaire</b>: Contactez-nous pour recevoir votre lien Stripe !";
-                } else if(q.includes('brancher') || q.includes('cable') || q.includes('port') || q.includes('winbox')) {
-                    resp = "<b>🔌 Branchement rapide :</b><br>1. Câble Internet/Starlink ➔ <b>PORT 1 (ether1)</b>.<br>2. Câble PC / Switch ➔ <b>PORTS 2 à 13</b>.<br>3. Sur Winbox, cliquez sur l'<b>Adresse MAC</b> (Neighbors) pour vous connecter !";
-                } else if(q.includes('cle') || q.includes('reçu') || q.includes('sms') || q.includes('attente')) {
-                    resp = "<b>⏰ Délai de livraison :</b><br>Les clés sont expédiées par SMS/Mail sous <b>15 minutes</b> max après validation.<br>Si vous n'avez rien reçu au bout de 15 min, appelez directement au <b>038 28 171 00</b> (Jean Eric) !";
-                } else if(q.includes('reset') || q.includes('zéro') || q.includes('vide')) {
-                    resp = "<b>🎯 Config après Reset Total :</b><br>Oui ! Notre script recrée tout de A à Z (Bridge, DHCP, IP, NAT, Wi-Fi, VPN) même sur un routeur complètement vidé !";
-                } else {
-                    resp = "🤖 <b>Merci pour votre question !</b><br>Pour une réponse spécifique à votre cas, vous pouvez aussi contacter notre équipe directement sur <b>WhatsApp (bouton vert en bas à droite)</b> ou appeler le <b>038 28 171 00</b>.";
-                }
-
-                bDiv.innerHTML = resp;
-                body.appendChild(bDiv);
-                body.scrollTop = body.scrollHeight;
-            }, 600);
         }
     </script>
 </body>
@@ -642,11 +347,11 @@ def build_raw_script(cfg):
 
 # --- 4. ACCES INTERNET (NAT PRINCIPAL) ---
 /ip firewall nat remove [find comment="NAT-INTERNET"]
-/ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="NAT-INTERNET"
+/ip firewall nat add chain=srcnat out-interface-list=WAN action=masquerade comment="NAT-INTERNET"
 
 # --- 5. OPTIMISATION RESEAU (MANGLE TTL = 64) ---
 /ip firewall mangle remove [find comment="STARLINK-TTL-64"]
-/ip firewall mangle add chain=postrouting out-interface=ether1 action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
+/ip firewall mangle add chain=postrouting out-interface-list=WAN action=change-ttl new-ttl=set:64 passthrough=yes comment="STARLINK-TTL-64"
 
 # --- 6. DNS SECURISE DOH (CLOUDFLARE 1.1.1.1) ---
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=no
@@ -782,7 +487,7 @@ def home():
     
     reviews_html = ""
     for a in liste_avis:
-        reviews_html += f'<div class="review-card"><div class="review-header"><span class="review-name">{a[0]} <span class="review-city">({a[1] or "MG"})</span></span><span class="stars-gold">{"⭐" * a[2]}</span></div><div class="review-text">"{a[3]}"</div></div>'
+        reviews_html += f'<div class="review-card"><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><b style="font-size:12px;">{a[0]} <span style="color:var(--text-muted); font-size:10px;">({a[1] or "MG"})</span></b><span style="color:var(--accent-gold); font-size:12px; letter-spacing:2px;">{"⭐" * a[2]}</span></div><div style="font-size:12px; color:var(--text-body);">"{a[3]}"</div></div>'
     
     plans_html = ""
     for k, v in TARIFS_MODULES.items():
@@ -801,65 +506,13 @@ def home():
             </div>
             <div class="plan-price">
                 <b>{v["prix"]:,} Ar</b>
-                <small>${v["prix_usd"]:.2f} USD</small>
+                <small style="color:var(--accent-cyan); font-weight:700; font-size:10px;">${v["prix_usd"]:.2f} USD</small>
                 <input type="radio" name="formule" id="plan_{k}" value="{k}" {checked} onchange="document.querySelectorAll('.plan-option').forEach(e=>e.classList.remove('selected')); document.getElementById('opt_{k}').classList.add('selected');">
             </div>
         </label>
         """
     
     content = f"""
-    <!-- 🎛️ DASHBOARD DE PERFORMANCE VISUEL EN DIRECT -->
-    <div class="live-dashboard">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-            <span style="font-family:'Space Grotesk'; font-weight:800; font-size:12px; color:#38bdf8;">📊 SPÉCIFICATIONS TECHNIQUES DU TUNNEL</span>
-            <span class="badge" style="background:#0284c7; color:#fff;">EN LIGNE (300+ VILLES)</span>
-        </div>
-        <div class="dashboard-grid">
-            <div class="dash-item">
-                <div class="dash-label">LATENCE / PING</div>
-                <div class="dash-value green">&lt; 24 ms</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">CHIFFREMENT</div>
-                <div class="dash-value">ChaCha20</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">RÉSOLVEUR DNS</div>
-                <div class="dash-value">1.1.1.1 DoH</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">STABILITÉ</div>
-                <div class="dash-value green">99.9%</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🏆 BADGES DE CONFIANCE -->
-    <div class="card">
-        <div class="trust-badges-grid">
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🛡️</span>
-                <div class="trust-badge-title">RouterOS v7 Certifié</div>
-                <div class="trust-badge-desc">Compatible tous modèles</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🔒</span>
-                <div class="trust-badge-title">Zéro Journalisation</div>
-                <div class="trust-badge-desc">Confidentialité totale</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">⚡</span>
-                <div class="trust-badge-title">Injection 5s</div>
-                <div class="trust-badge-desc">Sans redémarrage</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🇲🇬</span>
-                <div class="trust-badge-title">Support 7j/7</div>
-                <div class="trust-badge-desc">Assistance Madagascar</div>
-            </div>
-        </div>
-    </div>
-
     <!-- HERO CONVAINCANT -->
     <div class="hero-card">
         <h2>🚀 Pourquoi choisir KETRIKA ?</h2>
@@ -868,22 +521,22 @@ def home():
             <div class="feature-detail-box">
                 <span class="fd-icon">🔒</span>
                 <div class="fd-title">SÉCURITÉ MILITAIRE</div>
-                <div class="fd-desc">Chiffrement <b>ChaCha20-Poly1305</b> (WireGuard), le même utilisé par les banques et gouvernements. Vos données sont indéchiffrables.</div>
+                <div class="fd-desc">Chiffrement <b>ChaCha20-Poly1305</b> (WireGuard), utilisé par les banques et gouvernements.</div>
             </div>
             <div class="feature-detail-box">
                 <span class="fd-icon">⚡</span>
                 <div class="fd-title">TUNNEL ULTRA-RAPIDE</div>
-                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Votre débit reste maximal en toutes circonstances.</div>
+                <div class="fd-desc">WireGuard est <b>4x plus rapide qu'OpenVPN</b>. Latence &lt; 2ms. Débit maximal en toutes circonstances.</div>
             </div>
             <div class="feature-detail-box">
                 <span class="fd-icon">🌐</span>
                 <div class="fd-title">RÉSEAU CLOUDFLARE</div>
-                <div class="fd-desc">Serveurs présents dans <b>300+ villes mondiales</b>. DNS DoH sécurisé 1.1.1.1 : navigation privée garantie.</div>
+                <div class="fd-desc">Serveurs dans <b>300+ villes mondiales</b>. DNS DoH sécurisé 1.1.1.1 : navigation privée garantie.</div>
             </div>
             <div class="feature-detail-box">
                 <span class="fd-icon">🛡️</span>
                 <div class="fd-title">CONFIDENTIALITÉ</div>
-                <div class="fd-desc">Protection de votre vie privée. Routage intelligent, filtrage du trafic P2P, gestion optimale des connexions.</div>
+                <div class="fd-desc">Routage intelligent, filtrage du trafic P2P, gestion optimale des connexions et de la vie privée.</div>
             </div>
             <div class="feature-detail-box">
                 <span class="fd-icon">📶</span>
@@ -893,326 +546,132 @@ def home():
             <div class="feature-detail-box">
                 <span class="fd-icon">🎯</span>
                 <div class="fd-title">CONFIG COMPLÈTE</div>
-                <div class="fd-desc">IP, DHCP, NAT, Firewall Pro, Wi-Fi, VPN : <b>tout configuré automatiquement</b>. Même après un reset total.</div>
+                <div class="fd-desc">IP, DHCP, NAT, Firewall Pro, Wi-Fi, VPN : <b>tout configuré automatiquement</b>. Même après reset total.</div>
             </div>
         </div>
     </div>
 
+    <!-- COMMANDER -->
     <div class="card">
-        <div class="card-title">💎 AVANTAGES CLÉS</div>
-        <div class="advantages-grid">
-            <div class="adv-box"><span class="adv-icon">🔒</span><div class="adv-title">WireGuard</div><div class="adv-desc">ChaCha20</div></div>
-            <div class="adv-box"><span class="adv-icon">⚡</span><div class="adv-title">Vitesse Max</div><div class="adv-desc">Latence réduite</div></div>
-            <div class="adv-box"><span class="adv-icon">🌐</span><div class="adv-title">DNS Cloudflare</div><div class="adv-desc">DoH 1.1.1.1</div></div>
-            <div class="adv-box"><span class="adv-icon">📶</span><div class="adv-title">Config A à Z</div><div class="adv-desc">Après Reset</div></div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-title">🚀 COMMENT ÇA MARCHE ?</div>
-        <div class="steps-grid">
-            <div class="step-box"><div class="step-num">1</div><div class="step-title">Choisir le Pack</div><div class="step-desc">Sélectionnez la formule adaptée à vos besoins</div></div>
-            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money / Binance / Carte → Clé par SMS/Mail</div></div>
-            <div class="step-box"><div class="step-num">3</div><div class="step-title">Configurer</div><div class="step-desc">1 commande dans Winbox = Config complète</div></div>
-        </div>
-        <div style="text-align:center; margin-top:14px;">
-            <a href="/tuto" class="btn-primary btn-success" style="display:inline-block; width:auto; padding:10px 20px; font-size:12px;">📖 VOIR LE GUIDE D'INSTALLATION DÉTAILLÉ</a>
-        </div>
-    </div>
-
-    <!-- COMMANDER AVEC MULTI-PAIEMENT -->
-    <div class="card">
-        <div class="card-title">🛒 CHOISIR VOTRE FORMULE &amp; PAIEMENT</div>
-        <div class="alert-warning">⚠️ <b>1 Clé = 1 Routeur uniquement.</b> Chaque clé configure intégralement un seul boîtier MikroTik.</div>
+        <div class="card-title">🛒 CHOISIR VOTRE FORMULE & PAIEMENT</div>
+        <div class="alert-warning" style="font-size:12px;">⚠️ <b>1 Clé = 1 Routeur uniquement.</b> Chaque clé configure intégralement un seul boîtier MikroTik.</div>
         
         <form method="POST" action="/commander">
             <div class="plan-selector">{plans_html}</div>
             
-            <label style="margin-top:16px;">Sélectionnez votre mode de paiement :</label>
-            <div class="pay-tabs">
-                <div class="pay-tab-btn active" id="tab_btn_momo" onclick="selectPayTab('momo')">📱 Mobile Money (Madagascar)</div>
-                <div class="pay-tab-btn" id="tab_btn_binance" onclick="selectPayTab('binance')">🟡 Binance Pay (USDT / Crypto)</div>
-                <div class="pay-tab-btn" id="tab_btn_card" onclick="selectPayTab('card')">💳 Carte Bancaire (International)</div>
+            <label style="margin-top:16px;">SÉLECTIONNEZ VOTRE MODE DE PAIEMENT :</label>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+                <div style="flex:1; padding:10px 5px; text-align:center; background:var(--accent-cyan); color:#fff; border-radius:8px; font-size:11px; font-family:'Space Grotesk'; font-weight:700; border:1px solid var(--accent-cyan); cursor:pointer;" id="btn-momo" onclick="document.getElementById('momo-box').style.display='block'; document.getElementById('crypto-box').style.display='none'; document.getElementById('card-box').style.display='none'; this.style.background='var(--accent-cyan)'; this.style.color='#fff'; document.getElementById('btn-crypto').style.background='#f1f5f9'; document.getElementById('btn-crypto').style.color='var(--text-dark)'; document.getElementById('btn-card').style.background='#f1f5f9'; document.getElementById('btn-card').style.color='var(--text-dark)';">📱 Mobile Money</div>
+                <div style="flex:1; padding:10px 5px; text-align:center; background:#f1f5f9; color:var(--text-dark); border-radius:8px; font-size:11px; font-family:'Space Grotesk'; font-weight:700; border:1px solid var(--border-light); cursor:pointer;" id="btn-crypto" onclick="document.getElementById('crypto-box').style.display='block'; document.getElementById('momo-box').style.display='none'; document.getElementById('card-box').style.display='none'; this.style.background='var(--accent-cyan)'; this.style.color='#fff'; document.getElementById('btn-momo').style.background='#f1f5f9'; document.getElementById('btn-momo').style.color='var(--text-dark)'; document.getElementById('btn-card').style.background='#f1f5f9'; document.getElementById('btn-card').style.color='var(--text-dark)';">🟡 Binance / USDT</div>
+                <div style="flex:1; padding:10px 5px; text-align:center; background:#f1f5f9; color:var(--text-dark); border-radius:8px; font-size:11px; font-family:'Space Grotesk'; font-weight:700; border:1px solid var(--border-light); cursor:pointer;" id="btn-card" onclick="document.getElementById('card-box').style.display='block'; document.getElementById('momo-box').style.display='none'; document.getElementById('crypto-box').style.display='none'; this.style.background='var(--accent-cyan)'; this.style.color='#fff'; document.getElementById('btn-momo').style.background='#f1f5f9'; document.getElementById('btn-momo').style.color='var(--text-dark)'; document.getElementById('btn-crypto').style.background='#f1f5f9'; document.getElementById('btn-crypto').style.color='var(--text-dark)';">💳 Carte Bancaire</div>
             </div>
 
-            <div class="pay-tab-content active" id="tab_content_momo">
-                <div class="payment-banner">
-                    <div class="payment-title">📱 PAIEMENT MOBILE MONEY (MADAGASCAR)</div>
-                    <div class="payment-grid">
-                        <div class="payment-box">
-                            <div class="method">🟠 Orange Money</div>
-                            <div class="number">{NUMERO_ORANGE}</div>
-                            <div class="name">Au nom de : {NOM_COMPTE}</div>
-                        </div>
-                        <div class="payment-box">
-                            <div class="method">🟡 Mvola</div>
-                            <div class="number">{NUMERO_MVOLA}</div>
-                            <div class="name">Au nom de : {NOM_COMPTE}</div>
-                        </div>
+            <!-- MOMO BOX -->
+            <div id="momo-box" style="display:block; background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 10px; text-align: center;">
+                <b style="color:#92400e; font-size:12px; font-family:'Space Grotesk';">📱 PAIEMENT MADAGASCAR</b>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                    <div style="background:#fff; border:1px solid #fde68a; border-radius:10px; padding:10px;">
+                        <div style="font-size:11px; font-weight:800;">🟠 Orange Money</div>
+                        <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:900; color:#b45309; margin:4px 0;">{NUMERO_ORANGE}</div>
+                        <div style="font-size:10px; color:var(--text-muted);">Au nom de : {NOM_COMPTE}</div>
+                    </div>
+                    <div style="background:#fff; border:1px solid #fde68a; border-radius:10px; padding:10px;">
+                        <div style="font-size:11px; font-weight:800;">🟡 Mvola</div>
+                        <div style="font-family:'Space Grotesk'; font-size:16px; font-weight:900; color:#b45309; margin:4px 0;">{NUMERO_MVOLA}</div>
+                        <div style="font-size:10px; color:var(--text-muted);">Au nom de : {NOM_COMPTE}</div>
                     </div>
                 </div>
             </div>
 
-            <div class="pay-tab-content" id="tab_content_binance">
-                <div class="crypto-box">
-                    <div class="crypto-title">🟡 BINANCE PAY / USDT (PAIEMENT INTERNATIONAL)</div>
-                    <p style="font-size:11px; margin-top:4px;">Envoyez le montant en USD ($) via Binance Pay ou USDT BEP-20 :</p>
-                    <label style="color:#f59e0b; margin-top:8px;">Binance Pay ID :</label>
-                    <div class="crypto-code">{BINANCE_ID}</div>
-                    <label style="color:#f59e0b; margin-top:6px;">Adresse USDT (BEP-20) :</label>
-                    <div class="crypto-code">{USDT_BEP20}</div>
-                </div>
+            <!-- CRYPTO BOX -->
+            <div id="crypto-box" style="display:none; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 14px; text-align: center; margin-top: 10px;">
+                <div style="font-family:'Space Grotesk'; font-size:14px; font-weight:800; color:#f59e0b;">🟡 PAIEMENT INTERNATIONAL BINANCE / USDT</div>
+                <p style="font-size:11px; margin-top:4px;">Envoyez le montant exact en USD ($) via Binance Pay ou USDT (BEP-20) :</p>
+                <label style="color:#f59e0b; margin-top:8px;">Binance Pay ID :</label>
+                <div style="background:#1e293b; color:#38bdf8; padding:8px; border-radius:8px; font-family:monospace; font-size:14px; font-weight:bold; margin:4px 0;">{BINANCE_ID}</div>
+                <label style="color:#f59e0b; margin-top:6px;">Adresse USDT (Réseau BEP-20 BSC) :</label>
+                <div style="background:#1e293b; color:#38bdf8; padding:8px; border-radius:8px; font-family:monospace; font-size:11px; margin:4px 0; word-break:break-all;">{USDT_BEP20}</div>
             </div>
 
-            <div class="pay-tab-content" id="tab_content_card">
-                <div class="crypto-box" style="border-color:var(--accent-cyan);">
-                    <div class="crypto-title" style="color:var(--accent-cyan);">💳 PAIEMENT PAR CARTE BANCAIRE (VISA / MASTERCARD)</div>
-                    <p style="font-size:11px; margin-top:4px;">Payez en toute sécurité par carte internationale. Après votre commande, contactez-nous par WhatsApp/SMS pour recevoir votre lien Stripe sécurisé.</p>
-                </div>
+            <!-- CARD BOX -->
+            <div id="card-box" style="display:none; background: #f0f9ff; border: 1px dashed #0ea5e9; border-radius: 12px; padding: 14px; text-align: center; margin-top: 10px;">
+                <div style="font-family:'Space Grotesk'; font-size:14px; font-weight:800; color:#0369a1;">💳 PAIEMENT PAR CARTE BANCAIRE</div>
+                <p style="font-size:11px; margin-top:6px; line-height:1.5;">Pour payer par carte Visa ou Mastercard (Via Stripe), veuillez nous contacter directement sur WhatsApp pour recevoir votre lien de paiement sécurisé en USD.</p>
             </div>
 
-            <div class="payment-warning">
-                ⏰ Clé non reçue après <b>15 minutes</b> ? Appelez : <b>{NUMERO_MVOLA}</b> ou contactez-nous sur WhatsApp/Facebook.
+            <div style="background:linear-gradient(135deg, #fef2f2, #fee2e2); border:1px solid #fecaca; border-radius:8px; padding:8px; margin-top:10px; font-size:11px; color:#991b1b; font-weight:700; text-align:center;">
+                ⏰ Clé non reçue après 15 minutes ? Appelez : <b>{NUMERO_MVOLA}</b> ou WhatsApp.
             </div>
 
             <label>Nom complet :</label>
-            <input type="text" name="nom" placeholder="Rakoto Jean" required>
-            <label>Téléphone ou Email (Réception clé) :</label>
-            <input type="tel" name="tel" placeholder="034 00 000 00 ou client@email.com" required>
-            <label>Référence de transaction / TxID :</label>
-            <input type="text" name="ref_paiement" placeholder="Code SMS ou Référence Binance / Carte" required>
-            <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
+            <input type="text" name="nom" placeholder="Ex: Rakoto Jean" required>
+            <label>Téléphone (Pour recevoir la clé SMS) :</label>
+            <input type="text" name="tel" placeholder="034 00 000 00 / Ou Adresse Email" required>
+            <label>Référence de transaction (Preuve de paiement) :</label>
+            <input type="text" name="ref_paiement" placeholder="Code SMS de transfert, ou TxID Binance" required>
+            <button type="submit" class="btn-primary">ENVOYER LA COMMANDE & RECEVOIR MA CLÉ</button>
         </form>
     </div>
 
     <div class="card">
-        <div class="card-title">🔐 ACTIVATION AVEC VOTRE CLÉ</div>
+        <div class="card-title">🔐 ACTIVATION (1 Clé = 1 Routeur)</div>
         <form method="POST" action="/login">
             <input type="text" name="licence" placeholder="KTR-XXXX-XXXX-XXXX" required style="text-transform:uppercase; letter-spacing:1.5px;">
             <button type="submit" class="btn-primary btn-success">DÉVERROUILLER LE GÉNÉRATEUR</button>
         </form>
     </div>
-
-    <div class="card">
-        <div class="card-title">⭐ AVIS CLIENTS ({total_avis}) • Note : {avg_note}/5</div>
-        <div class="rating-summary">
-            <div class="rating-big">{avg_note}</div>
-            <div style="text-align:center;">
-                <div class="stars-gold" style="font-size:18px;">{"⭐" * int(round(avg_note))}</div>
-                <div style="font-size:11px; font-weight:700; margin-top:2px;">Avis Vérifiés</div>
-                <div style="color:var(--text-muted); font-size:10px;">Basé sur {total_avis} retours</div>
-            </div>
-        </div>
-        <div>{reviews_html}</div>
-        <hr>
-        <div style="font-size:11px; font-weight:700; color:var(--accent-cyan); text-align:center; margin-bottom:6px;">✍️ LAISSEZ VOTRE AVIS</div>
-        <form method="POST" action="/ajouter-avis">
-            <div class="rating-input">
-                <input type="radio" id="s5" name="etoiles" value="5" checked><label for="s5">★</label>
-                <input type="radio" id="s4" name="etoiles" value="4"><label for="s4">★</label>
-                <input type="radio" id="s3" name="etoiles" value="3"><label for="s3">★</label>
-                <input type="radio" id="s2" name="etoiles" value="2"><label for="s2">★</label>
-                <input type="radio" id="s1" name="etoiles" value="1"><label for="s1">★</label>
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                <input type="text" name="nom" placeholder="Votre Nom" required>
-                <input type="text" name="ville" placeholder="Votre Ville" required>
-            </div>
-            <textarea name="commentaire" placeholder="Partagez votre expérience..." rows="2" required style="margin-top:4px;"></textarea>
-            <button type="submit" class="btn-primary" style="padding:10px; font-size:11px;">⭐ PUBLIER MON AVIS</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <div class="card-title">❓ QUESTIONS FRÉQUENTES</div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Est-ce que la configuration affecte mon débit Internet ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Non, au contraire !</b> Notre optimisation améliore votre débit. WireGuard consomme moins de <b>2% de bande passante</b>. Votre vitesse reste maximale grâce à l'optimisation TTL, DNS et au routage intelligent.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Le tunnel VPN a-t-il un abonnement mensuel ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Non, 100% gratuit à vie !</b> Cloudflare WARP est entièrement gratuit. Vous payez uniquement notre configuration une seule fois. Le VPN fonctionne pour toujours sans frais mensuel.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Configuration complète même après un RESET TOTAL ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-green);">Oui, absolument à 100% !</b> Notre script recrée tout de A à Z : Bridge, DHCP, NAT, IP, Wi-Fi avec mot de passe, Firewall Pro, Optimisation Réseau, VPN. Même sur un routeur vide et réinitialisé.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Puis-je choisir mon adresse IP ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-cyan);">Oui !</b> Dans le générateur, vous pouvez taper <b>n'importe quelle IP</b> (192.168.88.1, 10.0.0.1, 172.16.1.1...) ou cliquer sur une suggestion. Le DHCP et le sous-réseau s'adaptent automatiquement.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Puis-je payer de l'étranger (USD / Binance / Carte) ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-cyan);">Oui !</b> Nous acceptons <b>Binance Pay (USDT)</b> et les <b>Cartes Bancaires Internationales</b> avec des tarifs équivalents en USD ($2.50 à $12.50).</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>1 clé = combien de routeurs ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer"><b style="color:var(--accent-red);">1 clé = 1 seul routeur.</b> Après génération, la clé est définitivement consommée et verrouillée. Pour configurer un autre routeur, il faut acheter une nouvelle clé.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Combien de temps prend l'installation ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Moins de <b>5 secondes chrono</b> ! Une seule commande à coller dans Winbox Terminal et tout s'applique automatiquement.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Quels modèles MikroTik sont compatibles ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Compatible avec <b>tous les modèles RouterOS v7</b> : hAP ax2/ax3, hAP ac2/ac3, RB750/760/2011/3011/4011/1100, CCR1009/2004/2116, mANTBox, LHG, SXTsq, Chateau LTE/5G. Le script s'adapte à chaque modèle.</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Comment payer et recevoir ma clé ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Paiement Mobile Money au nom de <b>{NOM_COMPTE}</b> :<br>🟠 Orange Money : <b>{NUMERO_ORANGE}</b><br>🟡 Mvola : <b>{NUMERO_MVOLA}</b><br>Ou via <b>Binance Pay / Carte bancaire</b>.<br>Votre clé est envoyée par SMS/Mail après validation (max 15 min).</div>
-        </div>
-    </div>
     """
     return render(content)
 
-@app.route("/tuto", methods=["GET", "POST"])
-def tuto():
+@app.route("/commander", methods=["POST"])
+def commander():
+    nom = request.form.get("nom")
+    tel = request.form.get("tel")
+    formule = request.form.get("formule")
+    ref = request.form.get("ref_paiement")
+    montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
+    usd = TARIFS_MODULES.get(formule, {}).get("prix_usd", 2.5)
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
+    conn.commit()
+    conn.close()
+
+    # Envoi de l'email si renseigné
+    if "@" in tel:
+        envoyer_email_cle(tel, nom, "VOTRE CLÉ SERA ENVOYÉE DÈS VALIDATION DE VOTRE PAIEMENT", TARIFS_MODULES[formule]["nom"])
+    
     content = f"""
     <div class="card">
-        <div class="card-title">📖 GUIDE D'INSTALLATION MIKROTIK (PAS-À-PAS)</div>
-        <p style="font-size:13px; color:var(--text-body); line-height:1.6;">
-            Suivez ce guide simple avec schémas visuels pour brancher et configurer votre routeur MikroTik en moins de 2 minutes chrono.
+        <div style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:12px 15px; border-radius:10px; font-size:13px; margin-bottom:12px;"><b>✅ Commande enregistrée avec succès !</b></div>
+        <p style="font-size:13px; line-height:1.6; color:var(--text-body);">
+            Merci <b>{nom}</b>.<br>Votre demande pour le pack <b>{TARIFS_MODULES[formule]['nom']}</b> ({montant:,} Ar / ${usd:.2f} USD) a bien été transmise.<br><br>
+            Notre équipe va vérifier immédiatement la référence de transaction <code style="color:var(--accent-cyan); font-weight:bold;">{ref}</code>.<br><br>
+            Dès validation (généralement en moins de 5 minutes), votre clé d'activation vous sera expédiée directement au <b>{tel}</b>.
         </p>
-
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-cyan);">🔌 ÉTAPE 1 : LE BRANCHEMENT DES CÂBLES RÉSEAU</div>
-            <ol>
-                <li>Prenez le câble venant de votre antenne <b>Starlink / Box Internet</b> et branchez-le sur le <b>PORT 1 (ether1)</b>.</li>
-                <li>Prenez un 2ème câble réseau et reliez votre <b>Ordinateur / Switch</b> sur les <b>PORTS 2 à 13</b>.</li>
-                <li>Branchez l'alimentation du MikroTik.</li>
-            </ol>
-            
-            <div class="visual-container">
-                <div style="font-size:12px; font-weight:bold; color:#94a3b8; margin-bottom:6px;">📍 SCHÉMA DES PORTS SUR LE MIKROTIK :</div>
-                <div class="ports-bar">
-                    <div class="port-indicator wan">
-                        <b>PORT 1</b>
-                        <span>Starlink (WAN)</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 2</b>
-                        <span>PC / LAN</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 3</b>
-                        <span>Switch</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 4</b>
-                        <span>Access Point</span>
-                    </div>
-                    <div class="port-indicator lan">
-                        <b>PORT 5</b>
-                        <span>LAN</span>
-                    </div>
-                </div>
-                <div style="font-size:11px; color:#a7f3d0; margin-top:8px;">
-                    📶 Le <b>Wi-Fi Dual Band 2.4G &amp; 5G</b> diffuse automatiquement dès l'injection du script !
-                </div>
-            </div>
+        <div style="background:linear-gradient(135deg, #fef2f2, #fee2e2); border:1px solid #fecaca; border-radius:8px; padding:10px; margin-top:15px; font-size:11px; color:#991b1b; font-weight:700; text-align:center;">
+            ⏰ Si vous n'avez pas reçu votre clé après <b>15 minutes</b>, n'hésitez pas à nous appeler directement au <b>{NUMERO_MVOLA}</b> ou nous écrire sur WhatsApp.
         </div>
-
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-purple);">💻 ÉTAPE 2 : OUVRIR WINBOX ET SE CONNECTER EN MAC</div>
-            <ol>
-                <li>Téléchargez Winbox officiel : <a href="https://mikrotik.com/download" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Télécharger Winbox (MikroTik)</a></li>
-                <li>Ouvrez Winbox et cliquez sur l'onglet <b>Neighbors</b> (Voisins).</li>
-                <li><b>Astuce Pro Cruciale :</b> Cliquez sur la ligne affichant l'<b>Adresse MAC</b> (ex: <code>CC:2D:E0:...</code>) et JAMAIS sur l'adresse IP !</li>
-            </ol>
-
-            <div class="winbox-mockup">
-                <div class="winbox-top">
-                    <span>Winbox v3.41 - Neighbors Table</span>
-                    <span>_ □ ✕</span>
-                </div>
-                <div class="winbox-body">
-                    <div style="color:#94a3b8; margin-bottom:6px;">IP Address | MAC Address | Identity | Board Name</div>
-                    <div class="winbox-item">
-                        <span>0.0.0.0</span>
-                        <span>👉 CC:2D:E0:4F:92:1A (CLIQUEZ ICI !)</span>
-                        <span>MikroTik</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="step-guide" style="margin-top:15px;">
-            <div style="font-size:13px; font-weight:800; color:var(--accent-green);">⚡ ÉTAPE 3 : COLLER LA COMMANDE ET VALIDER</div>
-            <ol>
-                <li>Dans Winbox, cliquez sur le menu <b>New Terminal</b> dans la colonne de gauche.</li>
-                <li>Générez votre configuration sur notre site, puis cliquez sur <b>📋 COPIER LA COMMANDE</b>.</li>
-                <li>Dans la fenêtre noire du Terminal Winbox, faites <b>Clic Droit ➔ Paste (Coller)</b>.</li>
-                <li>Appuyez sur la touche <b>Entrée</b> de votre clavier : en 5 secondes, l'installation se termine sans redémarrage !</li>
-            </ol>
-
-            <div class="terminal-box" style="margin-top:8px;">
-                <span style="color:#94a3b8;">[admin@MikroTik] &gt; </span><span style="color:#38bdf8;">/system script add name=ketrika_run...</span><br>
-                <span style="color:#4ade80;">=== KETRIKA MIKROTIK : INSTALLATION PRO DE A A Z TERMINEE ! ===</span>
-            </div>
-        </div>
-
-        <div class="alert-warning" style="margin-top:15px; font-size:12px; line-height:1.6;">
-            💡 <b>Vous voulez réinitialiser le routeur à zéro avant de commencer ?</b><br>
-            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Notre script KETRIKA recréera tout de A à Z !
-        </div>
-
-        <div style="text-align:center; margin-top:20px;">
-            <a href="/" class="btn-primary" style="display:inline-block; width:auto; padding:12px 25px;">🛒 COMMANDER UNE CLÉ OU ACTIVER MON ROUTEUR</a>
-        </div>
+        <a href="/" class="btn-primary" style="margin-top:15px;">RETOUR À L'ACCUEIL</a>
     </div>
     """
     return render(content)
 
-@app.route("/ajouter-avis", methods=["GET", "POST"])
-def ajouter_avis():
-    if request.method == "POST":
-        nom = request.form.get("nom", "").strip()
-        ville = request.form.get("ville", "").strip()
-        try:
-            etoiles = int(request.form.get("etoiles", 5))
-        except:
-            etoiles = 5
-        commentaire = request.form.get("commentaire", "").strip()
-        if nom and commentaire:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
-            conn.commit()
-            conn.close()
-    return redirect(url_for("home"))
-
-@app.route("/commander", methods=["GET", "POST"])
-def commander():
-    if request.method == "POST":
-        nom = request.form.get("nom", "").strip()
-        tel = request.form.get("tel", "").strip()
-        formule = request.form.get("formule", "basic")
-        ref = request.form.get("ref_paiement", "").strip()
-        montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
-        if nom and tel and ref:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
-            conn.commit()
-            conn.close()
-            return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES.get(formule, {}).get("nom", "Basic")}</b> ({montant:,} Ar).<br>Clé envoyée par SMS/Mail au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
-    return redirect(url_for("home"))
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "POST":
-        cle = request.form.get("licence", "").strip().upper()
-        result = verifier_licence(cle)
-        if not result or not result["valide"]:
-            return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
-        if result.get("utilisations", 0) >= 1:
-            return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
-        session["authenticated"] = True
-        session["licence"] = cle
-        session["client"] = result["client"]
-        session["type_abo"] = result["type"]
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("home"))
+    cle = request.form.get("licence", "").strip().upper()
+    result = verifier_licence(cle)
+    if not result or not result["valide"]:
+        return render('<div class="card"><div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 15px; border-radius:10px; font-size:13px; margin-bottom:12px;">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
+    if result.get("utilisations", 0) >= 1:
+        return render('<div class="card"><div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 15px; border-radius:10px; font-size:13px; margin-bottom:12px;">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
+    
+    session["authenticated"] = True
+    session["licence"] = cle
+    session["client"] = result["client"]
+    session["type_abo"] = result["type"]
+    return redirect(url_for("dashboard"))
 
 @app.route("/logout")
 def logout():
@@ -1227,74 +686,71 @@ def dashboard():
     result = verifier_licence(cle)
     if not result or result.get("utilisations", 0) >= 1:
         session.clear()
-        return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
+        return render('<div class="card"><div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 15px; border-radius:10px; font-size:13px; margin-bottom:12px;">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
     
     plan_key = session.get("type_abo", "basic")
     plan_info = TARIFS_MODULES.get(plan_key, TARIFS_MODULES["basic"])
     modeles_opt = "".join([f'<option value="{m}">{m}</option>' for m in MODELES_MIKROTIK])
     ip_chips = "".join([f'<span class="ip-chip" onclick="setIP(\'{ip}\')">{ip}</span>' for ip in IP_SUGGESTIONS])
-    feat_html = "<div>✅ Bridge + Ports auto-détectés</div><div>✅ Port 1 WAN (DHCP-Client)</div><div>✅ DHCP + NAT + IP personnalisée</div><div>✅ Firewall Stateful Pro</div><div>✅ Optimisation Réseau + DNS DoH</div>"
+    
+    feat_html = "<div style='background:#f0fdf4; padding:8px 12px; border-radius:8px; font-size:11px; border-left:4px solid #10b981; margin-bottom:4px;'>✅ <b>Réseau A à Z</b> : Bridge, Ports Auto, WAN Port 1, DHCP, NAT</div><div style='background:#f0fdf4; padding:8px 12px; border-radius:8px; font-size:11px; border-left:4px solid #10b981; margin-bottom:4px;'>✅ <b>Sécurité Pro</b> : Pare-feu Stateful, Blocage IPv6 & P2P, DNS DoH Cloudflare</div>"
+    
     dns_input_html = ""
     bandwidth_html = ""
     if plan_key in ["warp", "hotspot", "pro"]:
-        feat_html += "<div style='color:var(--accent-green);'>✅ WireGuard VPN (gratuit à vie)</div>"
+        feat_html += "<div style='background:#f0f9ff; padding:8px 12px; border-radius:8px; font-size:11px; border-left:4px solid #0284c7; margin-bottom:4px;'>🚀 <b>VPN WireGuard Inclus</b> : Tunnel ultra-sécurisé, gratuit à vie.</div>"
     if plan_key in ["hotspot", "pro"]:
-        feat_html += "<div style='color:var(--accent-green);'>✅ Hotspot Wi-Fi Zone</div>"
-        dns_input_html = '<label>🔗 Adresse Hotspot :</label><input type="text" name="dns_name" value="wifizone.wifi" required>'
+        feat_html += "<div style='background:#fffbeb; padding:8px 12px; border-radius:8px; font-size:11px; border-left:4px solid #f59e0b; margin-bottom:4px;'>🎫 <b>Hotspot Wi-Fi Zone</b> : Portail captif et contrôle de débit.</div>"
+        dns_input_html = '<label>🔗 Adresse de la page Hotspot (ex: wifizone.wifi) :</label><input type="text" name="dns_name" value="wifizone.wifi" required>'
         
         bw_cards_html = ""
         for k, v in BANDWIDTH_PROFILES.items():
             ck = "checked" if k == "illimite" else ""
             active_class = "active" if k == "illimite" else ""
             bw_cards_html += f"""
-            <div class="bw-card {active_class}" id="card_{k}" onclick="selectBW('{k}')">
-                <input type="radio" name="bandwidth" id="bw_{k}" value="{k}" {ck}>
-                <div class="bw-card-text">
-                    <b>{v['nom']}</b>
-                    <span>{v['desc']}</span>
-                </div>
+            <div style="background:#ffffff; border:2px solid {'#a855f7' if k=='illimite' else 'var(--border-light)'}; padding:10px; border-radius:10px; cursor:pointer; display:flex; align-items:center; gap:8px;" onclick="document.querySelectorAll('input[name=bandwidth]').forEach(r=>r.parentElement.style.borderColor='var(--border-light)'); this.style.borderColor='#a855f7'; this.querySelector('input').checked=true; document.getElementById('custom-bw-box').style.display=('{k}'==='custom'?'grid':'none');">
+                <input type="radio" name="bandwidth" value="{k}" {ck} style="width:16px;height:16px;margin:0;">
+                <div><b style="font-size:11px; display:block;">{v['nom']}</b><span style="font-size:9px; color:var(--text-muted);">{v['desc']}</span></div>
             </div>
             """
         
         bandwidth_html = f"""
-        <div class="wifi-box" style="border-color:rgba(124,58,237,0.3); margin-top:10px;">
-            <div style="font-size:11px; font-weight:800; color:var(--accent-purple); margin-bottom:6px;">📊 LIMITATION DU DÉBIT PAR CLIENT (CLIQUEZ SUR VOTRE CHOIX) :</div>
-            <div class="bw-grid">
-                {bw_cards_html}
-            </div>
-            <div id="custom-bw-box" style="display:none; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
-                <input type="text" name="custom_down" value="3M" placeholder="Download (ex: 5M)">
-                <input type="text" name="custom_up" value="1M" placeholder="Upload (ex: 2M)">
+        <div style="background:linear-gradient(135deg, #f8fafc, #f1f5f9); border:1px dashed #c4b5fd; padding:14px; border-radius:12px; margin-top:12px;">
+            <div style="font-size:11px; font-weight:800; color:var(--accent-purple); margin-bottom:8px;">📊 LIMITATION DU DÉBIT (CLIQUEZ SUR VOTRE CHOIX) :</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">{bw_cards_html}</div>
+            <div id="custom-bw-box" style="display:none; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+                <div><label style="margin-top:0;">Download (ex: 5M)</label><input type="text" name="custom_down" value="3M"></div>
+                <div><label style="margin-top:0;">Upload (ex: 1M)</label><input type="text" name="custom_up" value="1M"></div>
             </div>
         </div>
         """
         
     if plan_key == "pro":
-        feat_html += "<div style='color:var(--accent-green);'>✅ PPPoE + QoS Bandwidth</div>"
+        feat_html += "<div style='background:#fef2f2; padding:8px 12px; border-radius:8px; font-size:11px; border-left:4px solid #dc2626; margin-bottom:4px;'>🏢 <b>Pack Pro WISP</b> : Serveur PPPoE + QoS Bandwidth (PCQ).</div>"
         
     content = f"""
-    <div class="top-nav" style="margin-bottom:10px;">
-        <span class="badge">{plan_info['nom']} • 1 Clé = 1 Routeur</span>
-        <a href="/logout" style="color:var(--accent-red); font-size:11px; text-decoration:none; font-weight:700;">Fermer Session</a>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:10px; background:rgba(255,255,255,0.8); border-radius:12px; border:1px solid var(--border-light);">
+        <span style="background:linear-gradient(135deg, #0284c7, #7c3aed); color:#fff; padding:4px 10px; border-radius:20px; font-size:10px; font-weight:700;">{plan_info['nom']} • 1 Clé = 1 Routeur</span>
+        <a href="/logout" style="color:var(--accent-red); font-size:11px; text-decoration:none; font-weight:800;">Fermer Session ✕</a>
     </div>
     <div class="card">
-        <div class="card-title">⚙️ CONFIGURATION A à Z - {session['client']}</div>
-        <div class="alert-warning">⚠️ Cette clé sera <b>définitivement consommée</b> après génération.</div>
+        <div class="card-title">⚙️ GÉNÉRATEUR MIKROTIK - {session['client']}</div>
+        <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px; border-radius:8px; font-size:11px; margin-bottom:15px;">⚠️ Cette clé sera <b>définitivement consommée</b> et verrouillée après l'appui sur le bouton "Générer".</div>
         <form method="POST" action="/generate">
-            <label>1. Modèle MikroTik :</label>
+            <label>1. Votre Modèle MikroTik :</label>
             <select name="modele" required>{modeles_opt}</select>
 
-            <label>2. Nom du client / Routeur :</label>
-            <input type="text" name="client_final" placeholder="Boutique_Rasoa" required>
+            <label>2. Nom de l'équipement (Identity) :</label>
+            <input type="text" name="client_final" placeholder="Ex: Boutique_Rasoa" required>
 
-            <label>3. Adresse IP du Routeur (Champ libre) :</label>
-            <input type="text" name="router_ip" id="router_ip" value="192.168.88.1" placeholder="Tapez votre IP ou cliquez ci-dessous" required>
+            <label>3. Adresse IP Locale du Routeur :</label>
+            <input type="text" name="router_ip" id="router_ip" value="192.168.88.1" placeholder="Tapez votre IP ou choisissez ci-dessous" required>
             <div class="ip-suggestions">{ip_chips}</div>
-            <small style="color:var(--text-muted); font-size:10px; display:block; margin-top:4px;">💡 Cliquez sur une IP suggérée ou tapez la vôtre. Le DHCP s'adapte automatiquement.</small>
+            <small style="color:var(--text-muted); font-size:10px; display:block; margin-top:6px;">💡 Le Serveur DHCP et le sous-réseau seront calculés et configurés automatiquement en fonction de cette IP.</small>
 
-            <div class="wifi-box">
-                <div class="wifi-box-title">📶 WI-FI (SSID + MOT DE PASSE)</div>
-                <label style="margin-top:0;">Nom du Wi-Fi (SSID) :</label>
+            <div style="background:linear-gradient(135deg, #f0f9ff, #e0f2fe); border:1px dashed #7dd3fc; padding:15px; border-radius:12px; margin-top:15px;">
+                <div style="font-size:12px; font-weight:800; color:var(--accent-cyan); margin-bottom:10px;">📶 PARAMÈTRES WI-FI (DUAL BAND 2.4G & 5G)</div>
+                <label style="margin-top:0;">Nom du réseau (SSID) :</label>
                 <input type="text" name="ssid" value="KETRIKA-NET" required>
                 <label>Mot de passe Wi-Fi :</label>
                 <input type="text" name="wifi_pass" value="ketrika2025" required>
@@ -1303,9 +759,10 @@ def dashboard():
             
             {bandwidth_html}
             
-            <label>4. Fonctionnalités incluses :</label>
-            <div class="feature-box">{feat_html}</div>
-            <button type="submit" class="btn-primary">🚀 GÉNÉRER LA CONFIG A à Z</button>
+            <label style="margin-top:20px;">4. Récapitulatif des inclusions de votre clé :</label>
+            <div style="margin-top:8px;">{feat_html}</div>
+            
+            <button type="submit" class="btn-primary" style="margin-top:20px; padding:16px; font-size:15px;">🚀 GÉNÉRER LA CONFIGURATION UNIQUE</button>
         </form>
     </div>
     """
@@ -1321,7 +778,7 @@ def generate():
     result = verifier_licence(cle)
     if not result or result.get("utilisations", 0) >= 1:
         session.clear()
-        return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée.</div><a href="/" class="btn-primary">Retour</a></div>')
+        return render('<div class="card"><div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:10px; font-size:13px; margin-bottom:12px;">❌ Cette clé a déjà été consommée.</div><a href="/" class="btn-primary">Retour à l\'Accueil</a></div>')
     
     modele = request.form.get("modele", "")
     plan_key = session.get("type_abo", "basic")
@@ -1330,6 +787,7 @@ def generate():
     wifi_pass = request.form.get("wifi_pass", "ketrika2025")
     dns_name = request.form.get("dns_name", "ketrika.wifi")
     router_ip = request.form.get("router_ip", "192.168.88.1")
+    
     bw_choice = request.form.get("bandwidth", "illimite")
     if bw_choice == "custom":
         bw_down = request.form.get("custom_down", "3M")
@@ -1349,6 +807,13 @@ def generate():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("UPDATE licences SET actif=0, nb_utilisations=1 WHERE cle=?", (cle,))
+    
+    # Envoi de l'email si renseigné lors de la commande !
+    c.execute("SELECT email, client_nom, formule FROM commandes WHERE cle_generee=?", (cle,))
+    cmd_data = c.fetchone()
+    if cmd_data and cmd_data[0] and "@" in cmd_data[0]:
+        envoyer_email_cle(cmd_data[0], cmd_data[1], cle, TARIFS_MODULES.get(cmd_data[2], {}).get("nom", "Pack"))
+    
     conn.commit()
     conn.close()
     session.clear()
@@ -1362,78 +827,42 @@ def generate():
     
     content = f"""
     <div class="card">
-        <div class="alert alert-success"><b>✅ Configuration A à Z prête pour : {client_final} ({modele})</b></div>
-        <div class="alert-warning">
-            📍 <b>Branchement Physique :</b> Câble Internet sur le <b>Port 1 (ether1)</b> | Ordinateur sur les <b>autres ports</b>.<br>
-            📶 Wi-Fi : <b>{ssid}</b> | 🔑 Mot de passe : <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
-            🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
+        <div style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:12px 16px; border-radius:12px; margin-bottom:15px; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:8px;">
+            ✅ Configuration générée avec succès pour : {client_final}
         </div>
-
-        <!-- METHODE 1 : ONE-LINER -->
-        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE &amp; ULTRA-RAPIDE)</div>
-        <div class="step-guide">
-            <b>📖 Mode d'emploi pas-à-pas :</b>
-            <ol>
-                <li>Ouvrez <b>Winbox</b> et connectez-vous sur votre MikroTik en cliquant sur l'<b>Adresse MAC</b> (onglet <i>Neighbors</i>).</li>
-                <li>Cliquez sur <b>New Terminal</b> dans le menu de gauche.</li>
-                <li>Cliquez sur le bouton violet ci-dessous pour copier la commande, puis <b>collez-la (Clic droit &gt; Paste)</b> dans le terminal.</li>
-                <li>Appuyez sur la touche <b>Entrée</b> : en 5 secondes, le routeur applique toute la configuration sans redémarrer !</li>
-            </ol>
-        </div>
-        <div class="terminal-box" id="cmd1">{one_liner}</div>
-        <button class="btn-copy" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE UNIQUE</button>
-
-        <hr>
-
-        <!-- METHODE 2 : FICHIER .RSC ET TEXTE BRUT -->
-        <div class="card-title">MÉTHODE 2 : FICHIER SCRIPT (.RSC) OU CODE BRUT COMPLET</div>
-        <div class="step-guide">
-            <b>📖 Mode d'emploi pas-à-pas :</b>
-            <ol>
-                <li>Téléchargez le fichier <b>ketrika.rsc</b> avec le bouton vert, OU copiez tout le texte brut ci-dessous.</li>
-                <li>Dans Winbox, cliquez sur le menu <b>Files</b> à gauche, puis glissez-déposez le fichier <b>ketrika.rsc</b> dedans.</li>
-                <li>Ouvrez <b>New Terminal</b> et tapez : <code>/import file-name=ketrika.rsc</code> puis Entrée.</li>
-            </ol>
-        </div>
-        <a href="/download/{config_id}.rsc" class="btn-primary btn-success" style="margin-top:10px;">📥 TÉLÉCHARGER LE FICHIER KETRIKA.RSC</a>
         
-        <label style="margin-top:12px;">📄 OU COPIEZ LE SCRIPT BRUT MULTI-LIGNES CI-DESSOUS :</label>
-        <textarea id="raw_script_box" style="height:140px; font-family:'Courier New', monospace; font-size:11px; background:#0f172a; color:#4ade80; border:1px solid #334155;" readonly>{raw_s}</textarea>
-        <button class="btn-copy" id="b_raw" onclick="copyText('raw_script_box','b_raw')" style="background:#475569;">📋 COPIER LE SCRIPT BRUT COMPLET</button>
-
-        <hr>
-
-        <!-- METHODE 3 : IMPORTATION DIRECTE CLOUD -->
-        <div class="card-title">MÉTHODE 3 : IMPORTATION DIRECTE (SI ROUTEUR DÉJÀ CONNECTÉ AU WEB)</div>
-        <div class="step-guide">
-            <b>📖 Mode d'emploi :</b> Si le port 1 de votre routeur a déjà accès à Internet, collez simplement cette commande dans le terminal Winbox :
+        <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:15px; border-radius:12px; margin-bottom:20px; font-size:12px; line-height:1.6;">
+            📍 <b>Rappel de Branchement :</b> Câble Starlink sur le <b>Port 1 (ether1)</b> | PC ou Switch sur les <b>autres ports LAN</b>.<br>
+            📶 Wi-Fi configuré : <b>{ssid}</b> | 🔑 <b>{wifi_pass}</b> | 🌐 IP du Routeur : <b>{router_ip}</b><br>
+            <span style="color:#dc2626; font-weight:bold; display:block; margin-top:8px;">🔒 Cette clé d'activation est maintenant définitivement consommée et verrouillée en base de données.</span>
         </div>
-        <div class="terminal-box" id="cmd2">{online_cmd}</div>
-        <button class="btn-copy" id="b2" onclick="copyText('cmd2','b2')" style="background:linear-gradient(135deg,#64748b,#475569);">📋 COPIER LA COMMANDE CLOUD</button>
 
-        <a href="/" class="btn-primary" style="margin-top:18px;">🏠 TERMINER &amp; RETOUR À L'ACCUEIL</a>
+        <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE)</div>
+        <div style="background:#f8fafc; border:1px solid var(--border-light); border-radius:10px; padding:12px; margin-top:10px; margin-bottom:10px; font-size:12px; line-height:1.6;">
+            <b>📖 Mode d'emploi pas-à-pas :</b>
+            <ol style="margin-left:20px; margin-top:5px; color:var(--text-body);">
+                <li style="margin-bottom:4px;">Ouvrez <b>Winbox</b> et connectez-vous sur votre MikroTik en cliquant sur l'<b>Adresse MAC</b> (onglet <i>Neighbors</i>).</li>
+                <li style="margin-bottom:4px;">Cliquez sur <b>New Terminal</b> dans le menu de gauche.</li>
+                <li style="margin-bottom:4px;">Cliquez sur le bouton violet ci-dessous pour copier la commande, puis <b>collez-la (Clic droit &gt; Paste)</b> dans la fenêtre noire du terminal.</li>
+                <li>Appuyez sur la touche <b>Entrée</b> : en 5 secondes, le routeur applique toute la configuration de A à Z !</li>
+            </ol>
+        </div>
+        
+        <div style="background:#0f172a; border:1px solid #10b981; color:#4ade80; padding:15px; border-radius:10px; font-family:'Courier New', monospace; font-size:11px; word-break:break-all; box-shadow:inset 0 0 20px rgba(16,185,129,0.1);" id="cmd1">{one_liner}</div>
+        <button style="background:linear-gradient(135deg, #7c3aed, #6d28d9); color:#fff; padding:14px; border-radius:10px; border:none; font-weight:800; cursor:pointer; width:100%; font-family:'Space Grotesk'; font-size:13px; margin-top:10px; box-shadow:0 4px 15px rgba(124,58,237,0.3); transition:0.3s;" id="b1" onclick="copyText('cmd1','b1')">📋 COPIER LA COMMANDE UNIQUE</button>
+
+        <hr style="border:none; border-top:1px solid var(--border-light); margin:25px 0;">
+
+        <div class="card-title">MÉTHODE 2 : TÉLÉCHARGER LE FICHIER (.RSC)</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Téléchargez le fichier, glissez-déposez le dans le menu <b>Files</b> de Winbox, puis tapez <code>/import file-name=ketrika.rsc</code> dans le terminal.</div>
+        <a href="/download/{config_id}.rsc" style="display:block; text-align:center; text-decoration:none; background:linear-gradient(135deg, #059669, #047857); color:#fff; padding:14px; border-radius:10px; font-family:'Space Grotesk'; font-weight:800; font-size:13px; box-shadow:0 4px 15px rgba(5,150,105,0.3);">📥 TÉLÉCHARGER LE FICHIER KETRIKA.RSC</a>
+        
+        <hr style="border:none; border-top:1px solid var(--border-light); margin:25px 0;">
+        
+        <a href="/" style="display:block; text-align:center; text-decoration:none; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; padding:14px; border-radius:10px; font-family:'Space Grotesk'; font-weight:800; font-size:13px;">🏠 TERMINER ET RETOURNER À L'ACCUEIL</a>
     </div>
     """
     return render(content)
-
-@app.route("/config/<path:config_id>", methods=["GET"])
-def get_config(config_id):
-    cid = config_id.replace('.rsc', '').strip()
-    cfg = get_config_by_id(cid)
-    if not cfg:
-        return Response("# Invalide ou introuvable", mimetype="text/plain")
-    return Response(build_raw_script(cfg), mimetype="text/plain")
-
-@app.route("/download/<path:config_id>", methods=["GET"])
-def download_config(config_id):
-    cid = config_id.replace('.rsc', '').strip()
-    cfg = get_config_by_id(cid)
-    if not cfg:
-        return redirect(url_for("home"))
-    mem = io.BytesIO()
-    mem.write(build_raw_script(cfg).encode('utf-8'))
-    mem.seek(0)
-    return send_file(mem, mimetype="text/plain", as_attachment=True, download_name="ketrika.rsc")
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
@@ -1441,7 +870,7 @@ def admin():
         if verifier_admin(request.form.get("username"), request.form.get("password")):
             session["admin"] = True
             return redirect(url_for("admin_dashboard"))
-    return render('<div class="card"><div class="card-title">🔐 ADMIN</div><form method="POST"><input type="text" name="username" placeholder="admin" required><input type="password" name="password" placeholder="mot de passe" required><button type="submit" class="btn-primary">CONNEXION</button></form></div>')
+    return render('<div class="card"><div class="card-title">🔐 ACCÈS ADMINISTRATEUR</div><form method="POST"><input type="text" name="username" placeholder="Identifiant" required><input type="password" name="password" placeholder="Mot de passe" required><button type="submit" class="btn-primary">CONNEXION SÉCURISÉE</button></form></div>')
 
 @app.route("/admin/dashboard", methods=["GET", "POST"])
 def admin_dashboard():
@@ -1451,10 +880,57 @@ def admin_dashboard():
     c.execute("SELECT * FROM commandes WHERE statut='EN_ATTENTE' ORDER BY id DESC")
     cmds = c.fetchall()
     conn.close()
+    
     rows = ""
     for cmd in cmds:
-        rows += f'<tr><td><b>{cmd[1]}</b><br><small>{cmd[2]}</small></td><td>{cmd[3].upper()}<br><b>{cmd[4]:,} Ar</b></td><td><code>{cmd[5]}</code></td><td><form method="POST" action="/admin/valider/{cmd[0]}"><button type="submit" class="btn-primary" style="padding:4px 8px; font-size:10px; margin:0;">⚡ VALIDER</button></form></td></tr>'
-    return render(f'<div class="card"><div class="card-title">📋 COMMANDES ({len(cmds)})</div><table style="width:100%; border-collapse:collapse; font-size:12px;"><tr><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border-light); color:var(--accent-cyan);">Client</th><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border-light); color:var(--accent-cyan);">Pack</th><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border-light); color:var(--accent-cyan);">Réf</th><th style="text-align:left; padding:8px; border-bottom:1px solid var(--border-light); color:var(--accent-cyan);">Action</th></tr>{rows if rows else "<tr><td colspan=4 style=text-align:center;padding:15px;>Aucune commande</td></tr>"}</table><a href="/admin/creer" class="btn-primary" style="margin-top:12px;">➕ CRÉER CLÉ</a></div>')
+        # cmd[0]=id, cmd[1]=nom, cmd[2]=tel, cmd[3]=email, cmd[4]=formule, cmd[5]=montant, cmd[6]=ref, cmd[8]=date
+        email_str = f"<br><small style='color:var(--accent-cyan);'>{cmd[3]}</small>" if cmd[3] else ""
+        rows += f"""
+        <tr>
+            <td style="padding:10px; border-bottom:1px solid var(--border-light);">
+                <b>{cmd[1]}</b><br>
+                <small>{cmd[2]}</small>{email_str}
+            </td>
+            <td style="padding:10px; border-bottom:1px solid var(--border-light);">
+                <span style="background:var(--accent-purple); color:#fff; padding:3px 6px; border-radius:4px; font-size:9px; font-weight:bold;">{cmd[4].upper()}</span><br>
+                <b style="color:var(--accent-green); font-size:12px; display:block; margin-top:4px;">{cmd[5]:,} Ar</b>
+            </td>
+            <td style="padding:10px; border-bottom:1px solid var(--border-light);">
+                <code style="background:#f1f5f9; padding:4px; border-radius:4px; border:1px solid #cbd5e1; font-size:10px; color:#b45309; font-weight:bold;">{cmd[6]}</code>
+            </td>
+            <td style="padding:10px; border-bottom:1px solid var(--border-light);">
+                <form method="POST" action="/admin/valider/{cmd[0]}">
+                    <button type="submit" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer; box-shadow:0 2px 5px rgba(16,185,129,0.3);">⚡ VALIDER</button>
+                </form>
+            </td>
+        </tr>
+        """
+        
+    content = f"""
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div class="card-title" style="margin:0;">📋 COMMANDES EN ATTENTE ({len(cmds)})</div>
+        <a href="/admin/creer" style="background:var(--accent-cyan); color:#fff; text-decoration:none; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:bold;">➕ Créer Clé Manuelle</a>
+    </div>
+    
+    <div class="card" style="padding:10px;">
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:10px; border-bottom:2px solid var(--border-light); color:var(--text-muted); text-transform:uppercase;">Client / Contacts</th>
+                        <th style="text-align:left; padding:10px; border-bottom:2px solid var(--border-light); color:var(--text-muted); text-transform:uppercase;">Pack / Prix</th>
+                        <th style="text-align:left; padding:10px; border-bottom:2px solid var(--border-light); color:var(--text-muted); text-transform:uppercase;">Réf Paiement</th>
+                        <th style="text-align:left; padding:10px; border-bottom:2px solid var(--border-light); color:var(--text-muted); text-transform:uppercase;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows if rows else "<tr><td colspan='4' style='text-align:center; padding:20px; color:var(--text-muted); font-size:12px;'>Aucune commande en attente.</td></tr>"}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+    return render(content)
 
 @app.route("/admin/valider/<int:cmd_id>", methods=["POST"])
 def admin_valider(cmd_id):
@@ -1463,22 +939,73 @@ def admin_valider(cmd_id):
     c = conn.cursor()
     c.execute("SELECT * FROM commandes WHERE id=?", (cmd_id,))
     cmd = c.fetchone()
+    
+    email_status = ""
     if cmd:
-        cle = creer_licence(cmd[1], cmd[2], cmd[3], cmd[4])
+        cle = creer_licence(cmd[1], cmd[2], cmd[4], cmd[5])
         c.execute("UPDATE commandes SET statut='VALIDE', cle_generee=? WHERE id=?", (cle, cmd_id))
         conn.commit()
+        
+        # Envoi Automatique par Email si le champ contient un @
+        email_client = cmd[3]
+        if email_client and "@" in email_client:
+            pack_nom = TARIFS_MODULES.get(cmd[4], {}).get("nom", "Pack KETRIKA")
+            sent = envoyer_email_cle(email_client, cmd[1], cle, pack_nom)
+            if sent:
+                email_status = f"<br>📧 <b>Un email a été envoyé automatiquement à {email_client} !</b>"
+            else:
+                email_status = f"<br>⚠️ <i>Note : Le compte Gmail n'est pas encore configuré dans le code. Email non envoyé.</i>"
+                
     conn.close()
-    return render(f'<div class="card"><div class="alert alert-success">✅ Validé !</div><div class="card-title">CLÉ POUR {cmd[2]} :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">RETOUR</a></div>')
+    
+    return render(f"""
+    <div class="card">
+        <div style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:15px; border-radius:10px; font-size:13px; line-height:1.5;">
+            ✅ <b>Commande validée avec succès pour {cmd[1]} !</b>{email_status}
+        </div>
+        <div class="card-title" style="margin-top:20px;">🔑 CLÉ D'ACTIVATION À ENVOYER (Si pas d'email) :</div>
+        <div style="background:#0f172a; color:#38bdf8; font-family:'Courier New', monospace; font-size:18px; font-weight:bold; padding:20px; text-align:center; border-radius:10px; letter-spacing:3px; margin:15px 0; border:1px solid #0284c7;" id="cle_box">{cle}</div>
+        <button onclick="copyText('cle_box','bcp')" id="bcp" style="background:var(--accent-purple); color:#fff; border:none; padding:12px; width:100%; border-radius:8px; font-weight:bold; cursor:pointer;">📋 COPIER LA CLÉ POUR ENVOYER PAR SMS / WHATSAPP</button>
+        <a href="/admin/dashboard" class="btn-primary" style="margin-top:15px;">RETOUR AU TABLEAU DE BORD</a>
+    </div>
+    """)
 
 @app.route("/admin/creer", methods=["GET", "POST"])
 def admin_creer():
     if not session.get("admin"): return redirect(url_for("admin"))
     if request.method == "POST":
         cle = creer_licence(request.form.get("client"), request.form.get("tel"), request.form.get("type"), TARIFS_MODULES[request.form.get("type")]["prix"])
-        return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
-    return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
+        return render(f"""
+        <div class="card">
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:15px; border-radius:10px; font-size:13px;">✅ <b>Clé générée avec succès (1 usage unique).</b></div>
+            <div style="background:#0f172a; color:#38bdf8; font-family:'Courier New', monospace; font-size:18px; font-weight:bold; padding:20px; text-align:center; border-radius:10px; letter-spacing:3px; margin:15px 0; border:1px solid #0284c7;" id="cle_box">{cle}</div>
+            <button onclick="copyText('cle_box','bcp')" id="bcp" style="background:var(--accent-purple); color:#fff; border:none; padding:12px; width:100%; border-radius:8px; font-weight:bold; cursor:pointer;">📋 COPIER LA CLÉ</button>
+            <a href="/admin/dashboard" class="btn-primary" style="margin-top:15px;">RETOUR AU DASHBOARD</a>
+        </div>
+        """)
+    
+    return render("""
+    <div class="card">
+        <div class="card-title">➕ CRÉATION DE CLÉ MANUELLE</div>
+        <form method="POST">
+            <label>Nom du client :</label>
+            <input type="text" name="client" placeholder="Ex: Rakoto" required>
+            <label>Téléphone ou Email :</label>
+            <input type="text" name="tel" placeholder="Ex: 034 00 000 00" required>
+            <label>Formule / Pack :</label>
+            <select name="type" required>
+                <option value="basic">🛡️ Pack Basic (10 000 Ar)</option>
+                <option value="standard">⭐ Pack Standard (15 000 Ar)</option>
+                <option value="warp">🚀 Premium VPN (20 000 Ar)</option>
+                <option value="hotspot">🎫 Wi-Fi Zone Hotspot (30 000 Ar)</option>
+                <option value="pro">🏢 Pro WISP (50 000 Ar)</option>
+            </select>
+            <button type="submit" class="btn-primary" style="margin-top:20px;">GÉNÉRER LA CLÉ</button>
+            <a href="/admin/dashboard" style="display:block; text-align:center; margin-top:15px; font-size:12px; color:var(--text-muted); text-decoration:none;">Annuler et retourner</a>
+        </form>
+    </div>
+    """)
 
-# GESTIONNAIRES DE REDIRECTION TRANSPARENTE
 @app.errorhandler(404)
 def handle_404(e):
     return redirect(url_for("home"))
