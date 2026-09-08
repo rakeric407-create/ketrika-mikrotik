@@ -103,12 +103,15 @@ def generate_warp_config_for_client():
                   "fcm_token": "", "tos": "2024-01-01T00:00:00.000Z",
                   "model": "PC", "serial_number": secrets.token_hex(16), "locale": "en_US"},
             headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
-            timeout=3)
+            timeout=5)
         if res.status_code in (200, 201):
             d = res.json()
+            # Nettoyage automatique du masque /32 eventuel renvoye par l'API
+            raw_v4 = d['config']['interface']['addresses']['v4']
+            client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
             return {
                 'private_key': priv,
-                'client_ipv4': d['config']['interface']['addresses']['v4'],
+                'client_ipv4': client_ip,
                 'warp_public_key': d['config']['peers'][0]['public_key'],
                 'endpoint_host': '162.159.192.1',
                 'endpoint_port': '2408'
@@ -219,7 +222,7 @@ def generate_full_script(order):
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Cloudflare Secure Tunnel
+    # Cloudflare Secure Tunnel (CORRIGÉ TABLE & CIDR)
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
@@ -228,8 +231,10 @@ def generate_full_script(order):
 :do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
 :do {{ /interface wireguard remove wg-secure }} on-error={{}}
 :do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
+:do {{ /routing table remove [find name=via-secure] }} on-error={{}}
 :delay 1s
 :do {{
+    /routing table add name=via-secure fib
     /interface wireguard add name=wg-secure listen-port=13231 mtu=1420 private-key="{wc['private_key']}" comment="[KETRIKA]"
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
     /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
