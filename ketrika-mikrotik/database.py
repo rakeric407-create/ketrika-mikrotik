@@ -16,16 +16,13 @@ class Order(db.Model):
     order_id = db.Column(db.String(20), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Client
     client_name = db.Column(db.String(100), nullable=False)
     client_email = db.Column(db.String(120), nullable=False)
     client_phone = db.Column(db.String(30))
 
-    # Plan: basic / warp / hotspot
     plan_type = db.Column(db.String(20), nullable=False)
     plan_price = db.Column(db.Integer, nullable=False)
 
-    # Config MikroTik
     mikrotik_model = db.Column(db.String(50), nullable=False)
     wan_interface = db.Column(db.String(20), default='ether1')
     lan_network = db.Column(db.String(20), default='192.168.88.0/24')
@@ -37,22 +34,18 @@ class Order(db.Model):
     dl_limit = db.Column(db.String(20), default='10M')
     ul_limit = db.Column(db.String(20), default='5M')
 
-    # Hotspot
     hotspot_name = db.Column(db.String(50))
     pppoe_enabled = db.Column(db.Boolean, default=False)
     voucher_enabled = db.Column(db.Boolean, default=False)
 
-    # Paiement
     payment_proof = db.Column(db.String(200))
     payment_method = db.Column(db.String(30))
 
-    # Statut
     status = db.Column(db.String(20), default='pending')
     license_key = db.Column(db.String(50))
     validated_at = db.Column(db.DateTime)
     delivered_at = db.Column(db.DateTime)
 
-    # Script généré
     script_content = db.Column(db.Text)
 
     def generate_order_id(self):
@@ -87,38 +80,53 @@ MIKROTIK_MODELS = {
 
 PLANS = {
     'basic': {
-        'name': 'Configuration de Base',
-        'subtitle': 'Sans VPN/WARP',
+        'name': 'Pack Essentiel',
+        'subtitle': 'Configuration optimisée standard',
         'price': 50000,
         'currency': 'Ar',
         'features': [
-            'Bridge & interfaces auto', 'DHCP Server automatique', 'Bypass restrictions FAI',
-            'Clamp MSS & MTU', 'Filtrage ICMP optimal', 'Firewall sécurisé v7', 'DNS Cloudflare optimisé'
+            'Configuration Bridge automatique',
+            'Serveur DHCP intégré',
+            'Firewall RouterOS v7 sécurisé',
+            'DNS Cloudflare 1.1.1.1 optimisé',
+            'Normalisation des paquets TCP',
+            'Assignation asynchrone des ports',
+            'Support technique 30 jours'
         ],
         'color': '#0284c7'
     },
     'warp': {
-        'name': 'Config + VPN WARP',
-        'subtitle': 'Chiffrement total & anti-DPI',
+        'name': 'Pack Premium Cloudflare',
+        'subtitle': 'Débit illimité & stabilité maximale',
         'price': 100000,
         'currency': 'Ar',
         'features': [
-            'Tout le plan Basic +', 'Tunnel Cloudflare WARP', 'WireGuard haute performance',
-            'Chiffrement total du trafic', 'Bypass DPI Starlink', 'DNS over HTTPS (DoH)',
-            'Routage ciblé stable'
+            'Tout le Pack Essentiel inclus',
+            'Tunnel Cloudflare Secure WireGuard',
+            'Débit illimité sans perte de vitesse',
+            'Chiffrement AES-256 professionnel',
+            'Latence optimisée mondialement',
+            'DNS-over-HTTPS (DoH) intégré',
+            'Stabilité multi-clients garantie',
+            'Anonymat & confidentialité totale'
         ],
         'color': '#10b981',
         'popular': True
     },
     'hotspot': {
-        'name': 'Hotspot + PPPoE + VPN',
-        'subtitle': 'Solution WiFi Zone complète',
+        'name': 'Pack Business WiFi Zone',
+        'subtitle': 'Solution complète pour opérateurs',
         'price': 200000,
         'currency': 'Ar',
         'features': [
-            'Tout le plan WARP +', 'Hotspot v7 pré-configuré', 'Serveur PPPoE intégré',
-            'Limitation par client', 'Génération de 10 Vouchers', 'Profils horaires (1h, 1j, etc.)',
-            'Queue PCQ dynamique'
+            'Tout le Pack Premium inclus',
+            'Portail Hotspot professionnel',
+            'Serveur PPPoE multi-clients',
+            'Gestion de bande passante par utilisateur',
+            '10 Vouchers pré-générés',
+            'Profils tarifaires (1h, 1j, 1sem, 1mois)',
+            'File d\'attente PCQ dynamique',
+            'Formation à la revente incluse'
         ],
         'color': '#f97316'
     }
