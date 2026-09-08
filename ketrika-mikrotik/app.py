@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Serveur d'Application Flask Principal (Version de Production Stable)
+KETRIKA MIKROTIK - Serveur d'Application Flask Principal (Version Finale 2026)
 """
 
 import os
@@ -25,6 +25,13 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'ketrika2024admin')
 
+# Coordonnées de paiement (centralisées)
+MVOLA_NUMBER = "038 28 171 00"
+ORANGE_NUMBER = "037 39 755 72"
+WHATSAPP_NUMBER = "0382817100"  # sans indicatif pour lien wa.me
+WHATSAPP_DISPLAY = "+261 38 28 171 00"
+PAYMENT_NAME = "JEAN ERIC"
+
 from database import db, Order, MIKROTIK_MODELS, get_next_lan_subnet, get_model_info
 
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'ketrika.db'))
@@ -47,6 +54,7 @@ def safe_get(obj, key, default=''):
         return val if val is not None else default
     except Exception:
         return default
+
 
 # ===================== STYLE =====================
 
@@ -88,8 +96,85 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fafafa; colo
 .status-pending { background: #fff3cd; color: #856404; }
 .status-active { background: #d4edda; color: #155724; }
 .status-rejected { background: #f8d7da; color: #721c24; }
-footer { background: var(--dark); color: #fff; padding: 45px 0; }
-footer a { color: var(--success); text-decoration: none; }
+
+/* Footer riche */
+footer.main-footer {
+    background: linear-gradient(180deg, #1a2332 0%, #0f1620 100%);
+    color: #fff;
+    padding: 60px 0 25px;
+    margin-top: 60px;
+}
+footer.main-footer h5 {
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    border-bottom: 2px solid #28a745;
+    padding-bottom: 10px;
+    display: inline-block;
+}
+footer.main-footer a {
+    color: #adb5bd;
+    text-decoration: none;
+    transition: 0.3s;
+    display: inline-block;
+    padding: 3px 0;
+}
+footer.main-footer a:hover {
+    color: #28a745;
+    transform: translateX(3px);
+}
+footer.main-footer .footer-payment-box {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 10px;
+    border-left: 4px solid #28a745;
+}
+footer.main-footer .payment-line {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    color: #dee2e6;
+}
+footer.main-footer .payment-line i {
+    color: #28a745;
+    margin-right: 10px;
+    font-size: 1.2rem;
+    width: 24px;
+}
+footer.main-footer .payment-number {
+    font-weight: 700;
+    color: #fff;
+    font-size: 1.05rem;
+    letter-spacing: 1px;
+}
+footer.main-footer .whatsapp-btn {
+    background: #25D366;
+    color: white !important;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-weight: 600;
+    margin-top: 15px;
+    display: inline-block !important;
+}
+footer.main-footer .whatsapp-btn:hover {
+    background: #128C7E;
+    color: white !important;
+    transform: translateY(-2px);
+}
+.footer-bottom-bar {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 40px;
+    padding-top: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+.footer-bottom-bar .brand-badge {
+    color: #28a745;
+    font-weight: 700;
+}
 
 /* Bouton panier flottant */
 .floating-cart {
@@ -162,28 +247,156 @@ footer a { color: var(--success); text-decoration: none; }
     color: white;
 }
 
-.license-check-box {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    border-radius: 20px;
-    padding: 40px;
+/* ===== Page Ma Licence - Thème Réseau Pro ===== */
+.license-hero {
+    background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 50%, #e3f2fd 100%);
+    border-radius: 24px;
+    padding: 50px 40px;
     text-align: center;
+    border: 1px solid #d0e8d5;
+    box-shadow: 0 8px 30px rgba(40, 167, 69, 0.08);
+    position: relative;
+    overflow: hidden;
 }
-.license-check-box input {
-    border-radius: 50px;
-    padding: 15px 25px;
-    font-size: 1.1rem;
-    text-align: center;
-    border: none;
+.license-hero::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(40,167,69,0.1) 0%, transparent 70%);
+    border-radius: 50%;
 }
-.license-check-box .btn {
-    border-radius: 50px;
-    padding: 15px 40px;
-    font-weight: 700;
+.license-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -50px;
+    left: -50px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(13,110,253,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.license-icon-wrap {
+    width: 100px;
+    height: 100px;
     background: white;
-    color: #667eea;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 2;
+}
+.license-icon-wrap i {
+    font-size: 2.8rem;
+    background: linear-gradient(135deg, #28a745, #0d6efd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.license-hero h2 {
+    color: #212529;
+    font-weight: 800;
+    position: relative;
+    z-index: 2;
+}
+.license-hero p {
+    color: #6c757d;
+    position: relative;
+    z-index: 2;
+}
+.license-form-wrap {
+    position: relative;
+    z-index: 2;
+    max-width: 500px;
+    margin: 25px auto 0;
+}
+.license-input {
+    border-radius: 50px !important;
+    padding: 16px 25px !important;
+    font-size: 1.05rem !important;
+    text-align: center !important;
+    border: 2px solid #d0e8d5 !important;
+    background: white !important;
+    color: #212529 !important;
+    font-weight: 600;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    transition: all 0.3s;
+}
+.license-input:focus {
+    border-color: #28a745 !important;
+    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.15) !important;
+    outline: none;
+}
+.license-input::placeholder {
+    color: #adb5bd;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+.btn-license-unlock {
+    background: linear-gradient(135deg, #28a745, #20c997);
     border: none;
-    margin-top: 15px;
+    color: white;
+    border-radius: 50px;
+    padding: 15px 45px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-top: 18px;
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.35);
+    transition: all 0.3s;
+}
+.btn-license-unlock:hover {
+    background: linear-gradient(135deg, #218838, #17a2b8);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(40, 167, 69, 0.5);
+}
+.info-network-card {
+    background: white;
+    border-radius: 20px;
+    padding: 35px;
+    margin-top: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+    border-left: 5px solid #28a745;
+}
+.step-list-network {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    counter-reset: step-counter;
+}
+.step-list-network li {
+    padding: 12px 0 12px 45px;
+    position: relative;
+    color: #495057;
+    line-height: 1.6;
+    border-bottom: 1px dashed #e9ecef;
+}
+.step-list-network li:last-child {
+    border-bottom: none;
+}
+.step-list-network li::before {
+    content: counter(step-counter);
+    counter-increment: step-counter;
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #28a745, #0d6efd);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
 }
 """
 
@@ -215,18 +428,88 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
         </div>
     </nav>
     {body_html}
-    <footer>
-        <div class="container text-center">
-            <p class="mb-2"><i class="fas fa-network-wired me-2"></i><strong>KETRIKA MIKROTIK</strong></p>
-            <p class="mb-2"><a href="https://wa.me/261340000000" target="_blank"><i class="fab fa-whatsapp me-1"></i> Support WhatsApp</a></p>
-            <p class="mb-2"><a href="/my-license" style="color:#28a745"><i class="fas fa-key me-1"></i> Récupérer ma licence</a></p>
-            <p class="mb-2"><i class="fas fa-lock me-1"></i> Paiement sécurisé MVola &amp; Orange Money</p>
-            <p class="mt-3 mb-0" style="color:#adb5bd;font-size:0.8rem">&copy; 2024 KETRIKA MIKROTIK - Tous droits réservés</p>
+    
+    <!-- FOOTER RICHE -->
+    <footer class="main-footer">
+        <div class="container">
+            <div class="row g-4">
+                <!-- Colonne 1 : Marque -->
+                <div class="col-lg-4 col-md-6">
+                    <h5><i class="fas fa-network-wired me-2"></i>KETRIKA MIKROTIK</h5>
+                    <p style="color:#adb5bd;line-height:1.7;margin-top:15px">
+                        Plateforme professionnelle de vente de configurations automatiques pour routeurs MikroTik RouterOS v7. 
+                        Scripts prêts à l'emploi, VPN Cloudflare WARP illimité et Hotspot WiFi Zone.
+                    </p>
+                    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="whatsapp-btn">
+                        <i class="fab fa-whatsapp me-2"></i>Contactez-nous
+                    </a>
+                </div>
+                
+                <!-- Colonne 2 : Liens rapides -->
+                <div class="col-lg-3 col-md-6">
+                    <h5><i class="fas fa-link me-2"></i>Liens rapides</h5>
+                    <div class="d-flex flex-column">
+                        <a href="/"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Accueil</a>
+                        <a href="/#pricing"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Tarifs</a>
+                        <a href="/#how"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Comment ça marche</a>
+                        <a href="/#faq"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>FAQ</a>
+                        <a href="/order"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Commander</a>
+                        <a href="/my-license"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Ma Licence</a>
+                    </div>
+                </div>
+                
+                <!-- Colonne 3 : Paiement -->
+                <div class="col-lg-5 col-md-12">
+                    <h5><i class="fas fa-credit-card me-2"></i>Modes de paiement</h5>
+                    <div class="footer-payment-box">
+                        <div class="payment-line">
+                            <i class="fas fa-mobile-alt"></i>
+                            <div>
+                                <div style="font-size:0.85rem;color:#adb5bd">MVola</div>
+                                <div class="payment-number">{MVOLA_NUMBER}</div>
+                            </div>
+                        </div>
+                        <div class="payment-line">
+                            <i class="fas fa-mobile-alt" style="color:#ff6b1a"></i>
+                            <div>
+                                <div style="font-size:0.85rem;color:#adb5bd">Orange Money</div>
+                                <div class="payment-number">{ORANGE_NUMBER}</div>
+                            </div>
+                        </div>
+                        <div class="payment-line">
+                            <i class="fab fa-whatsapp" style="color:#25D366"></i>
+                            <div>
+                                <div style="font-size:0.85rem;color:#adb5bd">WhatsApp Support</div>
+                                <div class="payment-number">{WHATSAPP_DISPLAY}</div>
+                            </div>
+                        </div>
+                        <hr style="border-color:rgba(255,255,255,0.1);margin:12px 0">
+                        <div class="text-center" style="color:#dee2e6">
+                            <i class="fas fa-user-check text-success me-1"></i>
+                            <span>Au nom de <strong style="color:#fff">{PAYMENT_NAME}</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bandeau du bas -->
+            <div class="footer-bottom-bar">
+                <p class="mb-1">
+                    &copy; 2026 <span class="brand-badge">KETRIKA MIKROTIK</span> — Tous droits réservés
+                </p>
+                <p class="mb-0" style="font-size:0.8rem;color:#6c757d">
+                    <i class="fas fa-shield-alt me-1"></i>Plateforme sécurisée
+                    &nbsp;•&nbsp;
+                    <i class="fas fa-lock me-1"></i>Paiement mobile money
+                    &nbsp;•&nbsp;
+                    <i class="fas fa-map-marker-alt me-1"></i>Madagascar
+                </p>
+            </div>
         </div>
     </footer>
     
     <!-- Bouton WhatsApp flottant -->
-    <a href="https://wa.me/261340000000" target="_blank" class="floating-whatsapp" title="Contactez-nous sur WhatsApp">
+    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="floating-whatsapp" title="Contactez-nous sur WhatsApp">
         <i class="fab fa-whatsapp"></i>
     </a>
     
@@ -241,6 +524,7 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
 </body>
 </html>"""
 
+
 # ===================== ACCUEIL =====================
 HOME_BODY = """
 <section class="hero-section">
@@ -254,7 +538,7 @@ HOME_BODY = """
                 <br><span class="badge-compat"><i class="fas fa-check-circle me-1"></i> 100% Compatible RouterOS v7</span>
             </div>
             <div class="col-lg-5 d-none d-lg-block text-center">
-                <div class="hero-image-inner" style="font-size: 10rem; color: #28a745;"><i class="fas fa-server"></i></div>
+                <div style="font-size: 10rem; color: #28a745;"><i class="fas fa-server"></i></div>
             </div>
         </div>
     </div>
@@ -400,51 +684,96 @@ def home():
         return f"<h1>Erreur Serveur</h1><pre>{e}</pre>", 500
 
 
-# ===================== PAGE MA LICENCE (Nouveau) =====================
+# ===================== MA LICENCE =====================
 @app.route('/my-license', methods=['GET', 'POST'])
 def my_license():
     try:
         error = ""
+        saved_key = ""
         if request.method == 'POST':
-            key = (request.form.get('license_key') or '').strip().upper()
-            if key:
-                # Vérifier si la clé existe
-                order_obj = Order.query.filter_by(license_key=key).first()
+            raw_key = request.form.get('license_key') or ''
+            key = raw_key.strip().upper().replace(' ', '').replace('\t', '').replace('\n', '')
+            saved_key = key
+            
+            if not key:
+                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Veuillez entrer une clé de licence.</div>'
+            elif not key.startswith('LIC-'):
+                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Format invalide. Une clé commence toujours par <code>LIC-</code></div>'
+            else:
+                order_obj = Order.query.filter(
+                    db.func.upper(Order.license_key) == key
+                ).first()
+                
                 if order_obj:
-                    return redirect(url_for('license_page', key=key))
+                    return redirect(url_for('license_page', key=order_obj.license_key))
                 else:
-                    error = '<div class="alert alert-danger mt-3">Clé introuvable. Vérifiez votre clé WhatsApp et réessayez.</div>'
+                    error = f'''<div class="alert alert-danger mt-3">
+                        <i class="fas fa-times-circle me-2"></i><strong>Clé introuvable.</strong><br>
+                        <small>Vérifiez que vous avez bien copié la clé complète depuis WhatsApp.</small>
+                    </div>'''
 
         body = f"""
 <section class="py-5">
-    <div class="container" style="max-width: 700px">
-        <div class="license-check-box mb-4">
-            <div style="font-size: 3.5rem;"><i class="fas fa-key"></i></div>
-            <h2 class="fw-bold mt-3">Récupérer votre script MikroTik</h2>
-            <p class="mb-4" style="opacity: 0.9">Entrez la clé de licence reçue sur WhatsApp pour accéder à votre script de configuration</p>
-            <form method="POST">
-                <input type="text" name="license_key" class="form-control" placeholder="LIC-XXXXXXXXXXXX..." required style="text-transform:uppercase">
-                <button type="submit" class="btn">
-                    <i class="fas fa-unlock me-2"></i>Accéder à mon script
-                </button>
-            </form>
-            {error}
+    <div class="container" style="max-width: 750px">
+        <div class="license-hero">
+            <div class="license-icon-wrap">
+                <i class="fas fa-key"></i>
+            </div>
+            <h2>Accédez à votre configuration</h2>
+            <p class="fs-6 mb-0">Entrez la clé de licence reçue sur WhatsApp<br>pour récupérer votre script MikroTik</p>
+            
+            <div class="license-form-wrap">
+                <form method="POST">
+                    <input type="text" 
+                           name="license_key" 
+                           class="form-control license-input" 
+                           placeholder="LIC-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" 
+                           value="{saved_key}"
+                           required 
+                           autocomplete="off">
+                    <button type="submit" class="btn btn-license-unlock">
+                        <i class="fas fa-unlock me-2"></i>Accéder à mon script
+                    </button>
+                </form>
+                {error}
+            </div>
         </div>
         
-        <div class="order-form">
-            <h5 class="fw-bold mb-3"><i class="fas fa-info-circle text-primary me-2"></i>Comment ça marche ?</h5>
-            <ol style="line-height: 2">
-                <li>Vous avez commandé un pack et effectué le paiement (MVola/Orange Money)</li>
-                <li>Notre équipe valide votre paiement en moins de 10 minutes</li>
-                <li>Vous recevez votre <strong>clé de licence</strong> par WhatsApp au format : <code>LIC-XXXXXXXXXXXXXXXX</code></li>
-                <li>Vous entrez cette clé ci-dessus et cliquez sur <strong>"Accéder à mon script"</strong></li>
-                <li>Vous copiez le script MikroTik et le collez dans le Terminal de Winbox</li>
+        <div class="info-network-card">
+            <h5 class="fw-bold mb-3" style="color:#0d6efd">
+                <i class="fas fa-network-wired me-2"></i>Comment récupérer ma configuration ?
+            </h5>
+            <ol class="step-list-network">
+                <li><strong>Commandez</strong> un pack et payez via MVola ou Orange Money</li>
+                <li><strong>Envoyez</strong> la capture d'écran comme preuve de paiement</li>
+                <li>Notre équipe <strong>valide</strong> votre paiement (max 10 minutes)</li>
+                <li>Vous recevez votre <strong>clé de licence</strong> par WhatsApp<br><small class="text-muted">Format : <code>LIC-A1B2C3D4E5F6G7H8...</code></small></li>
+                <li><strong>Entrez</strong> cette clé dans le champ ci-dessus</li>
+                <li><strong>Copiez</strong> le script généré et collez-le dans le Terminal Winbox</li>
             </ol>
-            <hr>
-            <p class="text-center mb-0">
-                <strong>Vous n'avez pas encore de clé ?</strong><br>
-                <a href="/order" class="btn btn-success rounded-pill px-4 mt-2 text-white"><i class="fas fa-shopping-cart me-2"></i>Commander maintenant</a>
-            </p>
+            
+            <hr class="my-4">
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center p-3 rounded-3" style="background:#e8f5e9">
+                        <i class="fas fa-shopping-cart text-success fs-3 me-3"></i>
+                        <div>
+                            <div class="fw-bold">Pas encore de clé ?</div>
+                            <a href="/order" class="text-success fw-semibold" style="text-decoration:none">Commander maintenant →</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center p-3 rounded-3" style="background:#e3f2fd">
+                        <i class="fab fa-whatsapp text-success fs-3 me-3"></i>
+                        <div>
+                            <div class="fw-bold">Besoin d'aide ?</div>
+                            <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="text-primary fw-semibold" style="text-decoration:none">Support WhatsApp →</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -662,12 +991,21 @@ def pay(order_id):
             <div class="summary-box mb-4">
                 <p class="mb-1"><strong>Référence :</strong> {safe_get(order_obj, 'order_id')}</p>
                 <p class="mb-1"><strong>Formule :</strong> {name}</p>
-                <p class="mb-0"><strong>Montant :</strong> <span class="fw-bold text-success">{price}</span></p>
+                <p class="mb-0"><strong>Montant :</strong> <span class="fw-bold text-success fs-4">{price}</span></p>
             </div>
             <div class="alert alert-warning">
-                <h6>Envoyez le paiement de <strong>{price}</strong> :</h6>
-                <p class="mb-1"><strong>MVola :</strong> 034 00 000 00 (au nom de JEAN ERIC)</p>
-                <p class="mb-0"><strong>Orange Money :</strong> 032 00 000 00 (au nom de JEAN ERIC)</p>
+                <h6 class="fw-bold mb-3"><i class="fas fa-mobile-alt me-2"></i>Envoyez <strong>{price}</strong> sur un des numéros suivants :</h6>
+                <div class="p-3 mb-2 rounded" style="background:white;border-left:4px solid #28a745">
+                    <strong>MVola / WhatsApp :</strong><br>
+                    <span style="font-size:1.3rem;letter-spacing:2px;font-weight:700;color:#28a745">{MVOLA_NUMBER}</span>
+                </div>
+                <div class="p-3 mb-2 rounded" style="background:white;border-left:4px solid #ff6b1a">
+                    <strong>Orange Money :</strong><br>
+                    <span style="font-size:1.3rem;letter-spacing:2px;font-weight:700;color:#ff6b1a">{ORANGE_NUMBER}</span>
+                </div>
+                <div class="text-center mt-3">
+                    <i class="fas fa-user-check me-1"></i>Au nom de <strong>{PAYMENT_NAME}</strong>
+                </div>
             </div>
             <form method="POST" action="/pay/{order_id}" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label fw-bold">Capture d'écran de la preuve</label><input type="file" name="payment_proof" class="form-control" accept="image/*" required></div>
@@ -686,7 +1024,7 @@ def pay(order_id):
         return f"<h1>Erreur paiement</h1><pre>{e}</pre>", 500
 
 
-# ===================== SCRIPT & LICENCE =====================
+# ===================== LICENCE / SCRIPT =====================
 @app.route('/license/<key>')
 def license_page(key):
     try:
@@ -710,7 +1048,7 @@ def license_page(key):
                     <li>Contactez notre support WhatsApp si le délai dépasse 30 minutes</li>
                 </ul>
             </div>
-            <a href="https://wa.me/261340000000" target="_blank" class="btn btn-success text-white rounded-pill px-4 mt-3">
+            <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="btn btn-success text-white rounded-pill px-4 mt-3">
                 <i class="fab fa-whatsapp me-2"></i>Contacter le support
             </a>
         </div>
@@ -798,7 +1136,7 @@ def download_script(key):
         return str(e), 500
 
 
-# ===================== SÉCURITÉ ADMIN =====================
+# ===================== ADMIN =====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     try:
