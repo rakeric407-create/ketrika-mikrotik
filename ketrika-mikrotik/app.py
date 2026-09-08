@@ -1,4 +1,4 @@
-# app.py - KETRIKA MIKROTIK (Version Stable Render)
+# app.py - KETRIKA MIKROTIK avec Suivi Commande & Thème Clair
 import os
 import io
 from datetime import datetime
@@ -15,10 +15,9 @@ from warp_api import generate_full_script
 
 app = Flask(__name__)
 
-# --- CONFIGURATION SÉCURISÉE RENDER ---
+# --- CONFIGURATION ---
 app.secret_key = os.environ.get('SECRET_KEY', 'ketrika-cle-secrete-production-2024')
 
-# Correction automatique postgres:// -> postgresql:// pour Render
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///ketrika.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -26,18 +25,17 @@ if database_url.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Mail Config
+# Configuration Email
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_SENDER', 'ketrika@mikrotik.com')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_SENDER', app.config['MAIL_USERNAME'])
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Initialisation extensions
 db.init_app(app)
 mail = Mail(app)
 login_manager = LoginManager()
@@ -48,7 +46,6 @@ login_manager.login_view = 'admin_login'
 def load_user(user_id):
     return Admin.query.get(int(user_id))
 
-# Création tables et admin par défaut
 with app.app_context():
     try:
         db.create_all()
@@ -62,10 +59,10 @@ with app.app_context():
             db.session.add(admin)
             db.session.commit()
     except Exception as e:
-        print(f"Erreur initialisation DB: {e}")
+        print(f"Erreur DB: {e}")
 
 
-# --- CSS THÈME CLAIR ---
+# --- CSS THÈME CLAIR MODERNE ---
 BASE_CSS = """
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -89,77 +86,40 @@ nav .logo span { color: #0066cc; }
 nav .links a {
     color: #5a6c7d;
     text-decoration: none;
-    margin-left: 20px;
+    margin-left: 18px;
     font-size: 14px;
     font-weight: 500;
 }
 nav .links a:hover { color: #00875a; }
 .container { max-width: 1100px; margin: auto; padding: 30px 20px; }
-.flash {
-    padding: 14px 20px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    font-size: 14px;
-}
+.flash { padding: 14px 20px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
 .flash.success { background: #e6f9ee; border-left: 4px solid #00875a; color: #006644; }
 .flash.error { background: #fde8e8; border-left: 4px solid #cc3333; color: #991111; }
 .flash.warning { background: #fff8e1; border-left: 4px solid #f0a020; color: #8a5a00; }
 .btn {
-    padding: 12px 28px;
-    border: none;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
+    padding: 12px 28px; border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    text-decoration: none; display: inline-block;
 }
 .btn-primary { background: #00875a; color: #fff; }
 .btn-primary:hover { background: #006644; }
 .btn-blue { background: #0066cc; color: #fff; }
 .btn-blue:hover { background: #004c99; }
 .card {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 25px;
-    border: 1px solid #e1e8ed;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    background: #ffffff; border-radius: 12px; padding: 25px;
+    border: 1px solid #e1e8ed; box-shadow: 0 2px 10px rgba(0,0,0,0.03);
 }
 label { display: block; margin: 10px 0 5px; color: #4a5568; font-size: 13px; font-weight: 600; }
 input, select {
-    width: 100%;
-    padding: 11px;
-    border: 1px solid #d1d9e0;
-    border-radius: 8px;
-    background: #f8fafc;
-    color: #2c3e50;
-    font-size: 14px;
-    margin-bottom: 5px;
+    width: 100%; padding: 11px; border: 1px solid #d1d9e0;
+    border-radius: 8px; background: #f8fafc; color: #2c3e50; font-size: 14px; margin-bottom: 5px;
 }
-input:focus, select:focus {
-    border-color: #00875a;
-    background: #fff;
-    outline: none;
-}
+input:focus, select:focus { border-color: #00875a; background: #fff; outline: none; }
 .row { display: flex; gap: 15px; flex-wrap: wrap; }
 .row > div { flex: 1; min-width: 220px; }
-.check {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 10px 0;
-    padding: 10px;
-    background: #f8fafc;
-    border-radius: 6px;
-}
-.check input { width: auto; }
 footer {
-    text-align: center;
-    padding: 30px;
-    color: #718096;
-    border-top: 1px solid #e1e8ed;
-    margin-top: 50px;
-    background: #ffffff;
+    text-align: center; padding: 30px; color: #718096;
+    border-top: 1px solid #e1e8ed; margin-top: 50px; background: #ffffff;
 }
 table { width: 100%; border-collapse: collapse; }
 th { padding: 12px; text-align: left; background: #f0f4f8; font-size: 13px; color: #4a5568; }
@@ -186,8 +146,8 @@ def wrap_page(title, body_html, extra_js=""):
     <a href="/" class="logo">🛰️ KETRIKA <span>MIKROTIK</span></a>
     <div class="links">
         <a href="/">Accueil</a>
+        <a href="/track" style="color:#0066cc;font-weight:700;">🔍 Suivi / Récupérer Script</a>
         <a href="/faq">FAQ</a>
-        <a href="/conditions">Conditions</a>
         <a href="/admin">Admin</a>
     </div>
 </nav>
@@ -198,9 +158,44 @@ def wrap_page(title, body_html, extra_js=""):
 
 
 # ============================================
-# ROUTES
+# PAGE DE SUIVI / ENTRÉE DU CODE CLIENT
 # ============================================
+@app.route('/track', methods=['GET', 'POST'])
+def track():
+    if request.method == 'POST':
+        code = request.form.get('order_code', '').strip()
+        order = Order.query.filter((Order.order_id == code) | (Order.license_key == code)).first()
+        if not order:
+            flash(f"Aucune commande trouvée avec le code : {code}", "error")
+            return redirect(url_for('track'))
+        
+        if order.status in ['validated', 'delivered']:
+            return redirect(url_for('result', order_id=order.order_id))
+        else:
+            return redirect(url_for('order_status', order_id=order.order_id))
 
+    body = """
+    <div class="card" style="max-width:550px;margin:40px auto;text-align:center;">
+        <h2 style="color:#00875a;margin-bottom:10px;">🔍 Récupérer Votre Configuration</h2>
+        <p style="color:#718096;margin-bottom:20px;">
+            Entrez votre numéro de commande (ex: <strong>KTK-260908-7F9A29</strong>) pour afficher votre script et vos identifiants.
+        </p>
+
+        <form method="POST">
+            <input name="order_code" placeholder="Ex: KTK-260908-7F9A29" required 
+                   style="font-size:16px;text-align:center;letter-spacing:1px;font-weight:600;padding:14px;margin-bottom:15px;">
+            <button type="submit" class="btn btn-primary" style="width:100%;font-size:16px;padding:14px;">
+                🚀 Accéder à ma configuration
+            </button>
+        </form>
+    </div>
+    """
+    return render_template_string(wrap_page("Suivi de Commande", body))
+
+
+# ============================================
+# PAGE ACCUEIL
+# ============================================
 @app.route('/')
 def index():
     plans_html = ""
@@ -225,13 +220,17 @@ def index():
     body = f"""
     <div style="text-align:center;padding:50px 20px;background:#fff;border-radius:16px;border:1px solid #e1e8ed;margin-bottom:30px;">
         <h1 style="font-size:42px;color:#00875a;margin-bottom:10px;">🛰️ KETRIKA MIKROTIK</h1>
-        <h2 style="color:#0066cc;font-weight:400;font-size:20px;">Configuration Automatique Anti-Détection Starlink</h2>
+        <h2 style="color:#0066cc;font-weight:400;font-size:20px;">Générateur de Scripts Anti-Détection Starlink</h2>
         <p style="color:#5a6c7d;max-width:700px;margin:15px auto;">
             Configurez votre routeur MikroTik en 1 clic. <strong>Sans redémarrage requis !</strong>
         </p>
+        
+        <div style="margin-top:20px;">
+            <a href="/track" class="btn btn-blue" style="padding:10px 20px;font-size:14px;">🔍 Déjà commandé ? Entrer votre code ici</a>
+        </div>
     </div>
 
-    <h2 style="text-align:center;color:#2d3748;margin:30px 0 20px;">📦 Nos Plans Disponibles</h2>
+    <h2 style="text-align:center;color:#2d3748;margin:30px 0 20px;">📦 Choisissez votre Plan</h2>
     <div class="row">{plans_html}</div>
 
     <h2 style="text-align:center;color:#2d3748;margin:40px 0 15px;font-size:20px;">🖥️ Modèles MikroTik Compatibles (RouterOS v7)</h2>
@@ -240,6 +239,9 @@ def index():
     return render_template_string(wrap_page("Accueil", body))
 
 
+# ============================================
+# CONFIGURATEUR
+# ============================================
 @app.route('/configure/<plan_type>', methods=['GET', 'POST'])
 def configure(plan_type):
     if plan_type not in PLANS:
@@ -296,10 +298,10 @@ def configure(plan_type):
         <p style="text-align:center;color:#718096;margin-bottom:20px;">Prix : <strong>{plan['price']:,} {plan['currency']}</strong></p>
 
         <form method="POST">
-            <h3 style="color:#0066cc;margin-bottom:10px;">👤 Informations Client</h3>
+            <h3 style="color:#0066cc;margin-bottom:10px;">👤 Vos Informations</h3>
             <div class="row">
                 <div><label>Nom complet *</label><input name="client_name" required placeholder="Jean Dupont"></div>
-                <div><label>Email (pour recevoir la clé) *</label><input name="client_email" type="email" required placeholder="client@gmail.com"></div>
+                <div><label>Email *</label><input name="client_email" type="email" required placeholder="client@gmail.com"></div>
                 <div><label>Téléphone</label><input name="client_phone" placeholder="034 00 000 00"></div>
             </div>
 
@@ -311,10 +313,6 @@ def configure(plan_type):
                         <option value="">-- Choisir le modèle --</option>{models_opts}
                     </select>
                 </div>
-            </div>
-            <div id="portPreview" style="background:#e6f9ee;padding:12px;border-radius:8px;margin:10px 0;display:none;">
-                <strong style="color:#00875a;">📍 Ports détectés :</strong>
-                <div id="portVisual" style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;"></div>
             </div>
 
             <h3 style="color:#0066cc;margin:20px 0 10px;">🌐 Paramètres Réseau</h3>
@@ -329,11 +327,11 @@ def configure(plan_type):
                 <div><label>Mot de passe WiFi</label><input name="wifi_password" value="Ketrika2024"></div>
             </div>
 
-            <h3 style="color:#0066cc;margin:20px 0 10px;">🛡️ Anti-Détection & Limites</h3>
+            <h3 style="color:#0066cc;margin:20px 0 10px;">🛡️ Anti-Détection Starlink</h3>
             <div class="row">
-                <div><label>TTL Fixé</label><select name="ttl_value"><option value="65" selected>65 (Recommandé Starlink)</option><option value="64">64</option></select></div>
-                <div><label>Download max / client</label><select name="dl_limit"><option value="5M">5 Mbps</option><option value="10M" selected>10 Mbps</option><option value="20M">20 Mbps</option></select></div>
-                <div><label>Upload max / client</label><select name="ul_limit"><option value="2M">2 Mbps</option><option value="5M" selected>5 Mbps</option><option value="10M">10 Mbps</option></select></div>
+                <div><label>TTL Fixé</label><select name="ttl_value"><option value="65" selected>65 (Starlink)</option><option value="64">64</option></select></div>
+                <div><label>Download / client</label><select name="dl_limit"><option value="5M">5 Mbps</option><option value="10M" selected>10 Mbps</option><option value="20M">20 Mbps</option></select></div>
+                <div><label>Upload / client</label><select name="ul_limit"><option value="2M">2 Mbps</option><option value="5M" selected>5 Mbps</option><option value="10M">10 Mbps</option></select></div>
             </div>
 
             {hotspot_extra}
@@ -344,33 +342,12 @@ def configure(plan_type):
         </form>
     </div>
     """
-
-    extra_js = """<script>
-    document.getElementById('modelSelect').addEventListener('change', function(){
-        var m = this.value;
-        if(!m){document.getElementById('portPreview').style.display='none';return;}
-        fetch('/api/model/'+encodeURIComponent(m)).then(r=>r.json()).then(d=>{
-            var pv=document.getElementById('portPreview');
-            var vis=document.getElementById('portVisual');
-            pv.style.display='block'; vis.innerHTML='';
-            vis.innerHTML+='<span style="background:#cc3333;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;">ether1 (WAN)</span>';
-            for(var i=2;i<=d.ports;i++) vis.innerHTML+='<span style="background:#0066cc;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;">ether'+i+' (LAN)</span>';
-            if(d.wifi) vis.innerHTML+='<span style="background:#00875a;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;">WiFi</span>';
-        });
-    });
-    </script>"""
-
-    return render_template_string(wrap_page("Configurer", body, extra_js=extra_js))
+    return render_template_string(wrap_page("Configurer", body))
 
 
-@app.route('/api/model/<model_name>')
-def api_model(model_name):
-    info = MIKROTIK_MODELS.get(model_name)
-    if info:
-        return jsonify(info)
-    return jsonify({'error': 'Non trouvé'}), 404
-
-
+# ============================================
+# PAIEMENT
+# ============================================
 @app.route('/payment/<order_id>', methods=['GET', 'POST'])
 def payment(order_id):
     order = Order.query.filter_by(order_id=order_id).first_or_404()
@@ -385,14 +362,14 @@ def payment(order_id):
             order.payment_proof = filepath
             order.payment_method = request.form.get('payment_method', 'mvola')
             db.session.commit()
-            flash('Preuve de paiement enregistrée ! Validation en cours.', 'success')
+            flash('Preuve de paiement reçue ! En attente de validation par l\'administrateur.', 'success')
             return redirect(url_for('order_status', order_id=order.order_id))
-        flash('Veuillez ajouter une capture de votre paiement', 'error')
+        flash('Veuillez ajouter une photo ou capture de paiement', 'error')
 
     body = f"""
     <div class="card" style="max-width:600px;margin:auto;">
-        <h2 style="color:#00875a;text-align:center;">💳 Paiement de la commande</h2>
-        <p style="text-align:center;color:#718096;">Référence : <strong>{order.order_id}</strong></p>
+        <h2 style="color:#00875a;text-align:center;">💳 Paiement de la Commande</h2>
+        <p style="text-align:center;color:#718096;">Code Commande : <strong style="color:#0066cc;">{order.order_id}</strong></p>
 
         <div style="background:#f0f9f4;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
             <div style="font-size:36px;font-weight:700;color:#00875a;">{plan['price']:,} {plan['currency']}</div>
@@ -400,23 +377,22 @@ def payment(order_id):
         </div>
 
         <form method="POST" enctype="multipart/form-data">
-            <h3 style="color:#0066cc;">1. Envoyez le montant au numéro suivant :</h3>
+            <h3 style="color:#0066cc;">1. Envoyez le paiement à :</h3>
             <div style="background:#fff8e1;padding:15px;border-radius:8px;border-left:4px solid #f0a020;margin:10px 0;">
-                <p>📱 <strong>MVola / Orange Money / Airtel Money</strong></p>
-                <p style="font-size:22px;color:#00875a;font-weight:700;margin:5px 0;">034 00 000 00</p>
-                <p style="font-size:12px;color:#718096;">Nom : KETRIKA | Référence à mentionner : {order.order_id}</p>
+                <p>📱 <strong>MVola / Orange Money / Airtel</strong> : <span style="font-size:20px;font-weight:700;color:#00875a;">034 00 000 00</span></p>
+                <p style="font-size:12px;color:#718096;margin-top:5px;">Référence : <strong>{order.order_id}</strong></p>
             </div>
 
-            <h3 style="color:#0066cc;margin-top:20px;">2. Uploader la preuve de transfert :</h3>
+            <h3 style="color:#0066cc;margin-top:20px;">2. Uploader la capture d'écran :</h3>
             <div style="border:2px dashed #00875a;padding:25px;text-align:center;border-radius:8px;margin:10px 0;cursor:pointer;"
                  onclick="document.getElementById('fileInput').click()">
-                <p id="fileName">📸 Cliquez ici pour choisir la capture d'écran</p>
+                <p id="fileName">📸 Cliquez pour choisir la preuve de paiement</p>
                 <input type="file" id="fileInput" name="payment_proof" accept="image/*,.pdf" required style="display:none;"
-                       onchange="document.getElementById('fileName').textContent='Fichier sélectionné : '+this.files[0].name">
+                       onchange="document.getElementById('fileName').textContent='✅ '+this.files[0].name">
             </div>
 
             <button type="submit" class="btn btn-primary" style="width:100%;margin-top:15px;">
-                ✅ Confirmer l'envoi de la preuve
+                ✅ Envoyer la preuve de paiement
             </button>
         </form>
     </div>
@@ -424,24 +400,25 @@ def payment(order_id):
     return render_template_string(wrap_page("Paiement", body))
 
 
+# ============================================
+# STATUT DE COMMANDE
+# ============================================
 @app.route('/status/<order_id>')
 def order_status(order_id):
     order = Order.query.filter_by(order_id=order_id).first_or_404()
 
     btn_result = ""
     if order.status in ['validated', 'delivered']:
-        btn_result = f'<a href="/result/{order.order_id}" class="btn btn-primary" style="margin-top:15px;">📥 Voir mon script MikroTik</a>'
+        btn_result = f'<a href="/result/{order.order_id}" class="btn btn-primary" style="margin-top:15px;">📥 Voir mon Script MikroTik</a>'
 
     body = f"""
     <div class="card" style="max-width:500px;margin:40px auto;text-align:center;">
-        <h2 style="color:#0066cc;">📦 État de votre commande</h2>
-        <p style="margin:10px 0;">Réf : <strong>{order.order_id}</strong></p>
-        <div style="font-size:50px;margin:15px 0;">
-            {'🟡' if order.status=='pending' else '✅'}
-        </div>
+        <h2 style="color:#0066cc;">📦 État de votre Commande</h2>
+        <p style="margin:10px 0;">Code : <strong>{order.order_id}</strong></p>
+        <div style="font-size:50px;margin:15px 0;">{'🟡' if order.status=='pending' else '✅'}</div>
         <h3>{order.status_badge}</h3>
         <p style="color:#718096;margin:15px 0;">
-            {'Votre paiement est en cours de vérification par un administrateur.' if order.status=='pending' else 'Votre configuration est prête !'}
+            {'Votre paiement est en cours de validation.' if order.status=='pending' else 'Votre configuration est validée !'}
         </p>
         {btn_result}
     </div>
@@ -449,12 +426,15 @@ def order_status(order_id):
     return render_template_string(wrap_page("Statut", body))
 
 
+# ============================================
+# RÉSULTAT DU SCRIPT POUR LE CLIENT
+# ============================================
 @app.route('/result/<order_id>')
 def result(order_id):
     order = Order.query.filter_by(order_id=order_id).first_or_404()
 
     if order.status not in ['validated', 'delivered']:
-        flash('Commande en attente de validation', 'warning')
+        flash('Votre commande est toujours en cours de validation.', 'warning')
         return redirect(url_for('order_status', order_id=order.order_id))
 
     if not order.script_content:
@@ -463,13 +443,14 @@ def result(order_id):
 
     body = f"""
     <div class="card" style="background:#e6f9ee;border:2px solid #00875a;text-align:center;margin-bottom:25px;">
-        <h2 style="color:#00875a;">🎉 Votre Configuration est Prête !</h2>
-        <p>Licence Unique : <strong style="font-size:18px;color:#0066cc;">{order.license_key}</strong></p>
+        <h2 style="color:#00875a;">🎉 Votre Configuration MikroTik</h2>
+        <p>Code Commande : <strong>{order.order_id}</strong></p>
+        <p style="margin-top:5px;">Licence Unique : <strong style="font-size:18px;color:#0066cc;">{order.license_key}</strong></p>
     </div>
 
     <div class="card" style="margin-bottom:20px;">
-        <h3 style="color:#00875a;">📋 Méthode 1 : Copier dans WinBox Terminal (Recommandé)</h3>
-        <p style="font-size:13px;color:#718096;margin:5px 0 10px;">Ouvrez WinBox → New Terminal → Collez le script ci-dessous. <strong>Aucun redémarrage requis !</strong></p>
+        <h3 style="color:#00875a;">📋 Méthode 1 : Copier dans WinBox Terminal</h3>
+        <p style="font-size:13px;color:#718096;margin:5px 0 10px;">Ouvrez WinBox → New Terminal → Collez tout le script. <strong>Aucun redémarrage requis !</strong></p>
         <button class="btn btn-blue" onclick="navigator.clipboard.writeText(document.getElementById('rscCode').innerText);alert('Script copié !');" style="margin-bottom:10px;">
             📋 Copier tout le Script
         </button>
@@ -478,11 +459,11 @@ def result(order_id):
 
     <div class="card">
         <h3 style="color:#0066cc;">📁 Méthode 2 : Télécharger le fichier .rsc</h3>
-        <p style="font-size:13px;color:#718096;margin:5px 0 10px;">Téléchargez le fichier et glissez-le dans WinBox (Menu Files), puis tapez <code>/import file-name=ketrika_{order.order_id}.rsc</code></p>
+        <p style="font-size:13px;color:#718096;margin:5px 0 10px;">Glissez le fichier dans WinBox Files, puis tapez : <code>/import file-name=ketrika_{order.order_id}.rsc</code></p>
         <a href="/download/{order.order_id}" class="btn btn-primary">📥 Télécharger ketrika_{order.order_id}.rsc</a>
     </div>
     """
-    return render_template_string(wrap_page("Configuration", body))
+    return render_template_string(wrap_page("Script MikroTik", body))
 
 
 @app.route('/download/<order_id>')
@@ -500,9 +481,8 @@ def download(order_id):
 
 
 # ============================================
-# ESPACE ADMIN
+# ESPACE ADMINISTRATION
 # ============================================
-
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
@@ -566,7 +546,7 @@ def admin_dashboard():
         </table>
     </div>
     """
-    return render_template_string(wrap_page("Admin", body))
+    return render_template_string(wrap_page("Admin Dashboard", body))
 
 @app.route('/admin/validate/<int:order_id>', methods=['POST'])
 @login_required
@@ -578,16 +558,19 @@ def admin_validate(order_id):
     order.validated_at = datetime.utcnow()
     db.session.commit()
 
-    # Tentative envoi email (sans crasher si SMTP non configuré)
+    # Envoi de l'email
     try:
         if app.config['MAIL_USERNAME']:
-            msg = Message(f"🔑 Clé KETRIKA - Commande {order.order_id}", recipients=[order.client_email])
-            msg.body = f"Bonjour {order.client_name},\nVotre commande est validée !\nClé : {order.license_key}"
+            msg = Message(f"🔑 Votre Clé KETRIKA - Commande {order.order_id}", recipients=[order.client_email])
+            msg.body = f"Bonjour {order.client_name},\n\nVotre commande {order.order_id} a été validée !\nVotre clé de licence est : {order.license_key}\n\nVous pouvez télécharger votre script ici : {request.host_url}result/{order.order_id}"
             mail.send(msg)
+            flash(f"Commande {order.order_id} validée et email envoyé avec succès !", "success")
+        else:
+            flash(f"Commande {order.order_id} validée (Email non envoyé : config SMTP manquante).", "warning")
     except Exception as e:
         print(f"Erreur envoi email: {e}")
+        flash(f"Commande validée mais échec envoi email : {e}", "warning")
 
-    flash(f"Commande {order.order_id} validée et générée !", "success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/proof/<int:order_id>')
@@ -599,27 +582,15 @@ def admin_proof(order_id):
     flash("Fichier preuve introuvable", "error")
     return redirect(url_for('admin_dashboard'))
 
-
 @app.route('/faq')
 def faq():
     body = """
     <div class="card">
-        <h2 style="color:#00875a;margin-bottom:15px;">❓ Foire Aux Questions</h2>
-        <p><strong>Comment Starlink détecte le partage ?</strong><br>Starlink surveille le TTL des paquets IP. Notre script normalise le TTL à 65 pour masquer le routeur.</p><br>
-        <p><strong>Faut-il redémarrer le MikroTik ?</strong><br>Non, les règles de Firewall et Mangle s'appliquent immédiatement sans coupure ni redémarrage.</p>
+        <h2 style="color:#00875a;margin-bottom:15px;">❓ FAQ</h2>
+        <p><strong>Comment Starlink détecte le partage ?</strong><br>Starlink analyse le TTL. Notre configuration règle le TTL sortant à 65 pour masquer la présence du routeur.</p>
     </div>
     """
     return render_template_string(wrap_page("FAQ", body))
-
-@app.route('/conditions')
-def conditions():
-    body = """
-    <div class="card">
-        <h2 style="color:#00875a;margin-bottom:15px;">📜 Conditions Générales</h2>
-        <p>1 licence générée = 1 routeur MikroTik. Tout script fourni est vérifié pour RouterOS v7.</p>
-    </div>
-    """
-    return render_template_string(wrap_page("Conditions", body))
 
 
 if __name__ == '__main__':
