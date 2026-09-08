@@ -1,4 +1,4 @@
-# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX sans Reboot
+# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX avec Reboot Automatique
 import secrets
 import base64
 import requests
@@ -107,7 +107,6 @@ def generate_warp_config_for_client():
         if res.status_code in (200, 201):
             d = res.json()
             raw_v4 = d['config']['interface']['addresses']['v4']
-            # FIX: Supprime le /32 de l'API pour eviter le bug /32/32
             client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
             return {
                 'private_key': priv,
@@ -185,7 +184,7 @@ def generate_wifi_config(order):
     return cfg
 
 # =======================================================
-# GÉNÉRATEUR SCRIPT COMPLET (PRO SANS REBOOT)
+# GÉNÉRATEUR SCRIPT COMPLET AVEC REBOOT
 # =======================================================
 def generate_full_script(order):
     from database import MIKROTIK_MODELS
@@ -222,7 +221,7 @@ def generate_full_script(order):
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Cloudflare Secure Tunnel (FIXE: table fib + IP /32 valide)
+    # Cloudflare Secure Tunnel (Route & Table v7 Fixe)
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
@@ -326,7 +325,7 @@ def generate_full_script(order):
 # 9. OPTIMISATION RESEAU MULTI-CLIENTS
 :do {{
     /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL"
-    /ip firewall mangle add chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
+    /ip firewall mangle chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
     /ip firewall filter add chain=forward out-interface={wan} protocol=icmp action=drop
@@ -339,15 +338,14 @@ def generate_full_script(order):
 }} on-error={{}}
 {warp}{hs}{rl}
 
-# === 10. SOFT RESET PORT WAN (FORCE L'OBTENTION IP SANS REBOOT) ===
-:log info "KETRIKA: Soft Reset WAN..."
-/interface ethernet disable {wan}
-:delay 2s
-/interface ethernet enable {wan}
-
+# === 10. REDEMARRAGE AUTOMATIQUE DU ROUTEUR ===
+:log info "KETRIKA: Configuration terminee, reboot dans 3s..."
 :put "================================================"
-:put "  CONFIGURATION KETRIKA REUSSIE SANS REBOOT !"
+:put "  CONFIGURATION KETRIKA APPLIQUEE AVEC SUCCES !"
 :put "  Licence : {order.license_key}"
 :put "  Materiel : {order.mikrotik_model}"
+:put "  Redemarrage du routeur en cours..."
 :put "================================================"
+
+/system scheduler add name=ketrika_reboot interval=0s start-time=([/system clock get time] + 00:00:03) on-event="/system scheduler remove ketrika_reboot; /system reboot;"
 """
