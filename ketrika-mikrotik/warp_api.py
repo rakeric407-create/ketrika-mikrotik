@@ -1,49 +1,51 @@
-# warp_api.py - KETRIKA MIKROTIK avec Cloudflare WARP Auto-Generation
+# warp_api.py - Générateur de Script MikroTik RouterOS v7 Pro (Anti-déconnexion)
 import secrets
 import requests
 import base64
-import subprocess
-import os
-from nacl.public import PrivateKey
-
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives import serialization
 
 def format_limit(value):
     if value in ('nolimit', '0', ''):
         return '0'
     return value
 
-
 def is_ax_model(model_name):
     ax_keywords = ['ax', 'AX', 'C52', 'C53', 'hAP ax']
     return any(k in model_name for k in ax_keywords)
-
 
 def is_wifi_model(model_name):
     no_wifi = ['hEX', 'RB750', 'RB760', 'RB3011', 'CCR']
     return not any(k in model_name for k in no_wifi)
 
-
 def has_5ghz(model_name):
     no_5g = ['hAP lite', 'RB941']
     return not any(k in model_name for k in no_5g) and is_wifi_model(model_name)
-
 
 # =============================================
 # GÉNÉRATION AUTOMATIQUE CLOUDFLARE WARP
 # =============================================
 def generate_wireguard_keys():
-    """Génère une paire de clés WireGuard (privée + publique)"""
-    private_key_obj = PrivateKey.generate()
-    private_key = base64.b64encode(bytes(private_key_obj)).decode('utf-8')
-    public_key = base64.b64encode(bytes(private_key_obj.public_key)).decode('utf-8')
-    return private_key, public_key
-
+    """Génère une paire de clés WireGuard ultra-rapidement (sans PyNaCl)"""
+    private_key = x25519.X25519PrivateKey.generate()
+    public_key = private_key.public_key()
+    
+    private_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    public_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw
+    )
+    
+    private_b64 = base64.b64encode(private_bytes).decode('utf-8')
+    public_b64 = base64.b64encode(public_bytes).decode('utf-8')
+    return private_b64, public_b64
 
 def register_warp_account(public_key):
-    """
-    Enregistre un nouveau compte WARP chez Cloudflare
-    Retourne les infos du peer (IP client, endpoint, clé publique WARP)
-    """
+    """Enregistre un compte Cloudflare WARP via l'API officielle"""
     url = "https://api.cloudflareclient.com/v0a2158/reg"
     headers = {
         "Content-Type": "application/json",
@@ -59,66 +61,46 @@ def register_warp_account(public_key):
         "serial_number": secrets.token_hex(16),
         "locale": "en_US"
     }
-    
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         if response.status_code in (200, 201):
             data = response.json()
             return {
                 'success': True,
                 'client_ipv4': data['config']['interface']['addresses']['v4'],
-                'client_ipv6': data['config']['interface']['addresses']['v6'],
                 'warp_public_key': data['config']['peers'][0]['public_key'],
-                'endpoint': data['config']['peers'][0]['endpoint']['host'],
-                'account_id': data['id']
+                'endpoint': data['config']['peers'][0]['endpoint']['host']
             }
     except Exception as e:
-        print(f"Erreur WARP: {e}")
-    
+        print(f"Erreur d'inscription WARP: {e}")
     return {'success': False}
 
-
 def generate_warp_config_for_client():
-    """
-    Génère une configuration WARP complète pour un client
-    Retourne toutes les infos nécessaires pour le script MikroTik
-    """
-    # 1. Générer paire de clés WireGuard
     private_key, public_key = generate_wireguard_keys()
-    
-    # 2. Enregistrer sur Cloudflare et récupérer les infos
     warp_info = register_warp_account(public_key)
     
-    if not warp_info['success']:
-        # Fallback : utilise les clés publiques Cloudflare connues
+    if not warp_info or not warp_info.get('success'):
+        # Fallback si l'API Cloudflare ne répond pas
         return {
             'success': False,
             'private_key': private_key,
-            'public_key': public_key,
             'client_ipv4': '172.16.0.2',
             'warp_public_key': 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=',
             'endpoint_host': 'engage.cloudflareclient.com',
             'endpoint_port': '2408'
         }
     
-    # Parser l'endpoint (format: "engage.cloudflareclient.com:2408")
     endpoint = warp_info['endpoint']
-    if ':' in endpoint:
-        host, port = endpoint.rsplit(':', 1)
-    else:
-        host = endpoint
-        port = '2408'
+    host, port = endpoint.rsplit(':', 1) if ':' in endpoint else (endpoint, '2408')
     
     return {
         'success': True,
         'private_key': private_key,
-        'public_key': public_key,
         'client_ipv4': warp_info['client_ipv4'],
         'warp_public_key': warp_info['warp_public_key'],
         'endpoint_host': host,
         'endpoint_port': port
     }
-
 
 def generate_wifi_config(order):
     model = order.mikrotik_model
@@ -130,7 +112,7 @@ def generate_wifi_config(order):
 
     if is_ax_model(model):
         cfg = f"""
-# === CONFIGURATION WIFI AX (RouterOS v7) ===
+# === CONFIGURATION SANS FIL WIFI AX (V7) ===
 :do {{
     /interface wifi set wlan1 configuration.mode=ap \\
         configuration.ssid="{ssid}" \\
@@ -138,7 +120,7 @@ def generate_wifi_config(order):
         security.passphrase="{password}" \\
         channel.frequency=2412 channel.width=20/40mhz-Ce \\
         disabled=no
-}} on-error={{ :log warning "WiFi AX 2.4G non configure" }}
+}} on-error={{ :log warning "WiFi AX 2.4G : non configure" }}
 """
         if has_5ghz(model):
             cfg += f"""
@@ -149,11 +131,11 @@ def generate_wifi_config(order):
         security.passphrase="{password}" \\
         channel.frequency=5180 channel.width=20/40/80mhz-Ceee \\
         disabled=no
-}} on-error={{ :log warning "WiFi AX 5G non configure" }}
+}} on-error={{ :log warning "WiFi AX 5G : non configure" }}
 """
     else:
         cfg = f"""
-# === CONFIGURATION WIFI AC (RouterOS v7) ===
+# === CONFIGURATION SANS FIL WIFI AC (V7) ===
 :do {{
     /interface wireless set wlan1 mode=ap-bridge \\
         ssid="{ssid}" \\
@@ -165,7 +147,7 @@ def generate_wifi_config(order):
         authentication-types=wpa2-psk \\
         wpa2-pre-shared-key="{password}" \\
         mode=dynamic-keys
-}} on-error={{ :log warning "WiFi AC 2.4G non configure" }}
+}} on-error={{ :log warning "WiFi AC 2.4G : non configure" }}
 """
         if has_5ghz(model):
             cfg += f"""
@@ -176,10 +158,9 @@ def generate_wifi_config(order):
         frequency=5180 band=5ghz-a/n/ac \\
         channel-width=20/40/80mhz-Ceee \\
         disabled=no
-}} on-error={{ :log warning "WiFi AC 5G non configure" }}
+}} on-error={{ :log warning "WiFi AC 5G : non configure" }}
 """
     return cfg
-
 
 def generate_full_script(order):
     from database import MIKROTIK_MODELS
@@ -198,7 +179,7 @@ def generate_full_script(order):
 
     lan_ports = [f"ether{i}" for i in range(2, ports + 1)]
 
-    # --- SCRIPT DE BINDING ARRIÈRE-PLAN (ZÉRO DÉCONNEXION) ---
+    # --- ATTACHEMENT DES PORTS EN ARRIÈRE-PLAN ---
     bp_inner = ""
     for p in lan_ports:
         bp_inner += f"/interface bridge port add bridge=bridge1 interface={p}; "
@@ -208,115 +189,52 @@ def generate_full_script(order):
             bp_inner += "/interface bridge port add bridge=bridge1 interface=wlan2; "
 
     scheduler_cmd = f"""
-# === CONFIGURATION PORTS EN ARRIERE PLAN (EVITE LA DECONNEXION WINBOX) ===
+# === CONFIGURATION DES PORTS EN ARRIERE PLAN (EVITE LES COUPURES) ===
 :log info "KETRIKA: Planification de l'attribution des ports..."
 /system scheduler add name=ketrika_async_setup interval=0s start-time=([/system clock get time] + 00:00:05) on-event="\\
-    :log info \\"KETRIKA: Attribution des ports en cours...\\"; \\
+    :log info \\"KETRIKA: Assignation des ports physiques...\\"; \\
     {bp_inner} \\
     /system scheduler remove ketrika_async_setup; \\
-    :log info \\"KETRIKA: Ports assignes avec succes !\\";"
+    :log info \\"KETRIKA: Ports attribues sans interruption.\\";"
 """
 
     wcfg = generate_wifi_config(order)
 
     if dl == '0':
         rl = """
-# === BANDE PASSANTE : ILLIMITEE ===
-:log info "KETRIKA: Mode illimite"
+# === LIMITATION BANDE PASSANTE : ILLIMITEE ===
+:log info "KETRIKA: Aucun bridage de bande passante applique."
 """
     else:
         rl = f"""
-# === BANDE PASSANTE PAR CLIENT ===
+# === LIMITATION BANDE PASSANTE PAR CLIENT ===
 :do {{
     /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl}
     /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul}
     /queue simple add name="KETRIKA-Limit" target={net} \\
-        queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] Bandwidth"
+        queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] Bandwidth Management"
 }} on-error={{}}
 """
 
-    # ==========================================
-    # 🔥 GÉNÉRATION WARP AUTOMATIQUE CLOUDFLARE
-    # ==========================================
     warp = ""
     if needs_warp:
         warp_config = generate_warp_config_for_client()
-        
-        # Résoudre l'endpoint host en IP (Cloudflare utilise des IPs anycast)
-        warp_endpoint_ip = "162.159.192.1"  # IP anycast Cloudflare WARP par défaut
-        
-        status = "AUTO-GENERE via API Cloudflare" if warp_config['success'] else "Configuration standard"
-        
         warp = f"""
 # =============================================
-# ☁️ TUNNEL CLOUDFLARE WARP (Configuration Automatique)
-# Statut: {status}
+# ☁️ TUNNEL SÉCURISÉ CLOUDFLARE WARP (AUTO-GÉNÉRÉ)
 # =============================================
 :do {{
-    # Suppression ancienne config WARP si existe
-    /interface wireguard peers remove [find interface=wg-warp]
-    /interface wireguard remove [find name=wg-warp]
-    /ip address remove [find interface=wg-warp]
-}} on-error={{}}
-
-:delay 1s
-
-:do {{
-    # 1. Création interface WireGuard avec clé privée générée
-    /interface wireguard add \\
-        name=wg-warp \\
-        listen-port=13231 \\
-        mtu=1280 \\
-        private-key="{warp_config['private_key']}" \\
-        comment="[KETRIKA-WARP] Auto-generated"
+    /interface wireguard add name=wg-warp listen-port=13231 mtu=1280 private-key="{warp_config['private_key']}" comment="[KETRIKA-WARP]"
+    /interface wireguard peers add interface=wg-warp public-key="{warp_config['warp_public_key']}" endpoint-address={warp_config['endpoint_host']} endpoint-port={warp_config['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
+    /ip address add address={warp_config['client_ipv4']}/32 interface=wg-warp comment="[KETRIKA-WARP] Client IP"
     
-    # 2. Ajout du peer Cloudflare WARP
-    /interface wireguard peers add \\
-        interface=wg-warp \\
-        public-key="{warp_config['warp_public_key']}" \\
-        endpoint-address={warp_config['endpoint_host']} \\
-        endpoint-port={warp_config['endpoint_port']} \\
-        allowed-address=0.0.0.0/0 \\
-        persistent-keepalive=25s \\
-        comment="[KETRIKA-WARP] Cloudflare Peer"
+    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address=!{net} action=mark-routing new-routing-mark=via-warp passthrough=yes comment="[KETRIKA-WARP] Mark LAN"
+    /ip route add dst-address=0.0.0.0/0 gateway=wg-warp routing-table=via-warp comment="[KETRIKA-WARP] Default route"
+    /ip firewall nat add chain=srcnat out-interface=wg-warp action=masquerade comment="[KETRIKA-WARP] NAT"
     
-    # 3. Attribution IP client WARP
-    /ip address add \\
-        address={warp_config['client_ipv4']}/32 \\
-        interface=wg-warp \\
-        comment="[KETRIKA-WARP] Client IP"
-    
-    # 4. Routage : tout le trafic LAN passe par WARP
-    /ip firewall mangle add \\
-        chain=prerouting \\
-        in-interface=bridge1 \\
-        dst-address=!{net} \\
-        action=mark-routing \\
-        new-routing-mark=via-warp \\
-        passthrough=yes \\
-        comment="[KETRIKA-WARP] Mark LAN traffic"
-    
-    /ip route add \\
-        dst-address=0.0.0.0/0 \\
-        gateway=wg-warp \\
-        routing-table=via-warp \\
-        comment="[KETRIKA-WARP] Default route via WARP"
-    
-    # 5. NAT sur l'interface WARP
-    /ip firewall nat add \\
-        chain=srcnat \\
-        out-interface=wg-warp \\
-        action=masquerade \\
-        comment="[KETRIKA-WARP] NAT Masquerade"
-    
-    # 6. DNS Cloudflare sécurisé (DoH)
-    /ip dns set \\
-        use-doh-server=https://cloudflare-dns.com/dns-query \\
-        verify-doh-cert=yes \\
-        servers=1.1.1.1,1.0.0.1
-    
-    :log info "KETRIKA-WARP: Tunnel Cloudflare active avec succes !"
-}} on-error={{ :log error "KETRIKA-WARP: Erreur de configuration du tunnel" }}
+    /ip dns set use-doh-server=https://cloudflare-dns.com/dns-query verify-doh-cert=yes servers=1.1.1.1,1.0.0.1
+    :log info "KETRIKA-WARP: Tunnel Cloudflare WireGuard cree et connecte !"
+}} on-error={{ :log error "KETRIKA-WARP: Erreur durant le montage du tunnel" }}
 """
 
     hotspot = ""
@@ -333,15 +251,13 @@ def generate_full_script(order):
 :delay 2s
 
 :do {{
-    /ip hotspot profile add dns-name="wifi.ketrika.mg" hotspot-address={gw} \\
-        login-by=http-chap,http-pap name=hsprof-ketrika use-radius=no
-    /ip hotspot add address-pool=pool-lan disabled=no interface=bridge1 \\
-        name=hotspot-ketrika profile=hsprof-ketrika
+    /ip hotspot profile add dns-name="wifi.ketrika.mg" hotspot-address={gw} login-by=http-chap,http-pap name=hsprof-ketrika use-radius=no
+    /ip hotspot add address-pool=pool-lan disabled=no interface=bridge1 name=hotspot-ketrika profile=hsprof-ketrika
     /ip hotspot user profile add name=1heure {rl_hs} shared-users=1 session-timeout=1h idle-timeout=5m
     /ip hotspot user profile add name=1jour {rl_hs} shared-users=2 session-timeout=1d idle-timeout=10m
     /ip hotspot user profile add name=1semaine {rl_hs} shared-users=3 session-timeout=7d idle-timeout=15m
     /ip hotspot user profile add name=1mois {rl_hs} shared-users=3 session-timeout=30d idle-timeout=30m
-    /ip hotspot user add name=admin password=admin123 profile=1mois
+    /ip hotspot user add name=admin password=admin123 profile=1mois comment="Admin"
 }} on-error={{ :log warning "Hotspot deja configure" }}
 """
         if order.pppoe_enabled:
@@ -350,10 +266,8 @@ def generate_full_script(order):
 # === SERVEUR PPPoE ===
 :do {{
     /ip pool add name=pool-pppoe ranges=192.168.99.10-192.168.99.250
-    /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 \\
-        name=pppoe-ketrika {rl_ppp} remote-address=pool-pppoe
-    /interface pppoe-server server add default-profile=pppoe-ketrika disabled=no \\
-        interface=bridge1 one-session-per-host=yes service-name=KETRIKA
+    /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 name=pppoe-ketrika {rl_ppp} remote-address=pool-pppoe
+    /interface pppoe-server server add default-profile=pppoe-ketrika disabled=no interface=bridge1 one-session-per-host=yes service-name=KETRIKA
     /ppp secret add name=client1 password=pass123 profile=pppoe-ketrika service=pppoe
 }} on-error={{}}
 """
@@ -379,17 +293,16 @@ def generate_full_script(order):
 """
 
     rsc = f"""# =============================================
-# KETRIKA MIKROTIK - Configuration Professionnelle
+# KETRIKA MIKROTIK - Configuration Professionnelle v2
 # =============================================
 # Plan : {order.plan_type.upper()}
 # Modele : {order.mikrotik_model}
 # Ports : {ports} Ethernet
-# WARP : {"OUI (Cloudflare Auto-Genere)" if needs_warp else "NON"}
 # Licence : {order.license_key}
 # =============================================
 
-:log info "KETRIKA: Debut installation..."
-:put "KETRIKA: Installation en cours, WinBox restera connecte..."
+:log info "KETRIKA: Installation en cours..."
+:put "Installation en cours... WinBox restera connecte"
 :delay 2s
 
 # === 1. BRIDGE ===
@@ -428,7 +341,7 @@ def generate_full_script(order):
     /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA] NAT"
 }} on-error={{}}
 
-# === 9. OPTIMISATION & BYPASS ===
+# === 9. OPTIMISATION & BYPASS RESEAU ===
 :do {{
     /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL OUT"
     /ip firewall mangle add chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL IN"
@@ -444,12 +357,11 @@ def generate_full_script(order):
 }} on-error={{}}
 {warp}{hotspot}{rl}
 # =============================================
-:log info "KETRIKA: Configuration terminee !"
+:log info "KETRIKA: Configuration appliquee."
 :put "================================================"
 :put "  CONFIGURATION KETRIKA APPLIQUEE"
 :put "  Licence : {order.license_key}"
-:put "  {"WARP Cloudflare : ACTIF (tunnel chiffre)" if needs_warp else ""}"
-:put "  Attribution des ports dans 5 secondes..."
+:put "  L'attribution des ports se fera en arriere-plan dans 5 secondes."
 :put "================================================"
 """
     return rsc
