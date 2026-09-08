@@ -1,33 +1,54 @@
-# warp_api.py - KETRIKA MIKROTIK - VERSION BOUCLIER ANTI-500
+# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX sans Reboot
 import secrets
 import base64
 import requests
 import re
 import ipaddress
 
-DEFAULT_MODELS = {
-    'hAP lite (RB941)': {'ports': 4, 'wifi': True, 'wifi5g': False},
-    'hAP ac2': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ac3': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ax2': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ax3': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hEX (RB750Gr3)': {'ports': 5, 'wifi': False, 'wifi5g': False},
-    'hEX S': {'ports': 5, 'wifi': False, 'wifi5g': False},
-    'RB3011 / RB4011 / RB5009': {'ports': 10, 'wifi': False, 'wifi5g': False},
-}
+# =======================================================
+# VALIDATEUR STRICT DE CONFIGURATION
+# =======================================================
+class ConfigValidator:
+    @staticmethod
+    def validate_ip(ip_str):
+        try:
+            ipaddress.IPv4Address(ip_str)
+            return True
+        except:
+            return False
 
-def safe_get(obj, key, default=""):
-    try:
-        if obj is None:
-            return default
-        if isinstance(obj, dict):
-            return obj.get(key, default) or default
-        return getattr(obj, key, default) or default
-    except Exception:
-        return default
+    @staticmethod
+    def validate_network(net_str):
+        try:
+            ipaddress.IPv4Network(net_str, strict=False)
+            return True
+        except:
+            return False
+
+    @staticmethod
+    def auto_fix_order(order):
+        if not ConfigValidator.validate_ip(order.lan_gateway):
+            order.lan_gateway = '192.168.88.1'
+        if not ConfigValidator.validate_network(order.lan_network):
+            order.lan_network = '192.168.88.0/24'
+        
+        # Nettoyage SSID & Mot de passe
+        cleaned_ssid = re.sub(r'[^\w\s\-\.]', '', str(order.ssid or "WiFiZone-Ketrika"))
+        order.ssid = cleaned_ssid[:32].strip() or "WiFiZone-Ketrika"
+        
+        pwd = str(order.wifi_password or "Ketrika2024")
+        order.wifi_password = pwd if len(pwd) >= 8 else "Ketrika2024"
+        
+        try:
+            ttl = int(order.ttl_value)
+            order.ttl_value = ttl if 1 <= ttl <= 255 else 65
+        except:
+            order.ttl_value = 65
+            
+        return order
 
 # =======================================================
-# MOTEUR CRYPTO X25519
+# MOTEUR CRYPTO X25519 PURE PYTHON
 # =======================================================
 P = 2**255 - 19
 A24 = 121665
@@ -76,194 +97,257 @@ def generate_wireguard_keys():
 
 def generate_warp_config_for_client():
     priv, pub = generate_wireguard_keys()
-    # Fallback instantané par défaut (évite le blocage si Cloudflare API timeout)
-    conf = {
+    try:
+        res = requests.post("https://api.cloudflareclient.com/v0a2158/reg",
+            json={"key": pub, "install_id": secrets.token_hex(11),
+                  "fcm_token": "", "tos": "2024-01-01T00:00:00.000Z",
+                  "model": "PC", "serial_number": secrets.token_hex(16), "locale": "en_US"},
+            headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
+            timeout=5)
+        if res.status_code in (200, 201):
+            d = res.json()
+            raw_v4 = d['config']['interface']['addresses']['v4']
+            # FIX: Supprime le /32 de l'API pour eviter le bug /32/32
+            client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
+            return {
+                'private_key': priv,
+                'client_ipv4': client_ip,
+                'warp_public_key': d['config']['peers'][0]['public_key'],
+                'endpoint_host': '162.159.192.1',
+                'endpoint_port': '2408'
+            }
+    except Exception:
+        pass
+    return {
         'private_key': priv,
         'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
         'warp_public_key': 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=',
         'endpoint_host': '162.159.192.1',
         'endpoint_port': '2408'
     }
-    try:
-        res = requests.post(
-            "https://api.cloudflareclient.com/v0a2158/reg",
-            json={
-                "key": pub, "install_id": secrets.token_hex(11),
-                "fcm_token": "", "tos": "2024-01-01T00:00:00.000Z",
-                "model": "PC", "serial_number": secrets.token_hex(16), "locale": "en_US"
-            },
-            headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
-            timeout=2.0 # Timeout très court pour ne jamais bloquer le serveur
-        )
-        if res.status_code in (200, 201):
-            d = res.json()
-            raw_ip = str(d['config']['interface']['addresses']['v4'])
-            conf['client_ipv4'] = raw_ip.split('/')[0]
-            conf['warp_public_key'] = d['config']['peers'][0]['public_key']
-    except Exception:
-        pass # Utilise la config de fallback sans lever d'erreur
-    return conf
 
 # =======================================================
-# HELPERS MODÈLE MATÉRIEL
+# DÉTECTION CONFIGURATION MATÉRIEL AC / AX
 # =======================================================
+def format_limit(v):
+    return '0' if v in ('nolimit', '0', '', None) else str(v)
+
 def is_ax_model(m):
-    return any(k in str(m or "") for k in ['ax', 'AX', 'C52', 'C53', 'hAP ax'])
+    return any(k in m for k in ['ax', 'AX', 'C52', 'C53', 'hAP ax'])
 
 def is_wifi_model(m):
-    return not any(k in str(m or "") for k in ['hEX', 'RB750', 'RB760', 'RB3011', 'CCR'])
+    return not any(k in m for k in ['hEX', 'RB750', 'RB760', 'RB3011', 'CCR'])
 
 def has_5ghz(m):
-    return not any(k in str(m or "") for k in ['hAP lite', 'RB941']) and is_wifi_model(m)
+    return not any(k in m for k in ['hAP lite', 'RB941']) and is_wifi_model(m)
+
+def generate_wifi_config(order):
+    m, s, p = order.mikrotik_model, order.ssid, order.wifi_password
+    if not is_wifi_model(m):
+        return "\n# Ce materiel ne dispose pas de module WiFi integre.\n"
+
+    if is_ax_model(m):
+        # Configuration WiFi 6 (AX) - ROS v7 (wifi1 & wifi2)
+        cfg = f"""
+# === CONFIGURATION SANS FIL WIFI 6 AX ===
+:do {{
+    /interface wifi set wifi1 configuration.mode=ap configuration.ssid="{s}" \\
+        security.authentication-types=wpa2-psk security.passphrase="{p}" \\
+        disabled=no
+}} on-error={{}}
+"""
+        if has_5ghz(m):
+            cfg += f"""
+:do {{
+    /interface wifi set wifi2 configuration.mode=ap configuration.ssid="{s}-5G" \\
+        security.authentication-types=wpa2-psk security.passphrase="{p}" \\
+        disabled=no
+}} on-error={{}}
+"""
+    else:
+        # Configuration WiFi Legacy (AC) - ROS v7 (wlan1 & wlan2)
+        cfg = f"""
+# === CONFIGURATION SANS FIL WIFI AC ===
+:do {{
+    /interface wireless set wlan1 mode=ap-bridge ssid="{s}" wireless-protocol=802.11 \\
+        frequency=2412 band=2ghz-b/g/n channel-width=20/40mhz-Ce disabled=no
+    /interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk \\
+        wpa2-pre-shared-key="{p}" mode=dynamic-keys
+}} on-error={{}}
+"""
+        if has_5ghz(m):
+            cfg += f"""
+:do {{
+    /interface wireless set wlan2 mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 \\
+        frequency=5180 band=5ghz-a/n/ac channel-width=20/40/80mhz-Ceee disabled=no
+}} on-error={{}}
+"""
+    return cfg
 
 # =======================================================
-# GÉNÉRATEUR PRINCIPAL (PROTÉGÉ CONTRE LE CRASH 500)
+# GÉNÉRATEUR SCRIPT COMPLET (PRO SANS REBOOT)
 # =======================================================
 def generate_full_script(order):
-    try:
-        # Récupération sécurisée de tous les champs
-        m = str(safe_get(order, 'mikrotik_model', 'hAP ac2'))
-        s = str(safe_get(order, 'ssid', 'WiFiZone-Ketrika'))
-        p = str(safe_get(order, 'wifi_password', 'Ketrika2024'))
-        wan = str(safe_get(order, 'wan_interface', 'ether1'))
-        gw = str(safe_get(order, 'lan_gateway', '192.168.88.1'))
-        net = str(safe_get(order, 'lan_network', '192.168.88.0/24'))
-        pool = str(safe_get(order, 'dhcp_pool', '192.168.88.10-192.168.88.254'))
-        ttl = str(safe_get(order, 'ttl_value', '65'))
-        dl = str(safe_get(order, 'dl_limit', '0'))
-        ul = str(safe_get(order, 'ul_limit', '0'))
-        plan_type = str(safe_get(order, 'plan_type', 'warp'))
-        lic = str(safe_get(order, 'license_key', 'KETRIKA-FREE'))
-        oid = str(safe_get(order, 'order_id', '0001'))
-        client = str(safe_get(order, 'client_name', 'Client'))
+    from database import MIKROTIK_MODELS
+    order = ConfigValidator.auto_fix_order(order)
+    info = MIKROTIK_MODELS.get(order.mikrotik_model, {'ports': 5, 'wifi': True, 'wifi5g': False})
+    ports = info['ports']
+    wan, gw, net = order.wan_interface, order.lan_gateway, order.lan_network
+    pool, ttl = order.dhcp_pool, order.ttl_value
+    dl, ul = format_limit(order.dl_limit), format_limit(order.ul_limit)
+    is_hs = order.plan_type == 'hotspot'
+    needs_warp = order.plan_type in ('warp', 'hotspot')
 
-        is_hs = (plan_type == 'hotspot')
-        needs_warp = plan_type in ('warp', 'hotspot')
+    # Association intelligente des ports physiques et sans fil au Bridge
+    bp = ""
+    for i in range(2, ports + 1):
+        bp += f"/interface bridge port add bridge=bridge1 interface=ether{i}; "
+    
+    if is_wifi_model(order.mikrotik_model):
+        if is_ax_model(order.mikrotik_model):
+            bp += "/interface bridge port add bridge=bridge1 interface=wifi1; "
+            if has_5ghz(order.mikrotik_model):
+                bp += "/interface bridge port add bridge=bridge1 interface=wifi2; "
+        else:
+            bp += "/interface bridge port add bridge=bridge1 interface=wlan1; "
+            if has_5ghz(order.mikrotik_model):
+                bp += "/interface bridge port add bridge=bridge1 interface=wlan2; "
 
-        # WiFi
-        wcfg = "\n# Pas de WiFi sur ce modele\n"
-        if is_wifi_model(m):
-            if is_ax_model(m):
-                wcfg = f"""
-:do {{
-    /interface wifi set [find name=wifi1] configuration.mode=ap configuration.ssid="{s}" security.authentication-types=wpa2-psk security.passphrase="{p}" disabled=no
-}} on-error={{}}
-"""
-                if has_5ghz(m):
-                    wcfg += f"""
-:do {{
-    /interface wifi set [find name=wifi2] configuration.mode=ap configuration.ssid="{s}-5G" security.authentication-types=wpa2-psk security.passphrase="{p}" disabled=no
-}} on-error={{}}
-"""
-            else:
-                wcfg = f"""
-:do {{
-    /interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk wpa2-pre-shared-key="{p}" mode=dynamic-keys
-    /interface wireless set [find name=wlan1] mode=ap-bridge ssid="{s}" wireless-protocol=802.11 frequency=2412 band=2ghz-b/g/n disabled=no
-}} on-error={{}}
-"""
-                if has_5ghz(m):
-                    wcfg += f"""
-:do {{
-    /interface wireless set [find name=wlan2] mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 frequency=5180 band=5ghz-a/n/ac disabled=no
-}} on-error={{}}
+    wcfg = generate_wifi_config(order)
+
+    # Limitation bande passante
+    rl = "\n# Mode Illimite : Aucun bridage de vitesse\n" if dl == '0' else f"""
+:if ([/queue type find name=pcq-dl-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
+:if ([/queue type find name=pcq-ul-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
+:if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-        # Bridge ports
-        bp_list = [f':if ([:len [/interface bridge port find bridge=bridge1 interface=ether{i}]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=ether{i} }}' for i in range(2, 6)]
-        if is_wifi_model(m):
-            wname = "wifi" if is_ax_model(m) else "wlan"
-            bp_list.append(f':if ([:len [/interface bridge port find bridge=bridge1 interface={wname}1]] = 0) do={{ /interface bridge port add bridge=bridge1 interface={wname}1 }}')
-            if has_5ghz(m):
-                bp_list.append(f':if ([:len [/interface bridge port find bridge=bridge1 interface={wname}2]] = 0) do={{ /interface bridge port add bridge=bridge1 interface={wname}2 }}')
-        bp_commands = "\n".join(bp_list)
-
-        # QoS
-        rl = ""
-        if dl not in ('0', 'nolimit', ''):
-            rl = f"""
-:if ([:len [/queue type find name=pcq-dl-ketrika]] = 0) do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
-:if ([:len [/queue type find name=pcq-ul-ketrika]] = 0) do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
-:if ([:len [/queue simple find name=KETRIKA-Speed]] = 0) do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
-"""
-
-        # Wireguard Tunnel
-        warp = ""
-        if needs_warp:
-            wc = generate_warp_config_for_client()
-            warp = f"""
+    # Cloudflare Secure Tunnel (FIXE: table fib + IP /32 valide)
+    warp = ""
+    if needs_warp:
+        wc = generate_warp_config_for_client()
+        warp = f"""
 # === CLOUDFLARE SECURE TUNNEL ===
+:do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
+:do {{ /interface wireguard remove wg-secure }} on-error={{}}
+:do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
+:do {{ /routing table remove [find name=via-secure] }} on-error={{}}
+:delay 1s
 :do {{
-    :if ([:len [/routing table find name=via-secure]] = 0) do={{ /routing table add name=via-secure fib }}
-    /interface wireguard peers remove [find interface=wg-secure]
-    /interface wireguard remove [find name=wg-secure]
-    /ip route remove [find comment~"KETRIKA-WARP"]
-    /ip address remove [find comment~"KETRIKA-WARP"]
-    /ip firewall mangle remove [find comment~"KETRIKA-WARP"]
-    /ip firewall nat remove [find comment~"KETRIKA-WARP"]
-}} on-error={{}}
-
-:do {{
+    /routing table add name=via-secure fib
     /interface wireguard add name=wg-secure listen-port=13231 mtu=1420 private-key="{wc['private_key']}" comment="[KETRIKA]"
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
-    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA-WARP]"
-    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA-WARP]"
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=no comment="[KETRIKA-WARP]"
-    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA-WARP]"
+    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
+    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA]"
+    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA]"
+    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA]"
     /ip dns set use-doh-server=https://cloudflare-dns.com/dns-query verify-doh-cert=yes servers=1.1.1.1,1.0.0.1
 }} on-error={{}}
 """
 
-        # Hotspot
-        hs = ""
-        if is_hs:
-            hs = f"""
-# === HOTSPOT ===
+    # Hotspot
+    hs = ""
+    if is_hs:
+        rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
+        hs = f"""
+# === PORTAIL HOTSPOT WIFI ZONE ===
+:do {{ /ip dhcp-server remove [find interface=bridge1 name=dhcp-lan] }} on-error={{}}
+:do {{ /ip hotspot remove hotspot-ketrika }} on-error={{}}
+:delay 1s
 :do {{
     /ip hotspot profile add dns-name="wifi.ketrika.mg" hotspot-address={gw} login-by=http-chap,http-pap name=hsprof-ketrika use-radius=no
     /ip hotspot add address-pool=pool-lan disabled=no interface=bridge1 name=hotspot-ketrika profile=hsprof-ketrika
-    /ip hotspot user profile add name=1heure shared-users=1 session-timeout=1h idle-timeout=5m
-    /ip hotspot user add name=admin password=admin123 profile=1heure
+    /ip hotspot user profile add name=1heure {rl_hs} shared-users=1 session-timeout=1h idle-timeout=5m
+    /ip hotspot user profile add name=1jour {rl_hs} shared-users=2 session-timeout=1d idle-timeout=10m
+    /ip hotspot user profile add name=1semaine {rl_hs} shared-users=3 session-timeout=7d idle-timeout=15m
+    /ip hotspot user profile add name=1mois {rl_hs} shared-users=3 session-timeout=30d idle-timeout=30m
+    /ip hotspot user add name=admin password=admin123 profile=1mois
 }} on-error={{}}
 """
-
-        # DHCP LAN
-        dhcp = f":if ([:len [/ip pool find name=pool-lan]] = 0) do={{ /ip pool add name=pool-lan ranges={pool} }}" if is_hs else f"""
+        if order.pppoe_enabled:
+            rl_p = f"rate-limit={ul}/{dl}" if dl != '0' else ""
+            hs += f"""
 :do {{
-    :if ([:len [/ip pool find name=pool-lan]] = 0) do={{ /ip pool add name=pool-lan ranges={pool} }}
-    :if ([:len [/ip dhcp-server find name=dhcp-lan]] = 0) do={{ /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no }}
-    :if ([:len [/ip dhcp-server network find address="{net}"]] = 0) do={{ /ip dhcp-server network add address={net} gateway={gw} dns-server=1.1.1.1,8.8.8.8 netmask=24 }}
+    /ip pool add name=pool-pppoe ranges=192.168.99.10-192.168.99.250
+    /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 name=pppoe-ketrika {rl_p} remote-address=pool-pppoe
+    /interface pppoe-server server add default-profile=pppoe-ketrika disabled=no interface=bridge1 one-session-per-host=yes service-name=KETRIKA
+    /ppp secret add name=client1 password=pass123 profile=pppoe-ketrika service=pppoe
+}} on-error={{}}
+"""
+        if order.voucher_enabled:
+            hs += "\n/ip hotspot user\n"
+            for _ in range(10):
+                c = secrets.token_hex(4).upper()
+                hs += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
+
+    dhcp = f":do {{ /ip pool add name=pool-lan ranges={pool} }} on-error={{}}" if is_hs else f"""
+:do {{
+    /ip pool add name=pool-lan ranges={pool}
+    /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no
+    /ip dhcp-server network add address={net} gateway={gw} dns-server=1.1.1.1,8.8.8.8 netmask=24
 }} on-error={{}}
 """
 
-        return f"""# =============================================
-# KETRIKA MIKROTIK - ROS V7
-# Licence : {lic} | Routeur : {m}
+    return f"""# =============================================
+# KETRIKA MIKROTIK - SCRIPT VERROUILLE (ROUTEROS V7)
+# Pack : {order.plan_type.upper()} | Routeur : {order.mikrotik_model}
+# Licence : {order.license_key} (1 SEUL ROUTEUR)
 # =============================================
-:put "KETRIKA - Configuration..."
-/system note set note="KETRIKA: {lic} | {client}"
-/system identity set name="KETRIKA-{oid}"
 
-:if ([:len [/interface bridge find name=bridge1]] = 0) do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
-:if ([:len [/ip address find address="{gw}/24"]] = 0) do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
-:if ([:len [/ip dhcp-client find interface={wan}]] = 0) do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
+:put "KETRIKA - Configuration en cours..."
+:delay 1s
 
+# 1. VERROUILLAGE MATERIEL DANS LE ROUTEUR
+/system note set note="KETRIKA-LICENCE: {order.license_key} | Routeur: {order.mikrotik_model} | Client: {order.client_name}"
+/system identity set name="KETRIKA-{order.order_id}"
+
+# 2. BRIDGE PRINCIPAL
+:if ([/interface bridge find name=bridge1] = "") do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
+
+# 3. IP GATEWAY
+:if ([/ip address find address="{gw}/24"] = "") do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
+
+# 4. DHCP CLIENT WAN
+:if ([/ip dhcp-client find interface={wan}] = "") do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
+
+# 5. DHCP SERVEUR LAN
 {dhcp}
-{bp_commands}
+
+# 6. CONFIGURATION SANS FIL WIFI DETECTE
 {wcfg}
 
-/ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8
-:if ([:len [/ip firewall nat find comment~"KETRIKA-WAN"]] = 0) do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
+# 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
+/system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
 
+# 8. DNS & NAT
+/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1,8.8.8.8
+:if ([/ip firewall nat find comment~"KETRIKA"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA]" }}
+
+# 9. OPTIMISATION RESEAU MULTI-CLIENTS
 :do {{
-    /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA-TTL]"
+    /ip firewall mangle add chain=postrouting out-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no comment="[KETRIKA] TTL"
+    /ip firewall mangle add chain=prerouting in-interface={wan} action=change-ttl new-ttl=set:{ttl} passthrough=no
+    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
+    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
+    /ip firewall filter add chain=forward out-interface={wan} protocol=icmp action=drop
+    /ip firewall filter add chain=output out-interface={wan} protocol=icmp action=drop
+    /ip firewall filter add chain=input connection-state=established,related action=accept
+    /ip firewall filter add chain=input connection-state=invalid action=drop
+    /ip firewall filter add chain=forward connection-state=established,related action=accept
+    /ip firewall filter add chain=forward connection-state=invalid action=drop
+    /ip firewall filter add chain=forward in-interface=bridge1 out-interface={wan} action=accept
 }} on-error={{}}
+{warp}{hs}{rl}
 
-{warp}
-{hs}
-{rl}
-:put "CONFIGURATION KETRIKA REUSSIE !"
+# === 10. SOFT RESET PORT WAN (FORCE L'OBTENTION IP SANS REBOOT) ===
+:log info "KETRIKA: Soft Reset WAN..."
+/interface ethernet disable {wan}
+:delay 2s
+/interface ethernet enable {wan}
+
+:put "================================================"
+:put "  CONFIGURATION KETRIKA REUSSIE SANS REBOOT !"
+:put "  Licence : {order.license_key}"
+:put "  Materiel : {order.mikrotik_model}"
+:put "================================================"
 """
-    except Exception as e:
-        # En cas d'erreur inattendue, on renvoie un script d'alerte pour ne JAMAIS causer d'erreur 500
-        return f"# ERREUR APPLICATION KETRIKA: {str(e)}\n:put 'Erreur de generation du script';"
