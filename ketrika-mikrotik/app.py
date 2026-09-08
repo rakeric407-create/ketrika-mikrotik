@@ -1,4 +1,4 @@
-# app.py - KETRIKA MIKROTIK - Plateforme SaaS Professionnelle
+# app.py - KETRIKA MIKROTIK - Plateforme SaaS avec Système de Licence
 import os
 import io
 import secrets
@@ -11,7 +11,7 @@ from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
-from database import db, Admin, Order, MIKROTIK_MODELS, PLANS
+from database import db, Admin, Order, MIKROTIK_MODELS, PLANS, LICENSE_DURATIONS, PAYMENT_INFO
 from warp_api import generate_full_script
 
 app = Flask(__name__)
@@ -88,8 +88,9 @@ def wrap(title, body_content, extra_js=""):
             <div class="hidden md:flex items-center gap-6">
                 <a href="/" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">Accueil</a>
                 <a href="/pourquoi-nous" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">⭐ Pourquoi Nous</a>
-                <a href="/track" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">🔍 Suivi Commande</a>
+                <a href="/track" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">🔍 Suivi</a>
                 <a href="/faq" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">FAQ</a>
+                <a href="https://wa.me/261382817100" target="_blank" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition">💬 WhatsApp</a>
                 <a href="/admin" class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition">Espace Admin</a>
             </div>
         </div>
@@ -100,7 +101,8 @@ def wrap(title, body_content, extra_js=""):
     </main>
     <footer class="bg-white border-t border-slate-100 py-10 mt-16 text-center text-xs text-slate-400">
         <p class="font-bold text-slate-700 text-sm">🛰️ KETRIKA MIKROTIK - Solutions Professionnelles RouterOS v7</p>
-        <p class="mt-1">Optimisation réseau & stabilité multi-clients pour opérateurs WiFi Zone</p>
+        <p class="mt-1">📞 WhatsApp Support : <strong class="text-emerald-600">038 28 171 00</strong> (Jean Eric)</p>
+        <p class="mt-1">MVola : 038 28 171 00 | Orange Money : 037 39 755 72</p>
     </footer>
     {extra_js}
 </body>
@@ -123,6 +125,7 @@ def index():
                     <span class="text-3xl font-extrabold" style="color:{p['color']}">{p['price']:,}</span>
                     <span class="text-xs text-slate-400 font-bold ml-1">{p['currency']}</span>
                 </div>
+                <p class="text-[10px] text-slate-400 -mt-4 mb-4">Prix de base (3 mois)</p>
             </div>
             <ul class="space-y-1 mb-8">{features}</ul>
             <a href="/configure/{key}" class="w-full text-center py-3 rounded-xl text-xs font-bold text-white transition hover:-translate-y-0.5" style="background:{p['color']}">Configurer & Commander →</a>
@@ -132,9 +135,9 @@ def index():
 
     body = f"""
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center mb-12">
-        <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">Solution SaaS Professionnelle</span>
+        <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">🤖 Intelligence Anti-Erreur</span>
         <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Optimisation Réseau Multi-Clients</h1>
-        <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Configuration MikroTik RouterOS v7 automatisée pour opérateurs WiFi Zone. <strong>Débit stable, aucune coupure, installation en 30 secondes.</strong></p>
+        <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Configuration MikroTik automatique avec validation intelligente. <strong>Zéro erreur, zéro coupure, installation en 30 secondes.</strong></p>
         <div class="mt-6 flex flex-wrap justify-center gap-4">
             <a href="#plans" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md transition">🚀 Découvrir nos Packs</a>
             <a href="/track" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-xs font-bold transition">🔍 Récupérer ma Configuration</a>
@@ -147,8 +150,8 @@ def index():
             <p class="text-xs font-semibold text-slate-400 mt-1">Opérateurs actifs</p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <div class="text-2xl font-extrabold text-sky-600">99.9%</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Stabilité connexion</p>
+            <div class="text-2xl font-extrabold text-sky-600">100%</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Sans erreur</p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
             <div class="text-2xl font-extrabold text-amber-500">&lt; 30s</div>
@@ -156,12 +159,14 @@ def index():
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
             <div class="text-2xl font-extrabold text-rose-500">∞</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Débit illimité (Premium)</p>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Débit illimité</p>
         </div>
     </div>
     
-    <h2 id="plans" class="text-xl font-extrabold text-slate-900 text-center mb-8">📦 Nos Packs Professionnels</h2>
+    <h2 id="plans" class="text-xl font-extrabold text-slate-900 text-center mb-2">📦 Nos Packs Professionnels</h2>
+    <p class="text-xs text-slate-500 text-center mb-8">Prix évolutif selon durée de validité</p>
     <div class="grid md:grid-cols-3 gap-6 mb-12">{plans_html}</div>
+    
     <div class="bg-slate-100/60 rounded-3xl p-8 border border-slate-200/50 text-center">
         <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">🖥️ Matériels compatibles avec détection automatique</h3>
         <div class="flex flex-wrap justify-center gap-2">{models_html}</div>
@@ -173,14 +178,14 @@ def pourquoi_nous():
     body = """
     <div class="bg-gradient-to-br from-emerald-600 to-sky-600 rounded-3xl p-8 text-white text-center mb-10 shadow-lg">
         <h1 class="text-3xl font-extrabold leading-tight">Pourquoi choisir KETRIKA ?</h1>
-        <p class="text-emerald-50 text-sm mt-2 max-w-xl mx-auto">La référence à Madagascar pour l'optimisation MikroTik multi-clients avec Cloudflare Secure Tunnel.</p>
+        <p class="text-emerald-50 text-sm mt-2 max-w-xl mx-auto">La référence à Madagascar pour l'optimisation MikroTik avec Cloudflare Secure Tunnel.</p>
     </div>
     
     <div class="grid md:grid-cols-3 gap-6 mb-10">
         <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <div class="text-3xl mb-3">⚡</div>
-            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Configuration Sans Erreur</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">Notre système génère un script personnalisé garanti sans conflit, testé sur des centaines de routeurs MikroTik.</p>
+            <div class="text-3xl mb-3">🤖</div>
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Système Intelligent</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Notre validateur vérifie et corrige automatiquement les IPs, réseaux et pools DHCP. <strong>Aucune erreur possible</strong> sur votre routeur MikroTik.</p>
         </div>
         <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
             <div class="text-3xl mb-3">☁️</div>
@@ -195,24 +200,22 @@ def pourquoi_nous():
     </div>
     
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm mb-8">
-        <h2 class="text-lg font-bold text-slate-900 mb-4">🚀 Avantages du Cloudflare Secure Tunnel</h2>
+        <h2 class="text-lg font-bold text-slate-900 mb-4">🚀 Nos Avantages Techniques</h2>
         <ul class="space-y-3 text-sm">
-            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Débit illimité stable :</strong> <span class="text-slate-500">Aucun bridage, la bande passante Starlink est préservée intégralement.</span></div></li>
-            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Faible latence :</strong> <span class="text-slate-500">Le réseau Cloudflare Anycast garantit un temps de réponse minimal.</span></div></li>
-            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Chiffrement professionnel :</strong> <span class="text-slate-500">Protocole WireGuard avec chiffrement AES-256, standard bancaire.</span></div></li>
-            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Multi-clients stable :</strong> <span class="text-slate-500">Gère plusieurs dizaines d'utilisateurs simultanés sans dégradation.</span></div></li>
-            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Reconnexion automatique :</strong> <span class="text-slate-500">Keepalive de 25 secondes garantit une connexion permanente.</span></div></li>
+            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Validateur automatique :</strong> <span class="text-slate-500">Chaque IP, chaque réseau, chaque pool DHCP est vérifié avant génération.</span></div></li>
+            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Débit illimité stable :</strong> <span class="text-slate-500">Cloudflare gère les gros volumes sans dégradation.</span></div></li>
+            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Chiffrement professionnel :</strong> <span class="text-slate-500">Protocole WireGuard avec AES-256.</span></div></li>
+            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Multi-clients stable :</strong> <span class="text-slate-500">Gère plusieurs dizaines d'utilisateurs simultanés.</span></div></li>
+            <li class="flex gap-3"><span class="text-emerald-500 font-bold text-lg">✓</span><div><strong class="text-slate-800">Rollback intelligent :</strong> <span class="text-slate-500">En cas d'erreur, le routeur revient à l'état initial automatiquement.</span></div></li>
         </ul>
     </div>
     
-    <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
-        <h2 class="text-lg font-bold text-slate-900 mb-4">📋 Processus en 4 étapes</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div><div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center mb-3">1</div><h4 class="text-xs font-bold text-slate-800">Choix du Pack</h4><p class="text-[11px] text-slate-400 mt-1">Sélectionnez votre formule idéale.</p></div>
-            <div><div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center mb-3">2</div><h4 class="text-xs font-bold text-slate-800">Configuration</h4><p class="text-[11px] text-slate-400 mt-1">Renseignez les paramètres réseau.</p></div>
-            <div><div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold flex items-center justify-center mb-3">3</div><h4 class="text-xs font-bold text-slate-800">Paiement Mobile</h4><p class="text-[11px] text-slate-400 mt-1">MVola, Orange, Airtel.</p></div>
-            <div><div class="w-8 h-8 rounded-full bg-rose-100 text-rose-700 font-bold flex items-center justify-center mb-3">4</div><h4 class="text-xs font-bold text-slate-800">Livraison Instantanée</h4><p class="text-[11px] text-slate-400 mt-1">Copier-coller et c'est prêt !</p></div>
-        </div>
+    <div class="bg-emerald-50 border border-emerald-200 rounded-3xl p-8">
+        <h2 class="text-lg font-bold text-emerald-900 mb-4">💬 Support WhatsApp Direct</h2>
+        <p class="text-sm text-emerald-800 mb-4">Une question ? Un problème ? Contactez <strong>Jean Eric</strong> directement :</p>
+        <a href="https://wa.me/261382817100" target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition">
+            💬 WhatsApp : 038 28 171 00
+        </a>
     </div>"""
     return render_template_string(wrap("Pourquoi Nous", body))
 
@@ -248,7 +251,13 @@ def configure(pt):
         o = Order()
         o.generate_order_id()
         o.plan_type = pt
-        o.plan_price = plan['price']
+        
+        # Prix selon durée
+        duration = request.form.get('license_duration', '3months')
+        duration_info = LICENSE_DURATIONS.get(duration, LICENSE_DURATIONS['3months'])
+        o.plan_price = plan['price'] + duration_info['price_add']
+        o.license_duration = duration
+        
         o.client_name = request.form['client_name']
         o.client_email = request.form['client_email']
         o.client_phone = request.form.get('client_phone', '')
@@ -283,6 +292,14 @@ def configure(pt):
         return redirect(url_for('payment', oid=o.order_id))
 
     mo = "".join(f'<option value="{m}">{m}</option>' for m in MIKROTIK_MODELS)
+    
+    # Options durée licence
+    duration_options = ""
+    for k, v in LICENSE_DURATIONS.items():
+        total_price = plan['price'] + v['price_add']
+        badge = " ⭐" if k == '1year' else " ♾️" if k == 'lifetime' else ""
+        duration_options += f'<option value="{k}" data-price="{total_price}">{v["label"]}{badge} — {total_price:,} Ar</option>'
+    
     hs = ""
     if pt == 'hotspot':
         hs = """
@@ -310,7 +327,7 @@ def configure(pt):
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
         <div class="text-center pb-6 border-b border-slate-100 mb-8">
             <h2 class="text-xl font-bold" style="color:{plan['color']}">⚙️ Configuration : {plan['name']}</h2>
-            <p class="text-xs text-slate-400 mt-1">Tarif : <strong class="text-slate-800">{plan['price']:,} {plan['currency']}</strong></p>
+            <p class="text-xs text-slate-400 mt-1">Prix de base : <strong class="text-slate-800">{plan['price']:,} {plan['currency']}</strong></p>
         </div>
         <form method="POST" class="space-y-6">
             <div>
@@ -325,11 +342,26 @@ def configure(pt):
                         <input name="client_email" type="email" required placeholder="rakoto@gmail.com" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Téléphone</label>
-                        <input name="client_phone" placeholder="034 00 000 00" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Téléphone *</label>
+                        <input name="client_phone" required placeholder="034 00 000 00" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
                     </div>
                 </div>
             </div>
+            
+            <!-- DURÉE DE LICENCE -->
+            <div class="pt-6 border-t border-slate-100">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">⏳ Durée de la Licence</h3>
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Choisissez la durée de validité *</label>
+                        <select name="license_duration" id="duration" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all font-semibold">
+                            {duration_options}
+                        </select>
+                        <p class="text-[11px] text-slate-500 mt-2">💡 La licence à vie ne nécessite aucun renouvellement</p>
+                    </div>
+                </div>
+            </div>
+            
             <div class="pt-6 border-t border-slate-100">
                 <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🖥️ Modèle MikroTik</h3>
                 <div class="grid grid-cols-1 gap-4">
@@ -377,9 +409,10 @@ def configure(pt):
                         <input name="wifi_password" value="Ketrika2024" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
                     </div>
                 </div>
+                <p class="text-[11px] text-emerald-600 mt-3">🤖 Nos systèmes vérifient et corrigent automatiquement vos valeurs</p>
             </div>
             <div class="pt-6 border-t border-slate-100">
-                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">⚙️ Optimisation Réseau Avancée</h3>
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">⚙️ Optimisation Réseau</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Normalisation TTL</label>
@@ -391,7 +424,7 @@ def configure(pt):
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Gestion Bande Passante</label>
                         <select name="limit_mode" id="lm" onchange="tl()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
                             <option value="preset">📊 Profil équilibré</option>
-                            <option value="nolimit">🚀 Débit illimité (Recommandé Cloudflare)</option>
+                            <option value="nolimit">🚀 Débit illimité</option>
                             <option value="custom">⚙️ Vitesse manuelle</option>
                         </select>
                     </div>
@@ -415,16 +448,21 @@ def configure(pt):
                     <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Upload (ex: 10M)</label><input name="ul_custom" value="10M" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all"></div>
                 </div>
                 <div id="nl" class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs font-semibold mt-6" style="display:none">
-                    🚀 <strong>Débit illimité activé.</strong> Les clients bénéficient de l'intégralité de la bande passante via le tunnel Cloudflare stable.
+                    🚀 <strong>Débit illimité activé.</strong> Clients bénéficient de toute la bande passante.
                 </div>
             </div>
             {hs}
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-4 rounded-xl shadow-lg transition">💳 Passer au Paiement — {plan['price']:,} {plan['currency']}</button>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <p class="text-xs font-semibold text-emerald-800">💰 Montant total à payer :</p>
+                <p class="text-2xl font-black text-emerald-700 mt-1" id="totalPrice">{plan['price']:,} Ar</p>
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-4 rounded-xl shadow-lg transition">💳 Passer au Paiement</button>
         </form>
     </div>"""
     js = """<script>
     document.getElementById('ms').addEventListener('change',function(){var m=this.value;if(!m){document.getElementById('pp').style.display='none';return}fetch('/api/model/'+encodeURIComponent(m)).then(r=>r.json()).then(d=>{document.getElementById('pp').style.display='flex';var v=document.getElementById('pv');v.innerHTML='<span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded text-[10px] font-bold">ether1 WAN</span>';for(var i=2;i<=d.ports;i++)v.innerHTML+='<span class="bg-sky-100 text-sky-700 px-2.5 py-1 rounded text-[10px] font-bold">ether'+i+'</span>';if(d.wifi)v.innerHTML+='<span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded text-[10px] font-bold">WiFi</span>'})});
     function tl(){var m=document.getElementById('lm').value;document.getElementById('pl').style.display=m==='preset'?'flex':'none';document.getElementById('cl').style.display=m==='custom'?'flex':'none';document.getElementById('nl').style.display=m==='nolimit'?'block':'none'}
+    document.getElementById('duration').addEventListener('change',function(){var p=this.options[this.selectedIndex].dataset.price;document.getElementById('totalPrice').textContent=parseInt(p).toLocaleString()+' Ar';});
     </script>"""
     return render_template_string(wrap("Configurer", body, js))
 
@@ -437,6 +475,7 @@ def api_model(mn):
 def payment(oid):
     o = Order.query.filter_by(order_id=oid).first_or_404()
     p = PLANS[o.plan_type]
+    duration_label = LICENSE_DURATIONS.get(o.license_duration, {}).get('label', o.license_duration)
     
     if request.method == 'POST':
         try:
@@ -457,7 +496,7 @@ def payment(oid):
             o.payment_method = request.form.get('pm', 'mvola')
             db.session.commit()
             
-            flash('Preuve de transfert enregistrée. Validation en cours.', 'success')
+            flash('Preuve enregistrée. Contactez-nous sur WhatsApp au 038 28 171 00 pour accélérer la validation.', 'success')
             return redirect(url_for('order_status', oid=o.order_id))
         except Exception as e:
             db.session.rollback()
@@ -471,28 +510,62 @@ def payment(oid):
         <p class="text-xs text-slate-400 text-center mt-1">Code de commande : <strong class="text-slate-700">{o.order_id}</strong></p>
         
         <div class="bg-slate-50 p-6 rounded-2xl text-center my-6">
-            <div class="text-3xl font-extrabold text-slate-900">{p['price']:,} {p['currency']}</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">{p['name']}</p>
+            <div class="text-3xl font-extrabold text-slate-900">{o.plan_price:,} {p['currency']}</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">{p['name']} • Durée : {duration_label}</p>
         </div>
         
         <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <div>
-                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">1. Numéro de paiement mobile</h3>
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">1. Effectuez le paiement (MVola ou Orange Money)</h3>
+                
+                <div class="bg-orange-50 border border-orange-100 p-4 rounded-xl mb-3">
+                    <p class="text-xs font-semibold text-orange-900 mb-1">📱 MVola :</p>
+                    <p class="text-xl font-black text-orange-800">038 28 171 00</p>
+                    <p class="text-[11px] text-orange-700 mt-1">Au nom de : <strong>Jean Eric</strong></p>
+                </div>
+                
                 <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
-                    <p class="text-xs font-semibold text-amber-900">📱 MVola, Orange Money, Airtel Money :</p>
-                    <p class="text-xl font-black text-amber-800 mt-2">034 00 000 00</p>
-                    <p class="text-[11px] text-amber-700/80 mt-1 font-semibold">Référence à inclure : {o.order_id}</p>
+                    <p class="text-xs font-semibold text-amber-900 mb-1">🟠 Orange Money :</p>
+                    <p class="text-xl font-black text-amber-800">037 39 755 72</p>
+                    <p class="text-[11px] text-amber-700 mt-1">Au nom de : <strong>Jean Eric</strong></p>
+                </div>
+                
+                <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl mt-3">
+                    <p class="text-[11px] font-semibold text-slate-600">💡 Référence à indiquer : <strong>{o.order_id}</strong></p>
                 </div>
             </div>
+            
             <div>
-                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">2. Capture d'écran du transfert</h3>
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">2. Choisissez le mode de paiement utilisé</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100">
+                        <input type="radio" name="pm" value="mvola" checked class="text-emerald-600">
+                        <span class="text-xs font-bold text-slate-700">📱 MVola</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100">
+                        <input type="radio" name="pm" value="orange" class="text-emerald-600">
+                        <span class="text-xs font-bold text-slate-700">🟠 Orange Money</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div>
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">3. Capture d'écran du transfert</h3>
                 <div class="border-2 border-dashed border-slate-200 bg-slate-50 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-100/50 transition" onclick="document.getElementById('fi').click()">
                     <p id="fn" class="text-xs font-bold text-slate-600">📸 Cliquez pour choisir la photo</p>
                     <p class="text-[10px] text-slate-400 mt-1">JPG, PNG ou PDF</p>
                     <input type="file" id="fi" name="proof" accept="image/*,.pdf" required class="hidden" onchange="document.getElementById('fn').textContent='✅ '+this.files[0].name; document.getElementById('fn').className='text-xs font-bold text-emerald-600'">
                 </div>
             </div>
+            
             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">✅ Valider mon paiement</button>
+            
+            <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+                <p class="text-xs font-semibold text-emerald-800 mb-2">💬 Pour accélérer la validation, contactez :</p>
+                <a href="https://wa.me/261382817100?text=Bonjour%20Jean%20Eric%2C%20j%27ai%20effectué%20le%20paiement%20pour%20la%20commande%20{o.order_id}" target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition">
+                    💬 WhatsApp : 038 28 171 00
+                </a>
+            </div>
         </form>
     </div>"""
     return render_template_string(wrap("Paiement", body))
@@ -509,6 +582,12 @@ def order_status(oid):
         <h3 class="text-lg font-bold text-slate-800">{o.status_badge}</h3>
         <p class="text-xs text-slate-500 mt-2 mb-6">{'Un administrateur valide actuellement votre paiement.' if o.status=='pending' else 'Votre script MikroTik est prêt à l\'emploi !'}</p>
         {btn}
+        <div class="mt-6 pt-6 border-t border-slate-100">
+            <p class="text-xs text-slate-500 mb-2">Besoin d'aide ?</p>
+            <a href="https://wa.me/261382817100" target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition">
+                💬 WhatsApp : 038 28 171 00
+            </a>
+        </div>
     </div>"""
     return render_template_string(wrap("Statut", body))
 
@@ -518,15 +597,37 @@ def result(oid):
     if o.status not in ('validated', 'delivered'):
         flash('Commande en attente de validation.', 'warning')
         return redirect(url_for('order_status', oid=o.order_id))
+    
+    # Vérifier expiration
+    if not o.is_license_valid:
+        body = f"""
+        <div class="bg-rose-50 border border-rose-200 rounded-3xl p-8 text-center">
+            <div class="text-6xl mb-4">⏰</div>
+            <h2 class="text-lg font-bold text-rose-800">Licence Expirée</h2>
+            <p class="text-xs text-rose-600 mt-2">Votre licence {o.license_key} a expiré.</p>
+            <p class="text-xs text-slate-500 mt-3">Date d'expiration : <strong>{o.valid_until.strftime('%d/%m/%Y') if o.valid_until else 'N/A'}</strong></p>
+            <a href="https://wa.me/261382817100?text=Bonjour%20Jean%20Eric%2C%20je%20veux%20renouveler%20ma%20licence%20{o.license_key}" target="_blank" class="mt-6 inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition">
+                💬 Renouveler via WhatsApp
+            </a>
+        </div>"""
+        return render_template_string(wrap("Licence expirée", body))
+    
     if not o.script_content:
         o.script_content = generate_full_script(o)
         db.session.commit()
+    
     lim = "🚀 Débit Illimité (Cloudflare)" if o.dl_limit == 'nolimit' else f"⬇️ {o.dl_limit} / ⬆️ {o.ul_limit}"
+    validity = f"♾️ À vie" if o.valid_until is None else f"Valable jusqu'au {o.valid_until.strftime('%d/%m/%Y')} ({o.days_remaining})"
+    
     body = f"""
     <div class="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 text-center mb-6">
         <h2 class="text-lg font-bold text-emerald-800">🎉 Votre configuration est prête !</h2>
-        <p class="text-xs text-emerald-600 mt-1">ID Commande : <strong>{o.order_id}</strong> | Licence : <strong class="text-slate-800 font-bold">{o.license_key}</strong></p>
+        <p class="text-xs text-emerald-600 mt-1">ID Commande : <strong>{o.order_id}</strong></p>
+        <p class="text-xs text-slate-700 mt-2">Licence : <strong class="text-slate-800 font-bold">{o.license_key}</strong></p>
         <p class="text-xs text-slate-500 mt-3">Matériel : <strong class="font-bold text-slate-700">{o.mikrotik_model}</strong> | Gestion : <strong class="font-bold text-slate-700">{lim}</strong></p>
+        <div class="mt-3 inline-block bg-white border border-emerald-200 px-4 py-2 rounded-lg">
+            <p class="text-xs font-bold text-emerald-700">⏳ Validité : {validity}</p>
+        </div>
     </div>
     <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mb-6">
         <h3 class="text-sm font-bold text-slate-800 mb-2">📋 Méthode 1 : Copier-Coller Terminal WinBox</h3>
@@ -534,10 +635,16 @@ def result(oid):
         <button class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2.5 px-4 rounded-lg shadow-sm transition" onclick="navigator.clipboard.writeText(document.getElementById('sc').innerText);this.textContent='✅ Script copié !';setTimeout(()=>this.textContent='📋 Copier le script',2000)">📋 Copier le script</button>
         <pre id="sc" class="bg-slate-900 text-emerald-400 p-4 rounded-xl max-h-80 overflow-y-auto text-[10px] font-mono leading-relaxed mt-4">{o.script_content}</pre>
     </div>
-    <div class="bg-white rounded-3xl p-6 border-2 border-emerald-500 shadow-md">
-        <h3 class="text-sm font-bold text-slate-800 mb-1">📁 Méthode 2 : Téléchargement du fichier .rsc (⭐ Recommandé)</h3>
+    <div class="bg-white rounded-3xl p-6 border-2 border-emerald-500 shadow-md mb-6">
+        <h3 class="text-sm font-bold text-slate-800 mb-1">📁 Méthode 2 : Fichier .rsc (⭐ Recommandé)</h3>
         <p class="text-xs text-slate-400 mb-4">WinBox → Files → Glisser-déposer → Terminal : <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">/import file-name=ketrika_{o.order_id}.rsc</code></p>
         <a href="/download/{o.order_id}" class="inline-flex bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-6 rounded-xl shadow transition">📥 Télécharger ketrika_{o.order_id}.rsc</a>
+    </div>
+    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+        <p class="text-xs font-semibold text-emerald-800 mb-2">💬 Besoin d'assistance ?</p>
+        <a href="https://wa.me/261382817100?text=Bonjour%20Jean%20Eric%2C%20j%27ai%20besoin%20d%27aide%20avec%20ma%20licence%20{o.license_key}" target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition">
+            💬 WhatsApp Support : 038 28 171 00
+        </a>
     </div>"""
     return render_template_string(wrap("Résultat", body))
 
@@ -546,6 +653,9 @@ def download(oid):
     o = Order.query.filter_by(order_id=oid).first_or_404()
     if o.status not in ('validated', 'delivered'):
         flash('Non autorisé.', 'error')
+        return redirect(url_for('index'))
+    if not o.is_license_valid:
+        flash('Licence expirée.', 'error')
         return redirect(url_for('index'))
     if not o.script_content:
         o.script_content = generate_full_script(o)
@@ -591,10 +701,11 @@ def admin_dash():
             ac = f'<form method="POST" action="/admin/val/{o.id}" style="display:inline"><button name="a" value="v" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-md text-[10px] font-bold">✅ Valider</button></form> '
             ac += f'<form method="POST" action="/admin/val/{o.id}" style="display:inline"><button name="a" value="r" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-md text-[10px] font-bold">❌</button></form>'
         if o.payment_proof:
-            ac += f' <a href="/admin/proof/{o.id}" target="_blank" class="text-xs text-sky-600 hover:underline ml-1">📸 Preuve</a>'
+            ac += f' <a href="/admin/proof/{o.id}" target="_blank" class="text-xs text-sky-600 hover:underline ml-1">📸</a>'
         if o.license_key:
             ac += f'<br><span class="text-[9px] font-bold text-emerald-600">🔑 {o.license_key}</span>'
-        rows += f'<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="p-3"><strong>{o.order_id}</strong></td><td class="p-3">{o.client_name}<br><small class="text-slate-400">{o.client_email}</small></td><td class="p-3 text-xs font-bold">{o.plan_type.upper()}</td><td class="p-3 text-xs">{o.mikrotik_model}</td><td class="p-3 font-semibold">{o.plan_price:,}</td><td class="p-3"><span class="text-xs font-semibold">{o.status_badge}</span></td><td class="p-3 flex gap-1">{ac}</td></tr>'
+            ac += f'<br><span class="text-[9px] font-semibold text-slate-500">⏳ {o.days_remaining}</span>'
+        rows += f'<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="p-3"><strong>{o.order_id}</strong></td><td class="p-3">{o.client_name}<br><small class="text-slate-400">{o.client_email}</small><br><small class="text-slate-400">{o.client_phone}</small></td><td class="p-3 text-xs font-bold">{o.plan_type.upper()}</td><td class="p-3 text-xs">{o.mikrotik_model}</td><td class="p-3 font-semibold">{o.plan_price:,}</td><td class="p-3"><span class="text-xs font-semibold">{o.status_badge}</span></td><td class="p-3 flex gap-1">{ac}</td></tr>'
     body = f"""
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-xl font-bold text-slate-900">Console KETRIKA</h1>
@@ -605,7 +716,7 @@ def admin_dash():
         <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center"><div class="text-xl font-extrabold text-emerald-600">{deli}</div><p class="text-[10px] text-slate-400 font-semibold mt-0.5">Livrées</p></div>
         <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center"><div class="text-lg font-extrabold text-sky-600">{rev:,} Ar</div><p class="text-[10px] text-slate-400 font-semibold mt-0.5">Revenus</p></div>
     </div>
-    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead><tr class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase"><th class="p-3">ID</th><th class="p-3">Client</th><th class="p-3">Pack</th><th class="p-3">Matériel</th><th class="p-3">Montant</th><th class="p-3">Statut</th><th class="p-3">Actions</th></tr></thead>
             <tbody class="text-xs">{rows if rows else '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-semibold">Aucune commande en cours</td></tr>'}</tbody>
@@ -619,14 +730,27 @@ def admin_val(oid):
     o = Order.query.get_or_404(oid)
     if request.form.get('a') == 'v':
         o.generate_license_key()
+        o.set_license_duration(o.license_duration or '3months')
         o.script_content = generate_full_script(o)
         o.status = 'delivered'
         o.validated_at = datetime.utcnow()
         db.session.commit()
         try:
             if app.config['MAIL_USERNAME']:
+                validity = "À vie" if o.valid_until is None else f"valable jusqu'au {o.valid_until.strftime('%d/%m/%Y')}"
                 msg = Message(f"🔑 Clé KETRIKA - {o.order_id}", recipients=[o.client_email])
-                msg.body = f"Bonjour {o.client_name},\nVotre commande {o.order_id} est validée !\nClé : {o.license_key}\nScript : {request.host_url}result/{o.order_id}"
+                msg.body = f"""Bonjour {o.client_name},
+
+Votre commande {o.order_id} est validée !
+
+🔑 Clé de licence : {o.license_key}
+⏳ Validité : {validity}
+📥 Accès script : {request.host_url}result/{o.order_id}
+
+Support WhatsApp : 038 28 171 00 (Jean Eric)
+
+Merci de votre confiance !
+KETRIKA MIKROTIK"""
                 mail.send(msg)
         except Exception:
             pass
@@ -654,17 +778,24 @@ def faq():
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
         <h2 class="text-xl font-bold text-slate-900 mb-6">❓ Questions Fréquentes</h2>
         <div class="space-y-6 text-sm">
-            <div><h4 class="font-bold text-slate-800">Qu'est-ce que le Cloudflare Secure Tunnel ?</h4><p class="text-slate-500 mt-1">Une technologie WireGuard chiffrée AES-256 fournie par Cloudflare qui offre un débit illimité, une latence minimale et une stabilité garantie pour vos clients.</p></div>
-            <div><h4 class="font-bold text-slate-800">Le débit reste-t-il stable avec plusieurs clients ?</h4><p class="text-slate-500 mt-1">Oui, notre solution utilise le réseau Anycast mondial de Cloudflare qui gère les gros volumes de trafic sans dégradation de vitesse.</p></div>
-            <div><h4 class="font-bold text-slate-800">Faut-il redémarrer le routeur ?</h4><p class="text-slate-500 mt-1">Non, l'assignation asynchrone des ports permet une installation sans coupure de session WinBox.</p></div>
-            <div><h4 class="font-bold text-slate-800">La configuration est-elle garantie sans erreur ?</h4><p class="text-slate-500 mt-1">Oui, chaque commande passe par un système de gestion d'erreurs (on-error) qui protège votre routeur contre toute mauvaise configuration.</p></div>
+            <div><h4 class="font-bold text-slate-800">Comment choisir la durée de licence ?</h4><p class="text-slate-500 mt-1">Vous pouvez choisir : 3 mois (prix de base), 6 mois (+5 000 Ar), 1 an (+10 000 Ar) ou À vie (+20 000 Ar). La licence à vie ne nécessite aucun renouvellement.</p></div>
+            <div><h4 class="font-bold text-slate-800">Qu'est-ce que le système intelligent anti-erreur ?</h4><p class="text-slate-500 mt-1">Notre validateur vérifie automatiquement les adresses IP, réseaux, pools DHCP, mots de passe WiFi et autres paramètres pour éviter toute erreur sur votre routeur MikroTik.</p></div>
+            <div><h4 class="font-bold text-slate-800">Comment payer ?</h4><p class="text-slate-500 mt-1">📱 MVola : 038 28 171 00 (Jean Eric)<br>🟠 Orange Money : 037 39 755 72 (Jean Eric)</p></div>
+            <div><h4 class="font-bold text-slate-800">Combien de temps pour recevoir mon script ?</h4><p class="text-slate-500 mt-1">Après validation du paiement, votre script est livré instantanément. Contactez WhatsApp 038 28 171 00 pour accélérer la validation.</p></div>
+            <div><h4 class="font-bold text-slate-800">Le débit est-il vraiment illimité ?</h4><p class="text-slate-500 mt-1">Oui avec le Pack Premium Cloudflare, le tunnel Secure fournit un débit illimité et stable sans perte de vitesse.</p></div>
+        </div>
+        <div class="mt-8 bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
+            <p class="text-sm font-bold text-emerald-800 mb-3">💬 Une autre question ?</p>
+            <a href="https://wa.me/261382817100" target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition">
+                💬 WhatsApp : 038 28 171 00 (Jean Eric)
+            </a>
         </div>
     </div>"""
     return render_template_string(wrap("FAQ", body))
 
 @app.route('/conditions')
 def conditions():
-    body = """<div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md"><h2 class="text-xl font-bold text-slate-900 mb-4">📜 Conditions Générales</h2><p class="text-slate-500 text-sm leading-relaxed">Une licence est strictement réservée à un unique routeur. Aucun remboursement après livraison du produit numérique.</p></div>"""
+    body = """<div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md"><h2 class="text-xl font-bold text-slate-900 mb-4">📜 Conditions Générales</h2><p class="text-slate-500 text-sm leading-relaxed">Une licence est strictement réservée à un unique routeur. La durée de validité dépend du plan choisi (3 mois, 6 mois, 1 an, à vie). Aucun remboursement après livraison du produit numérique. Support technique via WhatsApp : 038 28 171 00 (Jean Eric).</p></div>"""
     return render_template_string(wrap("Conditions", body))
 
 if __name__ == '__main__':
