@@ -158,7 +158,7 @@ def index():
     <!-- BANNIÈRE ACCUEIL -->
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center mb-12">
         <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">Solution SaaS Professionnelle</span>
-        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Bypass & Optimisation WiFi Zone Starlink</h1>
+        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Optimisation & Bypass WiFi Zone</h1>
         <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Générez un script MikroTik RouterOS v7 professionnel. <strong>Pas de coupures, pas de redémarrages.</strong></p>
         <div class="mt-6 flex flex-wrap justify-center gap-4">
             <a href="#plans" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md transition">🚀 Voir nos Plans</a>
@@ -252,7 +252,7 @@ def track():
         <h2 class="text-xl font-bold text-slate-900">🔍 Suivi & Récupération de Script</h2>
         <p class="text-xs text-slate-400 mt-2 mb-6">Entrez votre code commande ou votre licence pour y accéder</p>
         <form method="POST" class="space-y-4">
-            <input name="code" placeholder="Ex: KTK-241215-ABCDEF" required class="w-full text-center font-bold tracking-wider py-3.5 rounded-xl border border-slate-200 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition">
+            <input name="code" placeholder="Ex: KTK-241215-ABCDEF" required class="w-full text-center font-bold tracking-wider py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">🚀 Accéder à mon espace</button>
         </form>
     </div>"""
@@ -322,7 +322,7 @@ def configure(pt):
                 </div>
                 <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100/50 transition cursor-pointer">
                     <input type="checkbox" name="voucher" id="voucher" checked class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
-                    <label for="voucher" class="cursor-pointer select-none text-slate-700 text-sm font-semibold">Générer 10 vouchers d'accès d'un coup</label>
+                    <label for="voucher" class="cursor-pointer select-none text-slate-700 text-sm font-semibold">Générer 10 vouchers d'accès</label>
                 </div>
             </div>
         </div>"""
@@ -496,9 +496,9 @@ def payment(oid):
         f = request.files.get('proof')
         if f and f.filename:
             fn = secure_filename(f"{o.order_id}_{f.filename}")
-            fp = os.path.join(UPLOAD, fn)
+            fp = os.path.join(UPLOAD_DIR, fn)  # CORRIGÉ : utilise UPLOAD_DIR
             f.save(fp)
-            o.payment_proof = fp
+            o.payment_proof = f"static/uploads/{fn}"  # Sauvegarde le chemin relatif sécurisé
             o.payment_method = request.form.get('pm', 'mvola')
             db.session.commit()
             flash('Preuve de transfert enregistrée ! Votre script est en cours de traitement.', 'success')
@@ -701,8 +701,11 @@ def admin_val(oid):
 @login_required
 def admin_proof(oid):
     o = Order.query.get_or_404(oid)
-    if o.payment_proof and os.path.exists(o.payment_proof):
-        return send_file(o.payment_proof)
+    if o.payment_proof:
+        # Recherche du fichier avec le chemin relatif propre pour Render
+        path = os.path.join(app.root_path, o.payment_proof)
+        if os.path.exists(path):
+            return send_file(path)
     flash('Fichier justificatif introuvable', 'error')
     return redirect(url_for('admin_dash'))
 
