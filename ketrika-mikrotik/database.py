@@ -1,4 +1,4 @@
-# database.py - Modèles et base de données
+# database.py - Modèles de données KETRIKA
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
@@ -34,8 +34,8 @@ class Order(db.Model):
     ssid = db.Column(db.String(50), default='WiFiZone-Ketrika')
     wifi_password = db.Column(db.String(50), default='Ketrika2024')
     ttl_value = db.Column(db.Integer, default=65)
-    dl_limit = db.Column(db.String(10), default='10M')
-    ul_limit = db.Column(db.String(10), default='5M')
+    dl_limit = db.Column(db.String(20), default='10M')
+    ul_limit = db.Column(db.String(20), default='5M')
 
     # Hotspot
     hotspot_name = db.Column(db.String(50))
@@ -46,7 +46,7 @@ class Order(db.Model):
     payment_proof = db.Column(db.String(200))
     payment_method = db.Column(db.String(30))
 
-    # Statut: pending / validated / delivered / rejected
+    # Statut
     status = db.Column(db.String(20), default='pending')
     license_key = db.Column(db.String(50))
     validated_at = db.Column(db.DateTime)
@@ -71,8 +71,6 @@ class Order(db.Model):
             'rejected': '🔴 Rejeté'
         }.get(self.status, self.status)
 
-
-# ---- Modèles MikroTik supportés ----
 MIKROTIK_MODELS = {
     'hAP lite (RB941)':       {'ports': 4, 'wifi': True,  'wifi5g': False, 'poe': False},
     'hAP ac2 (RBD52G)':       {'ports': 5, 'wifi': True,  'wifi5g': True,  'poe': False},
@@ -87,7 +85,6 @@ MIKROTIK_MODELS = {
     'CCR2004':                {'ports': 12,'wifi': False, 'wifi5g': False, 'poe': False},
 }
 
-# ---- Plans et prix ----
 PLANS = {
     'basic': {
         'name': 'Configuration de Base',
@@ -95,34 +92,34 @@ PLANS = {
         'price': 50000,
         'currency': 'Ar',
         'features': [
-            'Bridge & interfaces auto', 'DHCP Server', 'Fix TTL anti-détection',
-            'Clamp MSS', 'Block ICMP', 'Firewall sécurisé', 'DNS optimisé', 'NAT Masquerade'
+            'Bridge & interfaces auto', 'DHCP Server automatique', 'Bypass restrictions FAI',
+            'Clamp MSS & MTU', 'Filtrage ICMP optimal', 'Firewall sécurisé v7', 'DNS Cloudflare optimisé'
         ],
-        'color': '#00ccff'
+        'color': '#0284c7'
     },
     'warp': {
         'name': 'Config + VPN WARP',
-        'subtitle': 'Protection maximale',
+        'subtitle': 'Chiffrement total & anti-DPI',
         'price': 100000,
         'currency': 'Ar',
         'features': [
-            'Tout le plan Basic +', 'Tunnel Cloudflare WARP', 'WireGuard intégré',
-            'Chiffrement total', 'Contourne DPI Starlink', 'DNS over HTTPS',
-            'Double NAT', 'Anti-fingerprinting'
+            'Tout le plan Basic +', 'Tunnel Cloudflare WARP', 'WireGuard haute performance',
+            'Chiffrement total du trafic', 'Bypass DPI Starlink', 'DNS over HTTPS (DoH)',
+            'Routage ciblé stable'
         ],
-        'color': '#00ff88',
+        'color': '#10b981',
         'popular': True
     },
     'hotspot': {
         'name': 'Hotspot + PPPoE + VPN',
-        'subtitle': 'WiFi Zone complète',
+        'subtitle': 'Solution WiFi Zone complète',
         'price': 200000,
         'currency': 'Ar',
         'features': [
-            'Tout le plan WARP +', 'Hotspot page login', 'Serveur PPPoE',
-            'Gestion utilisateurs', 'Limitation par client', 'Vouchers',
-            'Queue PCQ par IP', 'Monitoring trafic'
+            'Tout le plan WARP +', 'Hotspot v7 pré-configuré', 'Serveur PPPoE intégré',
+            'Limitation par client', 'Génération de 10 Vouchers', 'Profils horaires (1h, 1j, etc.)',
+            'Queue PCQ dynamique'
         ],
-        'color': '#ff6600'
+        'color': '#f97316'
     }
 }
