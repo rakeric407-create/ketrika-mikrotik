@@ -1,4 +1,4 @@
-# app.py - KETRIKA MIKROTIK - Serveur SaaS Stable
+# app.py - KETRIKA MIKROTIK - Plateforme SaaS avec Guide Privé Clients Premium
 import os
 import io
 import secrets
@@ -17,7 +17,6 @@ from warp_api import generate_full_script
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ketrika-secure-key-2024-stable')
 
-# Base de données
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///ketrika.db')
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -44,7 +43,6 @@ login_manager.login_view = 'admin_login'
 def load_user(uid):
     return Admin.query.get(int(uid))
 
-# Initialisation et réparation automatique de la base
 with app.app_context():
     try:
         db.create_all()
@@ -54,8 +52,7 @@ with app.app_context():
             db.session.add(Admin(username=admin_u, password_hash=generate_password_hash(admin_p)))
             db.session.commit()
     except Exception as e:
-        # En cas de corruption ou de structure obsolète, recréation propre
-        print(f"Auto-réparation de la DB : {e}")
+        print(f"Auto-reparation DB: {e}")
         try:
             db.drop_all()
             db.create_all()
@@ -92,17 +89,18 @@ def wrap(title, body_content, extra_js=""):
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
     <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100 shadow-sm">
         <div class="max-w-5xl mx-auto px-4 h-16 flex justify-between items-center">
-            <a href="/" class="flex items-center gap-2 text-xl font-extrabold text-emerald-600 tracking-tight">
-                🛰️ KETRIKA <span class="text-sky-600 font-medium text-lg">MIKROTIK</span>
+            <a href="/" class="flex items-center gap-2 text-lg md:text-xl font-extrabold text-emerald-600 tracking-tight">
+                🛰️ KETRIKA <span class="text-sky-600 font-medium text-base md:text-lg">MIKROTIK</span>
             </a>
             <div class="hidden md:flex items-center gap-6">
                 <a href="/" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">Accueil</a>
                 <a href="/pourquoi-nous" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">⭐ Pourquoi Nous</a>
-                <a href="/track" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">🔍 Suivi Commande</a>
+                <a href="/track" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">🔍 Suivi</a>
                 <a href="/faq" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">FAQ</a>
-                <a href="https://wa.me/261382817100" target="_blank" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition">💬 WhatsApp</a>
-                <a href="/admin" class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition">Espace Admin</a>
+                <a href="https://wa.me/261382817100" target="_blank" class="text-sm font-semibold text-emerald-600">💬 WhatsApp</a>
+                <a href="/admin" class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition">Admin</a>
             </div>
+            <a href="https://wa.me/261382817100" target="_blank" class="md:hidden bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">💬 Contact</a>
         </div>
     </nav>
     <main class="flex-grow py-8">
@@ -110,9 +108,11 @@ def wrap(title, body_content, extra_js=""):
         <div class="max-w-4xl mx-auto px-4">{body_content}</div>
     </main>
     <footer class="bg-white border-t border-slate-100 py-10 mt-16 text-center text-xs text-slate-400">
-        <p class="font-bold text-slate-700 text-sm">🛰️ KETRIKA MIKROTIK - Règle : 1 Achat = 1 Clé = 1 Routeur Verrouillé</p>
+        <p class="font-bold text-slate-700 text-sm">🛰️ KETRIKA MIKROTIK</p>
+        <p class="mt-1">1 Achat = 1 Clé = 1 Routeur Verrouillé</p>
         <p class="mt-1">📞 MVola : 038 28 171 00 | Orange : 037 39 755 72 (Jean Eric)</p>
     </footer>
+    <a href="https://wa.me/261382817100" target="_blank" class="fixed bottom-6 right-6 bg-emerald-500 hover:bg-emerald-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30 z-50 text-2xl transition hover:scale-110" title="Support WhatsApp Jean Eric">💬</a>
     {extra_js}
 </body>
 </html>"""
@@ -124,6 +124,12 @@ def index():
         border_cls = "ring-2 ring-emerald-500 shadow-xl relative scale-[1.02] md:scale-105" if p.get('popular') else "border border-slate-100 shadow-md"
         badge = '<div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-wider shadow">⭐ RECOMMANDÉ</div>' if p.get('popular') else ''
         features = "".join(f'<li class="py-2.5 text-xs text-slate-600 border-b border-slate-50 flex items-start gap-2">✅ <span class="flex-1">{f}</span></li>' for f in p['features'])
+        
+        # Badge Guide Premium pour warp et hotspot
+        guide_badge = ""
+        if key in ('warp', 'hotspot'):
+            guide_badge = '<div class="bg-gradient-to-r from-amber-100 to-emerald-100 border border-amber-200 rounded-lg p-2 mb-3"><p class="text-[10px] font-bold text-amber-800 text-center">📖 GUIDE PRO PRIVÉ INCLUS</p></div>'
+        
         plans_html += f"""
         <div class="bg-white rounded-2xl p-6 flex flex-col justify-between {border_cls}">
             {badge}
@@ -135,6 +141,7 @@ def index():
                     <span class="text-xs text-slate-400 font-bold ml-1">{p['currency']}</span>
                 </div>
                 <p class="text-[10px] text-slate-400 -mt-4 mb-4">Paiement unique (1 Routeur)</p>
+                {guide_badge}
             </div>
             <ul class="space-y-1 mb-8">{features}</ul>
             <a href="/configure/{key}" class="w-full text-center py-3 rounded-xl text-xs font-bold text-white transition hover:-translate-y-0.5" style="background:{p['color']}">Configurer mon Routeur →</a>
@@ -143,36 +150,47 @@ def index():
     models_html = "".join(f'<span class="bg-white border border-slate-200 text-sky-600 text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-sm">{m}</span>' for m in MIKROTIK_MODELS)
 
     body = f"""
-    <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center mb-12">
-        <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">🔒 1 Clé = 1 Routeur Unique</span>
-        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Optimisation Réseau Multi-Clients</h1>
-        <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Configuration MikroTik RouterOS v7 verrouillée pour votre équipement. <strong>Zéro coupure, débit stable, installation en 30 secondes.</strong></p>
-        <div class="mt-6 flex flex-wrap justify-center gap-4">
-            <a href="#plans" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md transition">🚀 Découvrir les Packs</a>
-            <a href="/track" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-xs font-bold transition">🔍 Récupérer ma Configuration</a>
+    <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 rounded-3xl p-8 md:p-12 text-white text-center mb-12 shadow-xl relative overflow-hidden">
+        <div class="relative z-10">
+            <span class="bg-emerald-500/20 text-emerald-300 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider border border-emerald-500/30">🛰️ Solution Professionnelle RouterOS v7</span>
+            <h1 class="text-3xl md:text-5xl font-extrabold mt-6 leading-tight">
+                KETRIKA <span class="text-emerald-400">MIKROTIK</span>
+            </h1>
+            <p class="text-lg md:text-xl text-slate-300 mt-4 max-w-2xl mx-auto font-light">
+                Partagez votre connexion en toute sérénité.<br>
+                <strong class="text-white">Stable. Sécurisé. Intelligent.</strong>
+            </p>
+            <p class="text-sm text-slate-400 mt-3 max-w-xl mx-auto">
+                Configuration automatique avec tunnel Cloudflare chiffré et optimisation réseau avancée.
+            </p>
+            <div class="mt-8 flex flex-wrap justify-center gap-4">
+                <a href="#plans" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3.5 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/25 transition hover:-translate-y-0.5">🚀 Découvrir les Packs</a>
+                <a href="/track" class="bg-white/10 hover:bg-white/20 text-white px-8 py-3.5 rounded-xl text-sm font-bold border border-white/20 transition">🔍 Récupérer ma Config</a>
+            </div>
         </div>
     </div>
     
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <div class="text-2xl font-extrabold text-emerald-600">1 : 1</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">1 Clé = 1 Routeur</p>
+            <div class="text-3xl">🔒</div>
+            <p class="text-xs font-semibold text-slate-600 mt-1 font-bold">1 Clé = 1 Routeur</p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <div class="text-2xl font-extrabold text-sky-600">100%</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Sans erreur</p>
+            <div class="text-3xl">☁️</div>
+            <p class="text-xs font-semibold text-slate-600 mt-1 font-bold">Tunnel Cloudflare</p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <div class="text-2xl font-extrabold text-amber-500">&lt; 30s</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Application WinBox</p>
+            <div class="text-3xl">⚡</div>
+            <p class="text-xs font-semibold text-slate-600 mt-1 font-bold">Installation 30s</p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <div class="text-2xl font-extrabold text-rose-500">0</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Coupure WinBox</p>
+            <div class="text-3xl">🛡️</div>
+            <p class="text-xs font-semibold text-slate-600 mt-1 font-bold">Anti-Erreur</p>
         </div>
     </div>
     
-    <h2 id="plans" class="text-xl font-extrabold text-slate-900 text-center mb-8">📦 Nos Packs Professionnels</h2>
+    <h2 id="plans" class="text-xl font-extrabold text-slate-900 text-center mb-2">📦 Nos Packs Professionnels</h2>
+    <p class="text-xs text-slate-500 text-center mb-8">Les Packs Premium et Business incluent notre <strong>Guide Privé Pro</strong></p>
     <div class="grid md:grid-cols-3 gap-6 mb-12">{plans_html}</div>
     
     <div class="bg-slate-100/60 rounded-3xl p-8 border border-slate-200/50 text-center">
@@ -205,6 +223,12 @@ def pourquoi_nous():
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Zéro Déconnexion</h3>
             <p class="text-xs text-slate-500 leading-relaxed">L'assignation des ports se fait en arrière-plan sans interrompre votre session WinBox.</p>
         </div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-amber-50 to-emerald-50 border border-amber-200 rounded-3xl p-8 text-center">
+        <div class="text-4xl mb-3">📖</div>
+        <h2 class="text-lg font-bold text-slate-900 mb-2">Guide Privé Pro — Exclusif aux Packs Premium & Business</h2>
+        <p class="text-sm text-slate-600 max-w-xl mx-auto">Nos clients Premium (50 000 Ar) et Business (80 000 Ar) reçoivent un guide privé complet avec des conseils professionnels pour maintenir leur partage de connexion durablement et éviter toute détection FAI.</p>
     </div>"""
     return render_template_string(wrap("Pourquoi Nous", body))
 
@@ -451,7 +475,7 @@ def payment(oid):
         except Exception as e:
             db.session.rollback()
             print(f"Erreur upload paiement: {e}")
-            flash('Erreur lors de l\'enregistrement de la preuve. Veuillez réessayer.', 'error')
+            flash('Erreur lors de l\'enregistrement. Réessayez.', 'error')
             return redirect(request.url)
 
     body = f"""
@@ -467,24 +491,20 @@ def payment(oid):
         <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <div>
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">1. Effectuez le paiement</h3>
-                
                 <div class="bg-orange-50 border border-orange-100 p-4 rounded-xl mb-3">
                     <p class="text-xs font-semibold text-orange-900 mb-1">📱 MVola :</p>
                     <p class="text-xl font-black text-orange-800">{PAYMENT_CONFIG['mvola']}</p>
                     <p class="text-[11px] text-orange-700 mt-1">Au nom de : <strong>{PAYMENT_CONFIG['beneficiaire']}</strong></p>
                 </div>
-                
                 <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
                     <p class="text-xs font-semibold text-amber-900 mb-1">🟠 Orange Money :</p>
                     <p class="text-xl font-black text-amber-800">{PAYMENT_CONFIG['orange']}</p>
                     <p class="text-[11px] text-amber-700 mt-1">Au nom de : <strong>{PAYMENT_CONFIG['beneficiaire']}</strong></p>
                 </div>
-                
                 <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl mt-3">
                     <p class="text-[11px] font-semibold text-slate-600">💡 Référence à indiquer : <strong>{o.order_id}</strong></p>
                 </div>
             </div>
-            
             <div>
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">2. Mode utilisé</h3>
                 <div class="grid grid-cols-2 gap-3">
@@ -498,7 +518,6 @@ def payment(oid):
                     </label>
                 </div>
             </div>
-            
             <div>
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">3. Capture d'écran du transfert</h3>
                 <div class="border-2 border-dashed border-slate-200 bg-slate-50 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-100/50 transition" onclick="document.getElementById('fi').click()">
@@ -507,9 +526,7 @@ def payment(oid):
                     <input type="file" id="fi" name="proof" accept="image/*,.pdf" required class="hidden" onchange="document.getElementById('fn').textContent='✅ '+this.files[0].name; document.getElementById('fn').className='text-xs font-bold text-emerald-600'">
                 </div>
             </div>
-            
             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">✅ Valider mon paiement</button>
-            
             <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
                 <p class="text-xs font-semibold text-emerald-800 mb-2">💬 Pour accélérer la validation :</p>
                 <a href="https://wa.me/261382817100?text=Bonjour%20Jean%20Eric%2C%20j%27ai%20effectué%20le%20paiement%20pour%20la%20commande%20{o.order_id}" target="_blank" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition">
@@ -542,12 +559,141 @@ def result(oid):
         flash('Commande en attente de validation.', 'warning')
         return redirect(url_for('order_status', oid=o.order_id))
     
-    # Génération UNIQUE si pas encore généré
     if not o.script_content:
         o.script_content = generate_full_script(o)
         db.session.commit()
     
     lim = "🚀 Débit Illimité (Cloudflare)" if o.dl_limit == 'nolimit' else f"⬇️ {o.dl_limit} / ⬆️ {o.ul_limit}"
+    
+    # GUIDE PRIVÉ uniquement pour clients Premium (warp) et Business (hotspot)
+    guide_html = ""
+    if o.plan_type in ('warp', 'hotspot'):
+        guide_html = f"""
+        <div class="bg-gradient-to-br from-amber-50 to-emerald-50 border-2 border-amber-300 rounded-3xl p-6 md:p-8 mb-6 shadow-lg">
+            <div class="text-center mb-6">
+                <span class="bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">🔒 GUIDE PRIVÉ — CLIENT PREMIUM</span>
+                <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 mt-4">📖 Guide Pro KETRIKA</h2>
+                <p class="text-xs text-slate-600 mt-2">Réservé aux clients Pack Premium & Business</p>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 mb-4 border border-slate-100">
+                <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span class="bg-rose-100 text-rose-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                    Pourquoi votre FAI détecte le partage
+                </h3>
+                <div class="space-y-2 text-xs text-slate-600">
+                    <p><strong>🔍 TTL (Time To Live) :</strong> Chaque paquet a un compteur de vie. Quand il passe par votre routeur, il diminue. Le FAI voit un TTL anormal et détecte votre routeur.</p>
+                    <p><strong>🔍 DPI (Inspection Profonde) :</strong> Le FAI analyse le contenu. Si 50 appareils différents (téléphones, PC) apparaissent derrière une seule connexion, il détecte le partage commercial.</p>
+                    <p><strong>🔍 Volume de connexions :</strong> Un foyer normal utilise 5-10 appareils. 50+ connexions simultanées = signal de partage.</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 mb-4 border border-slate-100">
+                <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span class="bg-emerald-100 text-emerald-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                    Comment KETRIKA résout ces problèmes
+                </h3>
+                <div class="space-y-2 text-xs text-slate-600">
+                    <p><strong>✅ TTL Normalisé à 65 :</strong> Vos paquets sortent avec un TTL normal, indétectable.</p>
+                    <p><strong>✅ Cloudflare Secure Tunnel :</strong> Tout votre trafic est chiffré AES-256. Le FAI ne voit qu'un tunnel vers Cloudflare, impossible d'inspecter le contenu ou compter vos appareils.</p>
+                    <p><strong>✅ MSS Clamp & ICMP Filter :</strong> Les paquets sont normalisés pour ressembler à ceux d'un appareil unique.</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 mb-4 border border-slate-100">
+                <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span class="bg-sky-100 text-sky-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">☁️</span>
+                    Cloudflare Secure Tunnel — Détails
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div class="bg-sky-50 rounded-lg p-3">
+                        <strong class="text-sky-800">🔐 AES-256</strong>
+                        <p class="text-slate-600 mt-1">Chiffrement bancaire, votre trafic est illisible.</p>
+                    </div>
+                    <div class="bg-sky-50 rounded-lg p-3">
+                        <strong class="text-sky-800">🌍 Réseau mondial</strong>
+                        <p class="text-slate-600 mt-1">300+ villes, latence minimale.</p>
+                    </div>
+                    <div class="bg-sky-50 rounded-lg p-3">
+                        <strong class="text-sky-800">🛡️ Anti-DPI</strong>
+                        <p class="text-slate-600 mt-1">Le FAI ne voit qu'un tunnel chiffré.</p>
+                    </div>
+                    <div class="bg-sky-50 rounded-lg p-3">
+                        <strong class="text-sky-800">⚡ Débit stable</strong>
+                        <p class="text-slate-600 mt-1">Aucun bridage, bande passante préservée.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 mb-4 border-2 border-amber-200">
+                <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span class="bg-amber-100 text-amber-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                    ⚠️ Conseils Pro pour Durer Longtemps
+                </h3>
+                <p class="text-xs text-slate-600 mb-4 italic">Notre technologie est puissante, mais le bon sens est essentiel. Voici les règles d'or :</p>
+                
+                <div class="space-y-3">
+                    <div class="flex gap-3 items-start bg-slate-50 rounded-lg p-3">
+                        <div class="text-xl">🌙</div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-800">Éteignez la nuit (RÈGLE N°1)</h4>
+                            <p class="text-[11px] text-slate-500 mt-1">Un trafic 24h/24 à plein régime attire l'attention. Programmez une coupure automatique entre 23h et 6h. Un foyer normal dort la nuit.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start bg-slate-50 rounded-lg p-3">
+                        <div class="text-xl">👥</div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-800">Limitez chaque client</h4>
+                            <p class="text-[11px] text-slate-500 mt-1">Ne laissez jamais un seul client consommer toute la bande passante. Limitez à 5-10 Mbps par utilisateur.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start bg-slate-50 rounded-lg p-3">
+                        <div class="text-xl">⬇️</div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-800">Évitez les gros téléchargements simultanés</h4>
+                            <p class="text-[11px] text-slate-500 mt-1">10 clients téléchargeant 2 Go en même temps = pic de trafic anormal. Étalez les téléchargements.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start bg-slate-50 rounded-lg p-3">
+                        <div class="text-xl">📊</div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-800">Surveillez votre volume mensuel</h4>
+                            <p class="text-[11px] text-slate-500 mt-1">Même en "illimité", 10 To/mois sur une ligne résidentielle = alerte FAI. Restez dans des volumes cohérents.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start bg-slate-50 rounded-lg p-3">
+                        <div class="text-xl">🔀</div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-800">Limitez le nombre d'appareils simultanés</h4>
+                            <p class="text-[11px] text-slate-500 mt-1">20 à 40 clients actifs est raisonnable. Au-delà, prenez une deuxième ligne.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                        <div class="text-xl">💡</div>
+                        <div>
+                            <h4 class="text-xs font-bold text-emerald-800">La solution intelligente</h4>
+                            <p class="text-[11px] text-slate-600 mt-1"><strong>Discrétion + Automatisation = Longévité.</strong> Programmez des plages horaires de coupure et des limites par client. Restez invisible.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 rounded-2xl p-5 text-white">
+                <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+                    <span class="text-xl">🎯</span> Résumé : La Formule Gagnante
+                </h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Notre <strong class="text-emerald-400">tunnel Cloudflare</strong> masque votre trafic techniquement.<br>
+                    Vos <strong class="text-emerald-400">habitudes intelligentes</strong> évitent les alertes comportementales.<br>
+                    Ensemble = <strong class="text-emerald-400">un partage durable et rentable pendant des années</strong>.
+                </p>
+            </div>
+
+            <div class="text-center mt-6">
+                <p class="text-xs text-slate-500 italic">⚠️ Ce guide est confidentiel et réservé à votre usage personnel</p>
+            </div>
+        </div>
+        """
     
     body = f"""
     <div class="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 text-center mb-6">
@@ -572,6 +718,8 @@ def result(oid):
         <p class="text-xs text-slate-400 mb-4">WinBox → Files → Glisser-déposer → Terminal : <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">/import file-name=ketrika_{o.order_id}.rsc</code></p>
         <a href="/download/{o.order_id}" class="inline-flex bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-6 rounded-xl shadow transition">📥 Télécharger ketrika_{o.order_id}.rsc</a>
     </div>
+    
+    {guide_html}
     
     <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
         <p class="text-xs font-semibold text-emerald-800 mb-2">💬 Besoin d'assistance ?</p>
@@ -664,6 +812,9 @@ def admin_val(oid):
         db.session.commit()
         try:
             if app.config['MAIL_USERNAME']:
+                guide_note = ""
+                if o.plan_type in ('warp', 'hotspot'):
+                    guide_note = "\n\n📖 GUIDE PRO PRIVÉ inclus (accessible depuis votre page résultat)"
                 msg = Message(f"🔑 Clé KETRIKA - {o.order_id}", recipients=[o.client_email])
                 msg.body = f"""Bonjour {o.client_name},
 
@@ -671,7 +822,7 @@ Votre commande {o.order_id} est validée !
 
 🔑 Clé de licence : {o.license_key}
 🖥️ Matériel : {o.mikrotik_model}
-📥 Accès à votre script : {request.host_url}result/{o.order_id}
+📥 Accès à votre script : {request.host_url}result/{o.order_id}{guide_note}
 
 Rappel : 1 Clé = 1 Routeur Verrouillé.
 
@@ -680,7 +831,7 @@ KETRIKA MIKROTIK"""
                 mail.send(msg)
         except Exception:
             pass
-        flash(f'Commande {o.order_id} validée et verrouillée pour 1 routeur.', 'success')
+        flash(f'Commande {o.order_id} validée et verrouillée.', 'success')
     else:
         o.status = 'rejected'
         db.session.commit()
@@ -704,9 +855,10 @@ def faq():
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
         <h2 class="text-xl font-bold text-slate-900 mb-6">❓ Questions Fréquentes</h2>
         <div class="space-y-6 text-sm">
-            <div><h4 class="font-bold text-slate-800">Puis-je utiliser ma clé sur plusieurs routeurs ?</h4><p class="text-slate-500 mt-1">Non. Une clé achetée correspond à <strong>un seul routeur physique</strong>. Le script est calculé et verrouillé pour le modèle choisi lors de la commande.</p></div>
+            <div><h4 class="font-bold text-slate-800">Puis-je utiliser ma clé sur plusieurs routeurs ?</h4><p class="text-slate-500 mt-1">Non. Une clé achetée correspond à <strong>un seul routeur physique</strong>. Le script est verrouillé pour le modèle choisi.</p></div>
             <div><h4 class="font-bold text-slate-800">Comment se déroule le paiement ?</h4><p class="text-slate-500 mt-1">📱 MVola : <strong>{PAYMENT_CONFIG['mvola']}</strong> (Jean Eric)<br>🟠 Orange Money : <strong>{PAYMENT_CONFIG['orange']}</strong> (Jean Eric)</p></div>
-            <div><h4 class="font-bold text-slate-800">Faut-il redémarrer le routeur ?</h4><p class="text-slate-500 mt-1">Non. Grâce à l'assignation asynchrone des ports, le script s'applique en arrière-plan sans couper votre connexion WinBox.</p></div>
+            <div><h4 class="font-bold text-slate-800">Faut-il redémarrer le routeur ?</h4><p class="text-slate-500 mt-1">Non. L'assignation asynchrone des ports permet une installation sans coupure WinBox.</p></div>
+            <div><h4 class="font-bold text-slate-800">Qu'est-ce que le Guide Pro ?</h4><p class="text-slate-500 mt-1">Un guide privé exclusif aux <strong>Packs Premium (50 000 Ar) et Business (80 000 Ar)</strong>. Il contient nos conseils professionnels pour maintenir un partage durable.</p></div>
         </div>
         <div class="mt-8 bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
             <p class="text-sm font-bold text-emerald-800 mb-3">Une question particulière ?</p>
@@ -719,7 +871,7 @@ def faq():
 
 @app.route('/conditions')
 def conditions():
-    body = f"""<div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md"><h2 class="text-xl font-bold text-slate-900 mb-4">📜 Conditions Générales</h2><p class="text-slate-500 text-sm leading-relaxed">Chaque achat donne droit à une licence unique verrouillée pour <strong>un seul routeur MikroTik</strong>. La configuration est définitive et ne peut pas être régénérée pour un autre matériel. Aucun remboursement après livraison du produit numérique. Assistance technique disponible sur WhatsApp : {PAYMENT_CONFIG['whatsapp']} (Jean Eric).</p></div>"""
+    body = f"""<div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md"><h2 class="text-xl font-bold text-slate-900 mb-4">📜 Conditions Générales</h2><p class="text-slate-500 text-sm leading-relaxed">Chaque achat donne droit à une licence unique verrouillée pour <strong>un seul routeur MikroTik</strong>. La configuration est définitive. Aucun remboursement après livraison du produit numérique. Le Guide Pro est privé et confidentiel, réservé aux Packs Premium et Business. Assistance technique : WhatsApp {PAYMENT_CONFIG['whatsapp']} (Jean Eric).</p></div>"""
     return render_template_string(wrap("Conditions", body))
 
 if __name__ == '__main__':
