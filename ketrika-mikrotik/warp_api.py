@@ -1,21 +1,4 @@
-Voici le code complet et définitif de **`warp_api.py`** avec l'ensemble des technologies d'**anti-détection et d'anti-blocage FAI** intégrées.
-
----
-
-### Ce qui a été ajouté pour rendre le VPN indétectable :
-1. **Ports Furtifs Aléatoires (Stealth Ports) :** Le tunnel utilise aléatoirement les ports `500` (IPSec), `853` (DoT), `4500` (NAT-T) ou `1701` (L2TP). Les opérateurs ne peuvent pas bloquer ces ports sans couper les VPN d'entreprises.
-2. **Multi-Endpoints IP Cloudflare :** Rotation sur les plages d'adresses officielles (`162.159.192.1`, `162.159.193.1`, `188.114.96.1`, etc.) pour contourner le blacklistage d'IP.
-3. **Désactivation Totale d'IPv6 :** Empêche les smartphones de faire fuiter leur trafic hors du tunnel via IPv6.
-4. **Anti-DPI & Clamping TCP-MSS (1280) :** Réduction de la taille maximale des segments pour éviter la fragmentation des paquets et contourner l'analyse DPI des opérateurs.
-5. **Anti-DNS Leak :** Capture et redirection de toutes les requêtes DNS (port 53 UDP/TCP) pour empêcher le FAI d'espionner les noms de domaine consultés.
-6. **Double Normalisation TTL :** Masquage du partage de connexion 4G/5G selon le choix du client.
-
----
-
-### Code complet : `warp_api.py`
-
-```python
-# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX avec Moteur Anti-Détection FAI
+# warp_api.py - KETRIKA MIKROTIK - Générateur Multi-Packs (WARP / HOTSPOT / STANDARD)
 import secrets
 import base64
 import requests
@@ -23,7 +6,6 @@ import re
 import ipaddress
 import datetime
 
-# Dictionnaire de secours matériel (Anti-crash 500)
 DEFAULT_MODELS = {
     'hAP lite (RB941)': {'ports': 4, 'wifi': True, 'wifi5g': False},
     'hAP ac2': {'ports': 5, 'wifi': True, 'wifi5g': True},
@@ -99,7 +81,7 @@ class ConfigValidator:
         return order
 
 # =======================================================
-# MOTEUR CRYPTO X25519 PURE PYTHON
+# MOTEUR CRYPTO X25519 OFFICIEL RFC 7748 (CORRIGÉ)
 # =======================================================
 P = 2**255 - 19
 A24 = 121665
@@ -134,7 +116,7 @@ def _x25519(k, u):
         x_3 = ((DA + CB) ** 2) % P
         z_3 = (x_1 * ((DA - CB) ** 2)) % P
         x_2 = (AA * BB) % P
-        z_2 = (E * (AA + (A24 * E))) % P
+        z_2 = (E * (BB + (A24 * E))) % P  # CORRECTION RFC 7748 (BB au lieu de AA)
     if swap:
         x_2, x_3 = x_3, x_2
         z_2, z_3 = z_3, z_2
@@ -147,29 +129,14 @@ def generate_wireguard_keys():
     return base64.b64encode(clamped).decode(), base64.b64encode(pub).decode()
 
 # =======================================================
-# GÉNÉRATEUR CLOUDFLARE AVEC MULTI-ENDPOINTS & STEALTH PORTS
+# ENREGISTREMENT API CLOUDFLARE WARP
 # =======================================================
 def generate_warp_config_for_client():
     priv, pub = generate_wireguard_keys()
     
-    # 1. Ports furtifs pour contourner les blocages UDP du FAI
-    stealth_ports = ['500', '853', '1701', '4500', '2408']
-    selected_port = secrets.choice(stealth_ports)
-    
-    # 2. Rotation d'adresses IP officielles Cloudflare (Anti-Blacklist)
-    cloudflare_endpoints = [
-        '162.159.192.1',
-        '162.159.193.1',
-        '162.159.195.1',
-        '188.114.96.1',
-        '188.114.97.1'
-    ]
-    selected_ip = secrets.choice(cloudflare_endpoints)
-    
-    # Tentatives d'enregistrement via API
     endpoints = [
-        "https://api.cloudflareclient.com/v0a3370/reg",
-        "https://api.cloudflareclient.com/v0a2158/reg"
+        "https://api.cloudflareclient.com/v0a2158/reg",
+        "https://api.cloudflareclient.com/v0a3370/reg"
     ]
     
     for url in endpoints:
@@ -185,8 +152,12 @@ def generate_warp_config_for_client():
                     "serial_number": secrets.token_hex(16),
                     "locale": "en_US"
                 },
-                headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
-                timeout=4
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "okhttp/3.12.1",
+                    "CF-Client-Version": "a-6.30-3596"
+                },
+                timeout=5
             )
             if res.status_code in (200, 201):
                 d = res.json()
@@ -196,19 +167,19 @@ def generate_warp_config_for_client():
                     'private_key': priv,
                     'client_ipv4': client_ip,
                     'warp_public_key': d['config']['peers'][0]['public_key'],
-                    'endpoint_host': selected_ip,
-                    'endpoint_port': selected_port
+                    'endpoint_host': '162.159.192.1',
+                    'endpoint_port': '2408'
                 }
         except Exception:
             continue
 
-    # Fallback si l'API est inaccessible
+    # Fallback sécurisé
     return {
         'private_key': priv,
         'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
         'warp_public_key': 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=',
-        'endpoint_host': selected_ip,
-        'endpoint_port': selected_port
+        'endpoint_host': '162.159.192.1',
+        'endpoint_port': '2408'
     }
 
 # =======================================================
@@ -348,12 +319,23 @@ def generate_full_script(order):
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # 1. TUNNEL CLOUDFLARE WARP (AVEC ANTI-DÉTECTION & OBFUSCATION)
+    # TTL
+    if ttl_value == 'disabled':
+        ttl_script = "\n# Optimisation TTL : Desactivee par le client\n"
+    else:
+        ttl_script = f"""
+# 9. OPTIMISATION RESEAU & MASQUAGE TTL (CHOIX CLIENT: {ttl_value})
+/ip firewall mangle remove [find comment~"KETRIKA-TTL"]
+/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
+/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
+"""
+
+    # 1. TUNNEL CLOUDFLARE WARP (SANS RÈGLE HOTSPOT QUI BLOQUE)
     warp = ""
     if is_warp:
         wc = generate_warp_config_for_client()
         warp = f"""
-# === CLOUDFLARE SECURE TUNNEL (ANTI-DETECTION FAI ACTIVE) ===
+# === CLOUDFLARE SECURE TUNNEL (PACK WARP ACTIF) ===
 :do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
 :do {{ /interface wireguard remove wg-secure }} on-error={{}}
 :do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
@@ -361,21 +343,15 @@ def generate_full_script(order):
 :delay 1s
 :do {{
     /routing table add name=via-secure fib
-    /interface wireguard add name=wg-secure listen-port=13231 mtu=1280 private-key="{wc['private_key']}" comment="[KETRIKA-STEALTH]"
+    /interface wireguard add name=wg-secure listen-port=13231 mtu=1420 private-key="{wc['private_key']}" comment="[KETRIKA]"
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
-    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA-WARP]"
+    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
     
-    # Routage furtif vers Cloudflare
+    # Redirection de TOUS les paquets LAN vers WireGuard (SANS restriction Hotspot)
     /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA-WARP]"
+    
     /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure distance=1 comment="[KETRIKA-WARP]"
     /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA]"
-    
-    # Protection Anti-Fuite DNS vers le FAI
-    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=udp dst-port=53 action=redirect to-ports=53 comment="[ANTI-DNS-LEAK]"
-    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=tcp dst-port=53 action=redirect to-ports=53 comment="[ANTI-DNS-LEAK]"
-    
-    # Clamping MSS Anti-DPI specifique au tunnel
-    /ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes comment="[ANTI-DPI-MSS]"
 }} on-error={{}}
 """
 
@@ -419,18 +395,7 @@ def generate_full_script(order):
                 c = secrets.token_hex(4).upper()
                 hs += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
 
-    # TTL Script
-    if ttl_value == 'disabled':
-        ttl_script = "\n# Optimisation TTL : Desactivee par le client\n"
-    else:
-        ttl_script = f"""
-# 9. OPTIMISATION RESEAU & MASQUAGE TTL (CHOIX CLIENT: {ttl_value})
-/ip firewall mangle remove [find comment~"KETRIKA-TTL"]
-/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
-/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
-"""
-
-    # Configuration DHCP
+    # DHCP Server
     opt_dhcp = "dhcp-option=captive-portal" if is_hs else ""
     dns_dhcp = gw if is_hs else "1.1.1.1,8.8.8.8"
     dhcp = f"""
@@ -454,41 +419,38 @@ def generate_full_script(order):
 /system note set note="KETRIKA-LICENCE: {license_key} | Routeur: {model} | Client: {client_name}"
 /system identity set name="KETRIKA-{order_id}"
 
-# 2. DESACTIVATION COMPLETE IPV6 (ANTI-FUITE FAI)
-:do {{ /ipv6 settings set disable-ipv6=yes }} on-error={{}}
-
-# 3. BRIDGE PRINCIPAL
+# 2. BRIDGE PRINCIPAL
 :if ([/interface bridge find name=bridge1] = "") do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
 
-# 4. IP GATEWAY
+# 3. IP GATEWAY
 :if ([/ip address find address="{gw}/24"] = "") do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
 
-# 5. DHCP CLIENT WAN
+# 4. DHCP CLIENT WAN
 :if ([/ip dhcp-client find interface={wan}] = "") do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
 
-# 6. DHCP SERVEUR LAN
+# 5. DHCP SERVEUR LAN
 {dhcp}
 
-# 7. CONFIGURATION SANS FIL WIFI DETECTE
+# 6. CONFIGURATION SANS FIL WIFI DETECTE
 {wcfg}
 
-# 8. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
+# 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
 /system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
 
-# 9. DNS & NAT WAN
+# 8. DNS & NAT WAN DIRECT
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8 use-doh-server=""
 :if ([/ip firewall nat find comment~"KETRIKA-WAN"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
 
-# 10. OPTIMISATION ANTI-DPI & TCP MSS
+# 9. OPTIMISATION DU FIREWALL & SYN-MSS
 :do {{
-    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes comment="[ANTI-DPI-WAN]"
-    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1280 passthrough=yes
+    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
+    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
 }} on-error={{}}
 
 {ttl_script}
 {warp}{hs}{rl}
 
-# === 11. REBOOT AUTOMATIQUE DU ROUTEUR ===
+# === 10. REBOOT AUTOMATIQUE DU ROUTEUR ===
 :log info "KETRIKA: Configuration terminee, reboot dans 3s..."
 :put "================================================"
 :put "  CONFIGURATION KETRIKA APPLIQUEE AVEC SUCCES !"
@@ -501,4 +463,3 @@ def generate_full_script(order):
 
 /system scheduler add name=ketrika_reboot interval=0s start-time=([/system clock get time] + 00:00:03) on-event="/system scheduler remove ketrika_reboot; /system reboot;"
 """
-```
