@@ -1,4 +1,4 @@
-# app.py - KETRIKA MIKROTIK - Application Complete
+# app.py - KETRIKA MIKROTIK - Plateforme Professionnelle
 import os
 import io
 from datetime import datetime
@@ -14,14 +14,17 @@ from database import db, Admin, Order, MIKROTIK_MODELS, PLANS
 from warp_api import generate_full_script
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'ketrika-secret-2024')
+app.secret_key = os.environ.get('SECRET_KEY', 'ketrika-secure-key-SaaS-2024')
 
-dbu = os.environ.get('DATABASE_URL', 'sqlite:///ketrika.db')
-if dbu.startswith("postgres://"):
-    dbu = dbu.replace("postgres://", "postgresql://", 1)
+# Correction URL Postgres pour Render
+db_url = os.environ.get('DATABASE_URL', 'sqlite:///ketrika.db')
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = dbu
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Configuration de l'email
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = True
@@ -29,138 +32,206 @@ app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_SENDER', app.config['MAIL_USERNAME'])
 
-UPLOAD = os.path.join(app.root_path, 'static', 'uploads')
-os.makedirs(UPLOAD, exist_ok=True)
+UPLOAD_DIR = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 db.init_app(app)
 mail = Mail(app)
-lm = LoginManager()
-lm.init_app(app)
-lm.login_view = 'admin_login'
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'admin_login'
 
-@lm.user_loader
+@login_manager.user_loader
 def load_user(uid):
     return Admin.query.get(int(uid))
 
 with app.app_context():
     try:
         db.create_all()
-        au = os.environ.get('ADMIN_USER', 'admin')
-        ap = os.environ.get('ADMIN_PASS', 'KetrikaAdmin2024!')
-        if not Admin.query.filter_by(username=au).first():
-            db.session.add(Admin(username=au, password_hash=generate_password_hash(ap)))
+        admin_u = os.environ.get('ADMIN_USER', 'admin')
+        admin_p = os.environ.get('ADMIN_PASS', 'KetrikaAdmin2024!')
+        if not Admin.query.filter_by(username=admin_u).first():
+            db.session.add(Admin(username=admin_u, password_hash=generate_password_hash(admin_p)))
             db.session.commit()
     except Exception as e:
-        print(f"DB Error: {e}")
-
-# ==================== CSS ====================
-CSS = """
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f7f6;color:#2c3e50;min-height:100vh;line-height:1.6}
-nav{background:#fff;padding:14px 25px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e1e8ed;box-shadow:0 2px 8px rgba(0,0,0,.05);position:sticky;top:0;z-index:100}
-nav .logo{color:#00875a;font-size:21px;font-weight:700;text-decoration:none}
-nav .logo span{color:#0066cc}
-nav .links a{color:#5a6c7d;text-decoration:none;margin-left:16px;font-size:13px;font-weight:500}
-nav .links a:hover{color:#00875a}
-.container{max-width:1100px;margin:auto;padding:25px 15px}
-.flash{padding:12px 18px;border-radius:8px;margin-bottom:12px;font-size:14px}
-.flash.success{background:#e6f9ee;border-left:4px solid #00875a;color:#006644}
-.flash.error{background:#fde8e8;border-left:4px solid #cc3333;color:#991111}
-.flash.warning{background:#fff8e1;border-left:4px solid #f0a020;color:#8a5a00}
-.btn{padding:11px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:all .2s}
-.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
-.btn-g{background:#00875a;color:#fff}.btn-g:hover{background:#006644}
-.btn-b{background:#0066cc;color:#fff}.btn-b:hover{background:#004c99}
-.btn-o{background:#e65c00;color:#fff}
-.btn-r{background:#cc3333;color:#fff}
-.card{background:#fff;border-radius:12px;padding:22px;border:1px solid #e1e8ed;box-shadow:0 2px 8px rgba(0,0,0,.03)}
-label{display:block;margin:8px 0 4px;color:#4a5568;font-size:13px;font-weight:600}
-input,select,textarea{width:100%;padding:10px;border:1px solid #d1d9e0;border-radius:8px;background:#f8fafc;color:#2c3e50;font-size:14px;margin-bottom:4px}
-input:focus,select:focus{border-color:#00875a;background:#fff;outline:none;box-shadow:0 0 0 3px rgba(0,135,90,.1)}
-.row{display:flex;gap:14px;flex-wrap:wrap}
-.row>div{flex:1;min-width:210px}
-.check{display:flex;align-items:center;gap:8px;margin:8px 0;padding:8px;background:#f8fafc;border-radius:6px}
-.check input{width:auto}
-footer{text-align:center;padding:25px;color:#718096;border-top:1px solid #e1e8ed;margin-top:40px;background:#fff;font-size:12px}
-table{width:100%;border-collapse:collapse}
-th{padding:10px;text-align:left;background:#f0f4f8;font-size:12px;color:#4a5568}
-td{padding:10px;border-bottom:1px solid #edf2f7;font-size:13px}
-"""
-
-def wrap(title, body, js=""):
-    fl = """{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% for c,m in messages %}<div class="flash {{c}}">{{m}}</div>{% endfor %}{% endif %}{% endwith %}"""
-    return f"""<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} - KETRIKA</title><style>{CSS}</style></head><body>
-<nav><a href="/" class="logo">🛰️ KETRIKA <span>MIKROTIK</span></a><div class="links">
-<a href="/">Accueil</a><a href="/pourquoi-nous" style="color:#00875a;font-weight:700">Pourquoi Nous</a><a href="/track">🔍 Suivi</a><a href="/faq">FAQ</a><a href="/admin">Admin</a>
-</div></nav><div class="container">{fl}{body}</div><footer>© 2024 KETRIKA MIKROTIK - WiFi Zone Solutions 🛰️</footer>{js}</body></html>"""
+        print(f"Erreur d'initialisation de la DB : {e}")
 
 
-# ==================== ROUTES ====================
+# Layout Tailwind CSS moderne
+def wrap(title, body_content, extra_js=""):
+    flashes = """
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="max-w-4xl mx-auto mt-4 px-4">
+            {% for cat, msg in messages %}
+                <div class="p-4 rounded-xl mb-3 flex items-center gap-3 text-sm {% if cat=='success' %}bg-emerald-50 text-emerald-800 border-l-4 border-emerald-500{% elif cat=='error' %}bg-rose-50 text-rose-800 border-l-4 border-rose-500{% else %}bg-amber-50 text-amber-800 border-l-4 border-amber-500{% endif %}">
+                    <span>{% if cat=='success' %}✅{% elif cat=='error' %}❌{% else %}⚠️{% endif %}</span>
+                    <p class="font-medium">{{ msg }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% endwith %}
+    """
+    return f"""<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} - KETRIKA MIKROTIK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {{ font-family: 'Plus Jakarta Sans', sans-serif; }}
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+    <!-- BARRE DE NAVIGATION -->
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+            <a href="/" class="flex items-center gap-2 text-xl font-extrabold text-emerald-600 tracking-tight">
+                🛰️ KETRIKA <span class="text-sky-600 font-medium text-lg">MIKROTIK</span>
+            </a>
+            <div class="hidden md:flex items-center gap-6">
+                <a href="/" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">Accueil</a>
+                <a href="/pourquoi-nous" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">⭐ Pourquoi Nous</a>
+                <a href="/track" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">🔍 Suivi Commande</a>
+                <a href="/faq" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">FAQ</a>
+                <a href="/admin" class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition">Espace Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="flex-grow py-8">
+        {flashes}
+        <div class="max-w-4xl mx-auto px-4">
+            {body_content}
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-slate-100 py-12 mt-16">
+        <div class="max-w-6xl mx-auto px-4 text-center">
+            <p class="text-sm font-bold text-slate-800">🛰️ KETRIKA MIKROTIK - Opérateurs WiFi Zone Pro</p>
+            <p class="text-xs text-slate-400 mt-2">Compatible RouterOS v7 | Service d'optimisation réseau automatisé pour FAI Starlink</p>
+            <div class="flex justify-center gap-6 mt-6 text-xs font-semibold text-slate-400">
+                <a href="/" class="hover:text-emerald-600">Accueil</a>
+                <a href="/pourquoi-nous" class="hover:text-emerald-600">Pourquoi Nous</a>
+                <a href="/faq" class="hover:text-emerald-600">FAQ</a>
+                <a href="/conditions" class="hover:text-emerald-600">Conditions d'utilisation</a>
+            </div>
+        </div>
+    </footer>
+    {extra_js}
+</body>
+</html>"""
+
+
+# ==================== CONTENU DES PAGES ====================
 
 @app.route('/')
 def index():
-    ph = ""
-    for k, p in PLANS.items():
-        bd = f"border:2px solid {p['color']};" if p.get('popular') else ""
-        bg = f'<div style="background:{p["color"]};color:#fff;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;margin-bottom:8px">⭐ POPULAIRE</div><br>' if p.get('popular') else ''
-        ft = "".join(f'<li style="padding:5px 0;font-size:12px;border-bottom:1px solid #edf2f7">✅ {f}</li>' for f in p['features'])
-        ph += f'<div class="card" style="text-align:center;flex:1;min-width:270px;{bd}">{bg}<h3 style="color:{p["color"]};font-size:18px">{p["name"]}</h3><p style="color:#718096;font-size:12px;margin:4px 0 12px">{p["subtitle"]}</p><div style="font-size:30px;font-weight:700;color:{p["color"]};margin-bottom:12px">{p["price"]:,} <small style="font-size:13px;color:#718096">{p["currency"]}</small></div><ul style="list-style:none;text-align:left;margin-bottom:15px">{ft}</ul><a href="/configure/{k}" class="btn" style="width:100%;background:{p["color"]};color:#fff">Configurer →</a></div>'
-    mh = "".join(f'<span style="background:#fff;padding:5px 10px;border-radius:12px;font-size:11px;color:#0066cc;border:1px solid #d1d9e0">{m}</span>' for m in MIKROTIK_MODELS)
+    plans_html = ""
+    for key, p in PLANS.items():
+        border_cls = "ring-2 ring-emerald-500 shadow-xl relative scale-[1.03] md:scale-105" if p.get('popular') else "border border-slate-100 shadow-md"
+        badge = f'<div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-wider shadow">⭐ POPULAIRE</div>' if p.get('popular') else ''
+        features = "".join(f'<li class="py-2.5 text-xs text-slate-600 border-b border-slate-50 flex items-center gap-2">✅ <span class="flex-1">{f}</span></li>' for f in p['features'])
+        plans_html += f"""
+        <div class="bg-white rounded-2xl p-6 flex flex-col justify-between {border_cls}">
+            {badge}
+            <div class="text-center">
+                <h3 class="text-lg font-bold" style="color:{p['color']}">{p['name']}</h3>
+                <p class="text-xs text-slate-400 mt-1">{p['subtitle']}</p>
+                <div class="my-6">
+                    <span class="text-3xl font-extrabold" style="color:{p['color']}">{p['price']:,}</span>
+                    <span class="text-xs text-slate-400 font-bold ml-1">{p['currency']}</span>
+                </div>
+            </div>
+            <ul class="space-y-1 mb-8">{features}</ul>
+            <a href="/configure/{key}" class="w-full text-center py-3 rounded-xl text-xs font-bold text-white transition hover:-translate-y-0.5" style="background:{p['color']}">Configurer & Commander →</a>
+        </div>"""
+
+    models_html = "".join(f'<span class="bg-white border border-slate-200 text-sky-600 text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-sm">{m}</span>' for m in MIKROTIK_MODELS)
+
     body = f"""
-    <div style="text-align:center;padding:45px 20px;background:#fff;border-radius:14px;border:1px solid #e1e8ed;margin-bottom:25px">
-        <h1 style="font-size:38px;color:#00875a">🛰️ KETRIKA MIKROTIK</h1>
-        <h2 style="color:#0066cc;font-weight:400;font-size:18px">Configuration Automatique WiFi Zone</h2>
-        <p style="color:#5a6c7d;max-width:650px;margin:12px auto">Scripts MikroTik RouterOS v7 avec optimisation réseau avancée. <strong>Sans redémarrage !</strong></p>
-        <div style="margin-top:15px"><a href="/track" class="btn btn-b" style="font-size:13px">🔍 Déjà commandé ? Entrer votre code</a></div>
+    <!-- BANNIÈRE ACCUEIL -->
+    <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center mb-12">
+        <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">Solution SaaS Professionnelle</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Optimisez vos zones WiFi sous Starlink</h1>
+        <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Générez un script MikroTik RouterOS v7 optimisé pour sécuriser vos flux et bypasser les limites de partage FAI.</p>
+        <div class="mt-6 flex flex-wrap justify-center gap-4">
+            <a href="#plans" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md transition">🚀 Voir nos Plans</a>
+            <a href="/track" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-xs font-bold transition">🔍 Suivi de Commande</a>
+        </div>
     </div>
-    <h2 style="text-align:center;color:#2d3748;margin:25px 0 15px">📦 Nos Plans</h2>
-    <div class="row">{ph}</div>
-    <h2 style="text-align:center;color:#2d3748;margin:35px 0 12px;font-size:18px">🖥️ Modèles Compatibles (RouterOS v7)</h2>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">{mh}</div>"""
+
+    <!-- STATS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
+            <div class="text-2xl font-extrabold text-emerald-600">500+</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Opérateurs actifs</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
+            <div class="text-2xl font-extrabold text-sky-600">99.9%</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Taux de stabilité</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
+            <div class="text-2xl font-extrabold text-amber-500">&lt; 30s</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Application instantanée</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
+            <div class="text-2xl font-extrabold text-rose-500">0</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Redémarrage requis</p>
+        </div>
+    </div>
+
+    <!-- PLANS -->
+    <h2 id="plans" class="text-xl font-extrabold text-slate-900 text-center mb-8">📦 Sélectionnez un Plan</h2>
+    <div class="grid md:grid-cols-3 gap-6 mb-12">{plans_html}</div>
+
+    <!-- MODÈLES -->
+    <div class="bg-slate-100/60 rounded-3xl p-8 border border-slate-200/50 text-center">
+        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">🖥️ Modèles compatibles avec auto-détection</h3>
+        <div class="flex flex-wrap justify-center gap-2">{models_html}</div>
+    </div>"""
     return render_template_string(wrap("Accueil", body))
 
 
 @app.route('/pourquoi-nous')
 def pourquoi_nous():
     body = """
-    <div style="text-align:center;padding:50px 25px;background:linear-gradient(135deg,#00875a,#0066cc);border-radius:14px;color:#fff;margin-bottom:30px">
-        <h1 style="color:#fff;font-size:34px">Pourquoi Choisir KETRIKA ?</h1>
-        <p style="font-size:16px;opacity:.95;max-width:650px;margin:12px auto 0">La référence Malgache en configuration MikroTik pour opérateurs WiFi Zone</p>
+    <div class="bg-gradient-to-br from-emerald-600 to-sky-600 rounded-3xl p-8 text-white text-center mb-10 shadow-lg">
+        <h1 class="text-3xl font-extrabold leading-tight">Pourquoi faire confiance à KETRIKA ?</h1>
+        <p class="text-emerald-50 text-sm mt-2 max-w-xl mx-auto">La première plateforme automatisée à Madagascar d'optimisation réseau MikroTik pour réseaux de partage et WiFi Zone.</p>
     </div>
-    <div class="row" style="margin-bottom:30px">
-        <div class="card" style="text-align:center;flex:1;background:linear-gradient(135deg,#f0f9f4,#e6f9ee)"><div style="font-size:38px;font-weight:800;color:#00875a">500+</div><div style="color:#4a5568;font-weight:600">Routeurs Configurés</div><div style="color:#718096;font-size:11px">à Madagascar</div></div>
-        <div class="card" style="text-align:center;flex:1;background:linear-gradient(135deg,#f0f7ff,#e6f2fb)"><div style="font-size:38px;font-weight:800;color:#0066cc">99.9%</div><div style="color:#4a5568;font-weight:600">Taux de Réussite</div><div style="color:#718096;font-size:11px">Configurations validées</div></div>
-        <div class="card" style="text-align:center;flex:1;background:linear-gradient(135deg,#fff8e1,#fff3c4)"><div style="font-size:38px;font-weight:800;color:#f0a020">&lt;30s</div><div style="color:#4a5568;font-weight:600">Temps d'Application</div><div style="color:#718096;font-size:11px">Sans redémarrage</div></div>
-        <div class="card" style="text-align:center;flex:1;background:linear-gradient(135deg,#fce4ec,#f8bbd0)"><div style="font-size:38px;font-weight:800;color:#c2185b">24/7</div><div style="color:#4a5568;font-weight:600">Support Client</div><div style="color:#718096;font-size:11px">Assistance dédiée</div></div>
+
+    <div class="grid md:grid-cols-3 gap-6 mb-10">
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-3xl mb-3">⚡</div>
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Génération Automatique</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Notre algorithme détecte et configure automatiquement les ports Ethernet et les cartes sans fil selon le modèle choisi.</p>
+        </div>
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-3xl mb-3">🔒</div>
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Safe-Mode Intégré</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Les commandes critiques sont exécutées à l'aide de délais intelligents et de traitements d'erreurs afin d'éliminer tout risque de déconnexion.</p>
+        </div>
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-3xl mb-3">🛡️</div>
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Bypass DPI Starlink</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Le routage intelligent combiné à la normalisation de la taille des paquets (MSS) et du TTL masque parfaitement la présence de votre routeur.</p>
+        </div>
     </div>
-    <h2 style="text-align:center;color:#2d3748;margin:30px 0 15px">🎯 Nos Avantages</h2>
-    <div class="row">
-        <div class="card" style="flex:1;min-width:270px"><div style="font-size:35px">⚡</div><h3 style="color:#00875a;margin:8px 0">Génération Automatique</h3><p style="color:#4a5568;font-size:13px">Script personnalisé selon votre modèle exact. Détection auto des ports et interfaces WiFi.</p></div>
-        <div class="card" style="flex:1;min-width:270px"><div style="font-size:35px">🛡️</div><h3 style="color:#0066cc;margin:8px 0">Safe-Mode Intégré</h3><p style="color:#4a5568;font-size:13px">Scripts avec <strong>Safe-Mode RouterOS v7</strong>, délais intelligents et gestion d'erreurs. <strong>Aucune coupure !</strong></p></div>
-        <div class="card" style="flex:1;min-width:270px"><div style="font-size:35px">🔐</div><h3 style="color:#e65c00;margin:8px 0">Licence Unique</h3><p style="color:#4a5568;font-size:13px">Clé unique par routeur. Support technique prioritaire 30 jours inclus.</p></div>
-    </div>
-    <h2 style="text-align:center;color:#2d3748;margin:35px 0 15px">🚀 Technologies</h2>
-    <div class="card"><div class="row">
-        <div style="flex:1;min-width:260px"><h3 style="color:#00875a">✅ Optimisation Réseau</h3><ul style="list-style:none;color:#4a5568;font-size:13px"><li style="padding:6px 0;border-bottom:1px solid #edf2f7">🔧 Normalisation TTL (64/65/128)</li><li style="padding:6px 0;border-bottom:1px solid #edf2f7">📊 Clamp MSS & PMTU</li><li style="padding:6px 0;border-bottom:1px solid #edf2f7">🚫 Filtrage ICMP</li><li style="padding:6px 0">🔒 Firewall Layer 7</li></ul></div>
-        <div style="flex:1;min-width:260px"><h3 style="color:#0066cc">☁️ Tunnel Cloudflare</h3><ul style="list-style:none;color:#4a5568;font-size:13px"><li style="padding:6px 0;border-bottom:1px solid #edf2f7">🔐 WireGuard AES-256</li><li style="padding:6px 0;border-bottom:1px solid #edf2f7">🌐 DNS over HTTPS</li><li style="padding:6px 0;border-bottom:1px solid #edf2f7">⚡ Latence optimisée</li><li style="padding:6px 0">🛡️ Bypass DPI</li></ul></div>
-    </div></div>
-    <h2 style="text-align:center;color:#2d3748;margin:35px 0 15px">📋 Comment ça marche ?</h2>
-    <div class="row">
-        <div class="card" style="flex:1;text-align:center"><div style="background:#00875a;color:#fff;width:40px;height:40px;border-radius:50%;line-height:40px;font-size:18px;font-weight:800;margin:auto">1</div><h4 style="margin:10px 0 5px;color:#00875a">Choisir</h4><p style="color:#718096;font-size:12px">Plan adapté</p></div>
-        <div class="card" style="flex:1;text-align:center"><div style="background:#0066cc;color:#fff;width:40px;height:40px;border-radius:50%;line-height:40px;font-size:18px;font-weight:800;margin:auto">2</div><h4 style="margin:10px 0 5px;color:#0066cc">Configurer</h4><p style="color:#718096;font-size:12px">Modèle & options</p></div>
-        <div class="card" style="flex:1;text-align:center"><div style="background:#f0a020;color:#fff;width:40px;height:40px;border-radius:50%;line-height:40px;font-size:18px;font-weight:800;margin:auto">3</div><h4 style="margin:10px 0 5px;color:#f0a020">Payer</h4><p style="color:#718096;font-size:12px">MVola / Orange / Airtel</p></div>
-        <div class="card" style="flex:1;text-align:center"><div style="background:#c2185b;color:#fff;width:40px;height:40px;border-radius:50%;line-height:40px;font-size:18px;font-weight:800;margin:auto">4</div><h4 style="margin:10px 0 5px;color:#c2185b">Appliquer</h4><p style="color:#718096;font-size:12px">30 secondes !</p></div>
-    </div>
-    <h2 style="text-align:center;color:#2d3748;margin:35px 0 15px">💬 Témoignages</h2>
-    <div class="row">
-        <div class="card" style="flex:1;min-width:260px"><div style="color:#f0a020">⭐⭐⭐⭐⭐</div><p style="color:#4a5568;font-style:italic;margin:10px 0;font-size:13px">"3 routeurs configurés en 5 minutes. Aucune coupure. Je recommande !"</p><p style="color:#00875a;font-weight:700;font-size:13px">— Rakoto H., Tana</p></div>
-        <div class="card" style="flex:1;min-width:260px"><div style="color:#f0a020">⭐⭐⭐⭐⭐</div><p style="color:#4a5568;font-style:italic;margin:10px 0;font-size:13px">"Le plan Hotspot est parfait pour mon business. Vouchers, PPPoE, tout pré-configuré."</p><p style="color:#00875a;font-weight:700;font-size:13px">— Faly R., Toamasina</p></div>
-        <div class="card" style="flex:1;min-width:260px"><div style="color:#f0a020">⭐⭐⭐⭐⭐</div><p style="color:#4a5568;font-style:italic;margin:10px 0;font-size:13px">"Plus aucun problème de restriction FAI depuis le plan WARP. Vitesse stable !"</p><p style="color:#00875a;font-weight:700;font-size:13px">— Andry N., Fianarantsoa</p></div>
-    </div>
-    <div style="text-align:center;padding:40px 25px;background:linear-gradient(135deg,#f0f9f4,#e6f2fb);border-radius:14px;margin-top:30px">
-        <h2 style="color:#00875a;margin-bottom:10px">Prêt à Optimiser Votre Réseau ?</h2>
-        <p style="color:#4a5568;margin-bottom:15px">Rejoignez les 500+ opérateurs WiFi Zone</p>
-        <a href="/" class="btn btn-g" style="padding:14px 35px;font-size:15px">🚀 Commencer</a>
+
+    <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">📋 Étapes de commande simplifiées</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div><div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center mb-3">1</div><h4 class="text-xs font-bold text-slate-800">Choix du plan</h4><p class="text-[11px] text-slate-400 mt-1">Trouvez l'offre idéale.</p></div>
+            <div><div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center mb-3">2</div><h4 class="text-xs font-bold text-slate-800">Configuration</h4><p class="text-[11px] text-slate-400 mt-1">Paramètres de votre réseau.</p></div>
+            <div><div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold flex items-center justify-center mb-3">3</div><h4 class="text-xs font-bold text-slate-800">Paiement Mobile</h4><p class="text-[11px] text-slate-400 mt-1">MVola, Orange, Airtel.</p></div>
+            <div><div class="w-8 h-8 rounded-full bg-rose-100 text-rose-700 font-bold flex items-center justify-center mb-3">4</div><h4 class="text-xs font-bold text-slate-800">Prêt en 30s</h4><p class="text-[11px] text-slate-400 mt-1">Installez via WinBox.</p></div>
+        </div>
     </div>"""
     return render_template_string(wrap("Pourquoi Nous", body))
 
@@ -174,15 +245,15 @@ def track():
             flash(f"Aucune commande trouvée : {code}", "error")
             return redirect(url_for('track'))
         if o.status in ('validated', 'delivered'):
-            return redirect(url_for('result', order_id=o.order_id))
-        return redirect(url_for('order_status', order_id=o.order_id))
+            return redirect(url_for('result', oid=o.order_id)) # CORRIGÉ : utilise oid
+        return redirect(url_for('order_status', oid=o.order_id)) # CORRIGÉ : utilise oid
     body = """
-    <div class="card" style="max-width:500px;margin:40px auto;text-align:center">
-        <h2 style="color:#00875a">🔍 Récupérer Votre Configuration</h2>
-        <p style="color:#718096;margin:10px 0 20px;font-size:13px">Entrez votre code commande (ex: KTK-260908-7F9A29)</p>
-        <form method="POST">
-            <input name="code" placeholder="KTK-XXXXXX-XXXXXX" required style="font-size:16px;text-align:center;letter-spacing:1px;font-weight:600;padding:14px">
-            <button type="submit" class="btn btn-g" style="width:100%;margin-top:10px;padding:14px">🚀 Accéder à ma configuration</button>
+    <div class="max-w-md mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md text-center">
+        <h2 class="text-xl font-bold text-slate-900">🔍 Suivi & Récupération de Script</h2>
+        <p class="text-xs text-slate-400 mt-2 mb-6">Entrez votre code commande ou votre licence pour y accéder</p>
+        <form method="POST" class="space-y-4">
+            <input name="code" placeholder="Ex: KTK-241215-ABCDEF" required class="text-center font-bold tracking-wider py-3.5 rounded-xl border border-slate-200">
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow">🚀 Accéder à mon espace</button>
         </form>
     </div>"""
     return render_template_string(wrap("Suivi", body))
@@ -191,7 +262,7 @@ def track():
 @app.route('/configure/<pt>', methods=['GET', 'POST'])
 def configure(pt):
     if pt not in PLANS:
-        flash('Plan invalide', 'error')
+        flash('Le plan sélectionné est introuvable.', 'error')
         return redirect(url_for('index'))
     plan = PLANS[pt]
     if request.method == 'POST':
@@ -210,78 +281,114 @@ def configure(pt):
         o.ssid = request.form.get('ssid', 'WiFiZone-Ketrika')
         o.wifi_password = request.form.get('wifi_password', 'Ketrika2024')
         o.ttl_value = int(request.form.get('ttl_value', 65))
-        lm2 = request.form.get('limit_mode', 'preset')
-        if lm2 == 'nolimit':
+        
+        lm_val = request.form.get('limit_mode', 'preset')
+        if lm_val == 'nolimit':
             o.dl_limit = 'nolimit'
             o.ul_limit = 'nolimit'
-        elif lm2 == 'custom':
+        elif lm_val == 'custom':
             o.dl_limit = request.form.get('dl_custom', '10M').strip()
             o.ul_limit = request.form.get('ul_custom', '5M').strip()
         else:
             o.dl_limit = request.form.get('dl_preset', '10M')
             o.ul_limit = request.form.get('ul_preset', '5M')
+            
         if pt == 'hotspot':
             o.hotspot_name = request.form.get('hotspot_name', 'WiFiZone')
             o.pppoe_enabled = 'pppoe' in request.form
             o.voucher_enabled = 'voucher' in request.form
+            
         o.status = 'pending'
         db.session.add(o)
         db.session.commit()
-        return redirect(url_for('payment', order_id=o.order_id))
+        return redirect(url_for('payment', oid=o.order_id)) # CORRIGÉ : utilise oid
 
     mo = "".join(f'<option value="{m}">{m}</option>' for m in MIKROTIK_MODELS)
     hs = ""
     if pt == 'hotspot':
-        hs = """<h3 style="color:#0066cc;margin:18px 0 8px">🌐 Hotspot & PPPoE</h3>
-        <div class="row"><div><label>Nom Hotspot</label><input name="hotspot_name" value="WiFiZone"></div></div>
-        <div class="check"><input type="checkbox" name="pppoe" id="pppoe"><label for="pppoe" style="margin:0">Activer PPPoE</label></div>
-        <div class="check"><input type="checkbox" name="voucher" id="voucher" checked><label for="voucher" style="margin:0">Générer vouchers</label></div>"""
+        hs = """
+        <div class="pt-6 border-t border-slate-100">
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🌐 Configuration Hotspot & PPPoE</h3>
+            <div class="row">
+                <div><label>Nom du Hotspot</label><input name="hotspot_name" value="WiFiZone"></div>
+            </div>
+            <div class="flex flex-col gap-2 mt-4">
+                <div class="check"><input type="checkbox" name="pppoe" id="pppoe"><label for="pppoe" class="cursor-pointer select-none text-slate-600">Activer le serveur PPPoE</label></div>
+                <div class="check"><input type="checkbox" name="voucher" id="voucher" checked><label for="voucher" class="cursor-pointer select-none text-slate-600">Générer 10 vouchers d'accès</label></div>
+            </div>
+        </div>"""
 
     body = f"""
-    <div class="card">
-        <h2 style="color:{plan['color']};text-align:center">⚙️ {plan['name']}</h2>
-        <p style="text-align:center;color:#718096;margin-bottom:18px"><strong>{plan['price']:,} {plan['currency']}</strong></p>
-        <form method="POST">
-            <h3 style="color:#0066cc;margin-bottom:8px">👤 Informations</h3>
-            <div class="row">
-                <div><label>Nom *</label><input name="client_name" required placeholder="Jean Rakoto"></div>
-                <div><label>Email *</label><input name="client_email" type="email" required placeholder="jean@gmail.com"></div>
-                <div><label>Téléphone</label><input name="client_phone" placeholder="034 00 000 00"></div>
+    <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
+        <div class="text-center pb-6 border-b border-slate-100 mb-6">
+            <h2 class="text-xl font-bold" style="color:{plan['color']}">⚙️ Configuration : {plan['name']}</h2>
+            <p class="text-sm text-slate-400 mt-1">Tarif unique : <strong class="text-slate-800">{plan['price']:,} {plan['currency']}</strong></p>
+        </div>
+        
+        <form method="POST" class="space-y-6">
+            <div>
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">👤 Coordonnées Client</h3>
+                <div class="row">
+                    <div><label>Nom complet *</label><input name="client_name" required placeholder="Rakoto Andry"></div>
+                    <div><label>Email *</label><input name="client_email" type="email" required placeholder="rakoto@gmail.com"></div>
+                    <div><label>Téléphone</label><input name="client_phone" placeholder="034 00 000 00"></div>
+                </div>
             </div>
-            <h3 style="color:#0066cc;margin:18px 0 8px">🖥️ Routeur MikroTik</h3>
-            <div class="row"><div><label>Modèle *</label><select name="mikrotik_model" id="ms" required><option value="">-- Choisir --</option>{mo}</select></div></div>
-            <div id="pp" style="background:#e6f9ee;padding:10px;border-radius:8px;margin:8px 0;display:none"><strong style="color:#00875a">📍 Ports :</strong> <span id="pv" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px"></span></div>
-            <h3 style="color:#0066cc;margin:18px 0 8px">🌐 Réseau</h3>
-            <div class="row">
-                <div><label>WAN</label><select name="wan_interface"><option value="ether1">ether1</option><option value="sfp1">sfp1</option></select></div>
-                <div><label>LAN</label><input name="lan_network" value="192.168.88.0/24"></div>
-                <div><label>Gateway</label><input name="lan_gateway" value="192.168.88.1"></div>
+
+            <div class="pt-6 border-t border-slate-100">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🖥️ Caractéristiques du Routeur</h3>
+                <div class="row">
+                    <div><label>Modèle MikroTik *</label><select name="mikrotik_model" id="ms" required><option value="">-- Sélectionner --</option>{mo}</select></div>
+                </div>
+                <div id="pp" class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mt-4 flex items-center gap-3" style="display:none">
+                    <strong class="text-xs font-bold text-emerald-800 shrink-0">📍 Configuration des Ports :</strong>
+                    <div id="pv" class="flex gap-2 flex-wrap"></div>
+                </div>
             </div>
-            <div class="row">
-                <div><label>DHCP Pool</label><input name="dhcp_pool" value="192.168.88.10-192.168.88.250"></div>
-                <div><label>SSID</label><input name="ssid" value="WiFiZone-Ketrika"></div>
-                <div><label>Mot de passe WiFi</label><input name="wifi_password" value="Ketrika2024"></div>
+
+            <div class="pt-6 border-t border-slate-100">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🌐 Informations Réseau</h3>
+                <div class="row">
+                    <div><label>Interface WAN (Starlink)</label><select name="wan_interface"><option value="ether1">ether1</option><option value="sfp1">sfp1</option></select></div>
+                    <div><label>Plage d'IP LAN</label><input name="lan_network" value="192.168.88.0/24"></div>
+                    <div><label>IP Gateway</label><input name="lan_gateway" value="192.168.88.1"></div>
+                </div>
+                <div class="row mt-4">
+                    <div><label>Plage DHCP</label><input name="dhcp_pool" value="192.168.88.10-192.168.88.250"></div>
+                    <div><label>SSID WiFi principal</label><input name="ssid" value="WiFiZone-Ketrika"></div>
+                    <div><label>Mot de passe du WiFi</label><input name="wifi_password" value="Ketrika2024"></div>
+                </div>
             </div>
-            <h3 style="color:#0066cc;margin:18px 0 8px">🛡️ Optimisation Réseau</h3>
-            <div class="row">
-                <div><label>TTL</label><select name="ttl_value"><option value="65" selected>65 (Recommandé)</option><option value="64">64</option><option value="128">128</option></select></div>
-                <div><label>Mode Limitation</label><select name="limit_mode" id="lm" onchange="tl()"><option value="preset">📊 Prédéfini</option><option value="nolimit">🚀 Sans Limite</option><option value="custom">⚙️ Personnalisé</option></select></div>
+
+            <div class="pt-6 border-t border-slate-100">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🛡️ Optimisation de Bande Passante</h3>
+                <div class="row">
+                    <div><label>Force TTL</label><select name="ttl_value"><option value="65" selected>65 (Idéal Starlink)</option><option value="64">64</option><option value="128">128</option></select></div>
+                    <div><label>Limitation bande passante</label><select name="limit_mode" id="lm" onchange="tl()"><option value="preset">📊 Profil prédéfini</option><option value="nolimit">🚀 Illimité (Pas de limitation)</option><option value="custom">⚙️ Vitesse personnalisée</option></select></div>
+                </div>
+                
+                <div id="pl" class="row mt-4">
+                    <div><label>Vitesse de Download (Réception)</label><select name="dl_preset"><option value="5M">5 Mbps</option><option value="10M" selected>10 Mbps</option><option value="20M">20 Mbps</option><option value="50M">50 Mbps</option></select></div>
+                    <div><label>Vitesse d'Upload (Envoi)</label><select name="ul_preset"><option value="2M">2 Mbps</option><option value="5M" selected>5 Mbps</option><option value="10M">10 Mbps</option></select></div>
+                </div>
+                
+                <div id="cl" class="row mt-4" style="display:none">
+                    <div><label>Download manuel (ex: 15M, 800k)</label><input name="dl_custom" placeholder="25M" value="25M"></div>
+                    <div><label>Upload manuel (ex: 8M, 400k)</label><input name="ul_custom" placeholder="10M" value="10M"></div>
+                </div>
+                
+                <div id="nl" class="p-4 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-semibold mt-4" style="display:none">
+                    🚀 Limitation désactivée. Les clients utiliseront l'intégralité de la bande passante Starlink.
+                </div>
             </div>
-            <div id="pl" class="row">
-                <div><label>Download / client</label><select name="dl_preset"><option value="5M">5 Mbps</option><option value="10M" selected>10 Mbps</option><option value="20M">20 Mbps</option><option value="50M">50 Mbps</option><option value="100M">100 Mbps</option></select></div>
-                <div><label>Upload / client</label><select name="ul_preset"><option value="2M">2 Mbps</option><option value="5M" selected>5 Mbps</option><option value="10M">10 Mbps</option><option value="20M">20 Mbps</option></select></div>
-            </div>
-            <div id="cl" class="row" style="display:none">
-                <div><label>Download (ex: 25M, 500k)</label><input name="dl_custom" placeholder="25M" value="25M"></div>
-                <div><label>Upload (ex: 10M, 200k)</label><input name="ul_custom" placeholder="10M" value="10M"></div>
-            </div>
-            <div id="nl" class="card" style="background:#e6f9ee;border-left:4px solid #00875a;padding:12px;display:none"><p style="color:#00875a;font-weight:600">🚀 Mode Illimité</p><p style="color:#4a5568;font-size:12px">Aucune restriction. Vitesse maximale pour tous.</p></div>
+
             {hs}
-            <button type="submit" class="btn btn-g" style="width:100%;margin-top:20px;padding:14px;font-size:15px">💳 Passer au paiement — {plan['price']:,} {plan['currency']}</button>
+
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-4 rounded-xl shadow-lg transition">💳 Passer à l'Étape de Paiement — {plan['price']:,} {plan['currency']}</button>
         </form>
     </div>"""
     js = """<script>
-    document.getElementById('ms').addEventListener('change',function(){var m=this.value;if(!m){document.getElementById('pp').style.display='none';return}fetch('/api/model/'+encodeURIComponent(m)).then(r=>r.json()).then(d=>{document.getElementById('pp').style.display='block';var v=document.getElementById('pv');v.innerHTML='<span style="background:#cc3333;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px">ether1 WAN</span>';for(var i=2;i<=d.ports;i++)v.innerHTML+='<span style="background:#0066cc;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px">ether'+i+'</span>';if(d.wifi)v.innerHTML+='<span style="background:#00875a;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px">WiFi</span>'})});
+    document.getElementById('ms').addEventListener('change',function(){var m=this.value;if(!m){document.getElementById('pp').style.display='none';return}fetch('/api/model/'+encodeURIComponent(m)).then(r=>r.json()).then(d=>{document.getElementById('pp').style.display='flex';var v=document.getElementById('pv');v.innerHTML='<span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded text-[10px] font-bold">ether1 WAN</span>';for(var i=2;i<=d.ports;i++)v.innerHTML+='<span class="bg-sky-100 text-sky-700 px-2.5 py-1 rounded text-[10px] font-bold">ether'+i+'</span>';if(d.wifi)v.innerHTML+='<span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded text-[10px] font-bold">WiFi</span>'})});
     function tl(){var m=document.getElementById('lm').value;document.getElementById('pl').style.display=m==='preset'?'flex':'none';document.getElementById('cl').style.display=m==='custom'?'flex':'none';document.getElementById('nl').style.display=m==='nolimit'?'block':'none'}
     </script>"""
     return render_template_string(wrap("Configurer", body, js))
@@ -306,26 +413,39 @@ def payment(oid):
             o.payment_proof = fp
             o.payment_method = request.form.get('pm', 'mvola')
             db.session.commit()
-            flash('Preuve reçue ! Validation en cours.', 'success')
-            return redirect(url_for('order_status', order_id=o.order_id))
-        flash('Ajoutez une capture', 'error')
+            flash('Preuve de transfert enregistrée ! Votre script est en cours de traitement.', 'success')
+            return redirect(url_for('order_status', oid=o.order_id)) # CORRIGÉ : utilise oid
+        flash('Veuillez joindre la capture d\'écran de confirmation', 'error')
     body = f"""
-    <div class="card" style="max-width:580px;margin:auto">
-        <h2 style="color:#00875a;text-align:center">💳 Paiement</h2>
-        <p style="text-align:center;color:#718096">Code : <strong style="color:#0066cc">{o.order_id}</strong></p>
-        <div style="background:#f0f9f4;padding:18px;text-align:center;border-radius:8px;margin:15px 0"><div style="font-size:32px;font-weight:700;color:#00875a">{p['price']:,} {p['currency']}</div><p style="color:#718096">{p['name']}</p></div>
-        <form method="POST" enctype="multipart/form-data">
-            <h3 style="color:#0066cc">1. Envoyez le montant :</h3>
-            <div style="background:#fff8e1;padding:12px;border-radius:8px;border-left:4px solid #f0a020;margin:8px 0">
-                <p>📱 MVola / Orange / Airtel : <strong style="font-size:20px;color:#00875a">034 00 000 00</strong></p>
-                <p style="font-size:11px;color:#718096">Réf : {o.order_id}</p>
+    <div class="max-w-xl mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
+        <h2 class="text-xl font-bold text-slate-900 text-center">💳 Confirmation du Règlement</h2>
+        <p class="text-xs text-slate-400 text-center mt-1">Code de traitement : <strong class="text-slate-700">{o.order_id}</strong></p>
+        
+        <div class="bg-slate-50 p-6 rounded-2xl text-center my-6">
+            <div class="text-3xl font-extrabold text-slate-900">{p['price']:,} {p['currency']}</div>
+            <p class="text-xs font-semibold text-slate-400 mt-1">{p['name']}</p>
+        </div>
+        
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <div>
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">1. Effectuez le paiement mobile</h3>
+                <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
+                    <p class="text-xs font-semibold text-amber-900">📱 Mobile Money (MVola, Orange, Airtel) :</p>
+                    <p class="text-xl font-black text-amber-800 mt-2">034 00 000 00</p>
+                    <p class="text-[11px] text-amber-700/80 mt-1 font-semibold">Référence à inclure : {o.order_id}</p>
+                </div>
             </div>
-            <h3 style="color:#0066cc;margin-top:15px">2. Preuve de paiement :</h3>
-            <div style="border:2px dashed #00875a;padding:20px;text-align:center;border-radius:8px;cursor:pointer" onclick="document.getElementById('fi').click()">
-                <p id="fn">📸 Cliquez pour choisir la capture</p>
-                <input type="file" id="fi" name="proof" accept="image/*,.pdf" required style="display:none" onchange="document.getElementById('fn').textContent='✅ '+this.files[0].name">
+            
+            <div>
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">2. Téléversez la capture d'écran</h3>
+                <div class="border-2 border-dashed border-slate-200 bg-slate-50 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-100/50 transition" onclick="document.getElementById('fi').click()">
+                    <p id="fn" class="text-xs font-bold text-slate-600">📸 Cliquez pour choisir l'image</p>
+                    <p class="text-[10px] text-slate-400 mt-1">Format Image ou PDF</p>
+                    <input type="file" id="fi" name="proof" accept="image/*,.pdf" required class="hidden" onchange="document.getElementById('fn').textContent='✅ '+this.files[0].name; document.getElementById('fn').className='text-xs font-bold text-emerald-600'">
+                </div>
             </div>
-            <button type="submit" class="btn btn-g" style="width:100%;margin-top:12px">✅ Envoyer</button>
+            
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">✅ Valider mon paiement</button>
         </form>
     </div>"""
     return render_template_string(wrap("Paiement", body))
@@ -334,14 +454,14 @@ def payment(oid):
 @app.route('/status/<oid>')
 def order_status(oid):
     o = Order.query.filter_by(order_id=oid).first_or_404()
-    btn = f'<a href="/result/{o.order_id}" class="btn btn-g" style="margin-top:12px">📥 Voir mon script</a>' if o.status in ('validated','delivered') else ''
+    btn = f'<a href="/result/{o.order_id}" class="w-full text-center py-3.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow block transition">📥 Accéder à mon script</a>' if o.status in ('validated','delivered') else ''
     body = f"""
-    <div class="card" style="max-width:480px;margin:35px auto;text-align:center">
-        <h2 style="color:#0066cc">📦 Suivi Commande</h2>
-        <p style="margin:8px 0"><strong>{o.order_id}</strong></p>
-        <div style="font-size:45px;margin:12px 0">{'🟡' if o.status=='pending' else '✅'}</div>
-        <h3>{o.status_badge}</h3>
-        <p style="color:#718096;margin:12px 0">{'Validation en cours...' if o.status=='pending' else 'Configuration prête !'}</p>
+    <div class="max-w-md mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md text-center">
+        <h2 class="text-xl font-bold text-slate-900">📦 État de la demande</h2>
+        <p class="text-xs text-slate-400 mt-1">Commande : <strong>{o.order_id}</strong></p>
+        <div class="text-5xl my-6">{'🟡' if o.status=='pending' else '✅'}</div>
+        <h3 class="text-lg font-bold text-slate-800">{o.status_badge}</h3>
+        <p class="text-xs text-slate-500 mt-2 mb-6">{'Un administrateur procède à la vérification de votre paiement.' if o.status=='pending' else 'La vérification est terminée ! Votre script est disponible.'}</p>
         {btn}
     </div>"""
     return render_template_string(wrap("Statut", body))
@@ -351,33 +471,35 @@ def order_status(oid):
 def result(oid):
     o = Order.query.filter_by(order_id=oid).first_or_404()
     if o.status not in ('validated', 'delivered'):
-        flash('Commande en attente', 'warning')
-        return redirect(url_for('order_status', order_id=o.order_id))
+        flash('Commande en attente de traitement', 'warning')
+        return redirect(url_for('order_status', oid=o.order_id)) # CORRIGÉ : utilise oid
     if not o.script_content:
         o.script_content = generate_full_script(o)
         db.session.commit()
-    lim = "🚀 Illimitée" if o.dl_limit == 'nolimit' else f"⬇️ {o.dl_limit} / ⬆️ {o.ul_limit}"
+    lim = "🚀 Mode Illimité" if o.dl_limit == 'nolimit' else f"⬇️ {o.dl_limit} / ⬆️ {o.ul_limit}"
     body = f"""
-    <div class="card" style="background:#e6f9ee;border:2px solid #00875a;text-align:center;margin-bottom:20px">
-        <h2 style="color:#00875a">🎉 Configuration Prête !</h2>
-        <p>Code : <strong>{o.order_id}</strong> | Licence : <strong style="color:#0066cc">{o.license_key}</strong></p>
-        <p style="color:#4a5568;font-size:13px;margin-top:5px">Modèle : {o.mikrotik_model} | Bande passante : {lim}</p>
+    <div class="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 text-center mb-6">
+        <h2 class="text-lg font-bold text-emerald-800">🎉 Votre script est disponible !</h2>
+        <p class="text-xs text-emerald-600 mt-1">ID Commande : <strong>{o.order_id}</strong> | Licence : <strong class="text-slate-800 font-bold">{o.license_key}</strong></p>
+        <p class="text-xs text-slate-500 mt-3">Modèle configuré : <strong class="font-bold text-slate-700">{o.mikrotik_model}</strong> | Limitation client : <strong class="font-bold text-slate-700">{lim}</strong></p>
     </div>
-    <div class="card" style="background:#fff8e1;border-left:4px solid #f0a020;margin-bottom:15px">
-        <h3 style="color:#8a5a00">⚠️ Avant de coller le script</h3>
-        <p style="color:#4a5568;font-size:13px;margin:8px 0"><strong>🔒 Safe-Mode activé :</strong> Notre script utilise des délais et protections. Aucune déconnexion !</p>
-        <p style="color:#4a5568;font-size:13px"><strong>💡 Conseil :</strong> Appuyez sur <strong>F4</strong> dans le terminal WinBox (Safe Mode) avant de coller.</p>
+
+    <div class="bg-amber-50 border border-amber-100 rounded-2xl p-5 mb-6">
+        <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wider mb-2">⚠️ Consignes d'installation</h3>
+        <p class="text-[11px] text-slate-600 leading-relaxed">Notre script utilise le <strong>Safe-Mode</strong>. Par précaution lors du collage direct dans le terminal WinBox, nous vous suggérons d'activer l'icône <strong>F4 (Safe Mode)</strong> dans votre terminal pour sécuriser le déploiement.</p>
     </div>
-    <div class="card" style="margin-bottom:15px">
-        <h3 style="color:#00875a">📋 Méthode 1 : Terminal WinBox</h3>
-        <p style="color:#718096;font-size:12px;margin:5px 0 8px">WinBox → New Terminal → F4 (Safe Mode) → Coller</p>
-        <button class="btn btn-b" onclick="navigator.clipboard.writeText(document.getElementById('sc').innerText);this.textContent='✅ Copié !';setTimeout(()=>this.textContent='📋 Copier le script',2000)">📋 Copier le script</button>
-        <pre id="sc" style="background:#1e2a3a;color:#a3e635;padding:12px;border-radius:8px;max-height:300px;overflow-y:auto;font-size:11px;margin-top:8px">{o.script_content}</pre>
+
+    <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mb-6">
+        <h3 class="text-sm font-bold text-slate-800 mb-2">📋 Méthode 1 : Copier-Coller Terminal</h3>
+        <p class="text-xs text-slate-400 mb-4">WinBox → New Terminal → Safe-Mode (F4) → Coller le script ci-dessous.</p>
+        <button class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2.5 px-4 rounded-lg shadow-sm transition" onclick="navigator.clipboard.writeText(document.getElementById('sc').innerText);this.textContent='✅ Script copié !';setTimeout(()=>this.textContent='📋 Copier le script',2000)">📋 Copier le script</button>
+        <pre id="sc" class="bg-slate-900 text-emerald-400 p-4 rounded-xl max-h-80 overflow-y-auto text-[10px] font-mono leading-relaxed mt-4">{o.script_content}</pre>
     </div>
-    <div class="card" style="border:2px solid #0066cc">
-        <h3 style="color:#0066cc">📁 Méthode 2 : Fichier .rsc (⭐ Recommandé)</h3>
-        <p style="color:#718096;font-size:12px;margin:5px 0">100% sans risque. WinBox → Files → Drag & Drop → Terminal : <code>/import file-name=ketrika_{o.order_id}.rsc</code></p>
-        <a href="/download/{o.order_id}" class="btn btn-g" style="margin-top:8px">📥 Télécharger .rsc</a>
+
+    <div class="bg-white rounded-3xl p-6 border-2 border-emerald-500 shadow-md">
+        <h3 class="text-sm font-bold text-slate-800 mb-1">📁 Méthode 2 : Téléchargement du script .rsc (⭐ Recommandé)</h3>
+        <p class="text-xs text-slate-400 mb-4">Parfait pour éliminer tout risque de déconnexion. WinBox → Files → Glisser-déposer le fichier → Terminal : <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">/import file-name=ketrika_{o.order_id}.rsc</code></p>
+        <a href="/download/{o.order_id}" class="inline-flex bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-6 rounded-xl shadow transition">📥 Télécharger le fichier .rsc</a>
     </div>"""
     return render_template_string(wrap("Résultat", body))
 
@@ -394,7 +516,7 @@ def download(oid):
     return send_file(io.BytesIO(o.script_content.encode()), mimetype='text/plain', as_attachment=True, download_name=f'ketrika_{o.order_id}.rsc')
 
 
-# ==================== ADMIN ====================
+# ==================== ZONE ADMINISTRATIVE ====================
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -403,8 +525,17 @@ def admin_login():
         if a and check_password_hash(a.password_hash, request.form['password']):
             login_user(a)
             return redirect(url_for('admin_dash'))
-        flash('Incorrect', 'error')
-    return render_template_string(wrap("Admin", """<div class="card" style="max-width:360px;margin:70px auto"><h2 style="color:#00875a;text-align:center;margin-bottom:15px">🔐 Admin</h2><form method="POST"><label>Utilisateur</label><input name="username" required><label>Mot de passe</label><input name="password" type="password" required><button type="submit" class="btn btn-g" style="width:100%;margin-top:12px">Connexion</button></form></div>"""))
+        flash('Utilisateur ou mot de passe incorrect.', 'error')
+    body = """
+    <div class="max-w-sm mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
+        <h2 class="text-xl font-bold text-slate-900 text-center mb-6">🔐 Accès Gestion</h2>
+        <form method="POST" class="space-y-4">
+            <div><label>Identifiant</label><input name="username" required></div>
+            <div><label>Mot de passe</label><input name="password" type="password" required></div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg text-xs transition mt-4">Connexion</button>
+        </form>
+    </div>"""
+    return render_template_string(wrap("Admin", body))
 
 @app.route('/admin/logout')
 @login_required
@@ -423,21 +554,29 @@ def admin_dash():
     for o in orders:
         ac = ""
         if o.status == 'pending':
-            ac = f'<form method="POST" action="/admin/val/{o.id}" style="display:inline"><button name="a" value="v" style="background:#00875a;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">✅</button></form> '
-            ac += f'<form method="POST" action="/admin/val/{o.id}" style="display:inline"><button name="a" value="r" style="background:#cc3333;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px">❌</button></form>'
+            ac = f'<form method="POST" action="/admin/val/{o.id}" style="display:inline"><button name="a" value="v" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-md text-[10px] font-bold">✅ Valider</button></form> '
+            ac += f'<form method="POST" action="/admin/val/{o.id}" style="display:inline"><button name="a" value="r" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-md text-[10px] font-bold">❌</button></form>'
         if o.payment_proof:
-            ac += f' <a href="/admin/proof/{o.id}" target="_blank">📸</a>'
+            ac += f' <a href="/admin/proof/{o.id}" target="_blank" class="text-xs text-sky-600 hover:underline ml-1">📸 Capture</a>'
         if o.license_key:
-            ac += f'<br><small style="color:#00875a">🔑{o.license_key}</small>'
-        rows += f'<tr><td><strong>{o.order_id}</strong></td><td>{o.client_name}<br><small style="color:#718096">{o.client_email}</small></td><td>{o.plan_type.upper()}</td><td>{o.mikrotik_model}</td><td>{o.plan_price:,}</td><td>{o.status_badge}</td><td>{ac}</td></tr>'
+            ac += f'<br><span class="text-[9px] font-bold text-emerald-600">🔑 {o.license_key}</span>'
+        rows += f'<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="p-3"><strong>{o.order_id}</strong></td><td class="p-3">{o.client_name}<br><small class="text-slate-400">{o.client_email}</small></td><td class="p-3 text-xs font-bold">{o.plan_type.upper()}</td><td class="p-3 text-xs">{o.mikrotik_model}</td><td class="p-3 font-semibold">{o.plan_price:,}</td><td class="p-3"><span class="text-xs font-semibold">{o.status_badge}</span></td><td class="p-3 flex gap-1">{ac}</td></tr>'
     body = f"""
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px"><h1 style="color:#00875a">Admin KETRIKA</h1><a href="/admin/logout" class="btn btn-r" style="padding:6px 12px;font-size:12px">Déconnexion</a></div>
-    <div class="row" style="margin-bottom:15px">
-        <div class="card" style="text-align:center;flex:1"><div style="font-size:26px;font-weight:700;color:#f0a020">{pend}</div><div style="color:#718096;font-size:12px">En attente</div></div>
-        <div class="card" style="text-align:center;flex:1"><div style="font-size:26px;font-weight:700;color:#00875a">{deli}</div><div style="color:#718096;font-size:12px">Livrées</div></div>
-        <div class="card" style="text-align:center;flex:1"><div style="font-size:24px;font-weight:700;color:#0066cc">{rev:,} Ar</div><div style="color:#718096;font-size:12px">Revenus</div></div>
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-xl font-bold text-slate-900">Console KETRIKA</h1>
+        <a href="/admin/logout" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-bold">Déconnexion</a>
     </div>
-    <div class="card" style="overflow-x:auto"><table><thead><tr><th>ID</th><th>Client</th><th>Plan</th><th>Modèle</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{rows if rows else '<tr><td colspan="7" style="text-align:center;color:#718096">Aucune commande</td></tr>'}</tbody></table></div>"""
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center"><div class="text-xl font-extrabold text-amber-500">{pend}</div><p class="text-[10px] text-slate-400 font-semibold mt-0.5">En attente</p></div>
+        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center"><div class="text-xl font-extrabold text-emerald-600">{deli}</div><p class="text-[10px] text-slate-400 font-semibold mt-0.5">Livrées</p></div>
+        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center"><div class="text-lg font-extrabold text-sky-600">{rev:,} Ar</div><p class="text-[10px] text-slate-400 font-semibold mt-0.5">Revenus cumulés</p></div>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead><tr class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase"><th class="p-3">ID</th><th class="p-3">Client</th><th class="p-3">Plan</th><th class="p-3">Routeur</th><th class="p-3">Montant</th><th class="p-3">Statut</th><th class="p-3">Actions</th></tr></thead>
+            <tbody class="text-xs">{rows if rows else '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-semibold">Aucune commande en cours</td></tr>'}</tbody>
+        </table>
+    </div>"""
     return render_template_string(wrap("Admin", body))
 
 @app.route('/admin/val/<int:oid>', methods=['POST'])
@@ -453,15 +592,15 @@ def admin_val(oid):
         try:
             if app.config['MAIL_USERNAME']:
                 msg = Message(f"🔑 Clé KETRIKA - {o.order_id}", recipients=[o.client_email])
-                msg.body = f"Bonjour {o.client_name},\nCommande {o.order_id} validée !\nClé : {o.license_key}\nScript : {request.host_url}result/{o.order_id}"
+                msg.body = f"Bonjour {o.client_name},\nVotre commande {o.order_id} est validee !\nVotre cle : {o.license_key}\nRetrouvez votre script de configuration sur : {request.host_url}result/{o.order_id}"
                 mail.send(msg)
         except:
             pass
-        flash(f'{o.order_id} validé !', 'success')
+        flash(f'La commande {o.order_id} a été validée avec succès.', 'success')
     else:
         o.status = 'rejected'
         db.session.commit()
-        flash(f'{o.order_id} rejeté', 'error')
+        flash(f'La commande {o.order_id} a été rejetée.', 'error')
     return redirect(url_for('admin_dash'))
 
 @app.route('/admin/proof/<int:oid>')
@@ -470,22 +609,26 @@ def admin_proof(oid):
     o = Order.query.get_or_404(oid)
     if o.payment_proof and os.path.exists(o.payment_proof):
         return send_file(o.payment_proof)
-    flash('Introuvable', 'error')
+    flash('Fichier justificatif introuvable', 'error')
     return redirect(url_for('admin_dash'))
 
 
 @app.route('/faq')
 def faq():
     body = """
-    <div class="card"><h2 style="color:#00875a;margin-bottom:12px">❓ FAQ</h2>
-    <p style="margin:8px 0"><strong>Comment fonctionne l'optimisation réseau ?</strong><br><span style="color:#4a5568">Notre script normalise le TTL et optimise les paquets pour éviter les restrictions FAI.</span></p>
-    <p style="margin:8px 0"><strong>Faut-il redémarrer ?</strong><br><span style="color:#4a5568">Non. Safe-Mode + délais = aucune coupure.</span></p>
-    <p style="margin:8px 0"><strong>Version RouterOS ?</strong><br><span style="color:#4a5568">v7 uniquement. Contactez-nous pour v6.</span></p></div>"""
+    <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
+        <h2 class="text-xl font-bold text-slate-900 mb-6">❓ Questions Fréquentes</h2>
+        <div class="space-y-6 text-sm">
+            <div><h4 class="font-bold text-slate-800">Comment fonctionne l'optimisation réseau ?</h4><p class="text-slate-500 mt-1">Notre algorithme normalise les paramètres TTL de votre routeur afin de rendre son trafic invisible auprès de Starlink.</p></div>
+            <div><h4 class="font-bold text-slate-800">Faut-il redémarrer pour appliquer les changements ?</h4><p class="text-slate-500 mt-1">Non. Grâce aux délais inclus dans le script, les modifications s'appliquent en tâche de fond de manière immédiate.</p></div>
+            <div><h4 class="font-bold text-slate-800">Quel RouterOS est nécessaire ?</h4><p class="text-slate-500 mt-1">Les scripts sont programmés pour RouterOS v7. Si votre équipement fonctionne sous la version 6, contactez notre support.</p></div>
+        </div>
+    </div>"""
     return render_template_string(wrap("FAQ", body))
 
 @app.route('/conditions')
 def conditions():
-    body = """<div class="card"><h2 style="color:#00875a;margin-bottom:12px">📜 Conditions</h2><p style="color:#4a5568">1 licence = 1 routeur. Pas de remboursement (produit numérique). Support 30 jours.</p></div>"""
+    body = """<div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md"><h2 class="text-xl font-bold text-slate-900 mb-4">📜 Conditions Générales</h2><p class="text-slate-500 text-sm leading-relaxed">Une licence générée est strictement réservée à un unique routeur. Aucun remboursement n'est envisageable après livraison du produit numérique.</p></div>"""
     return render_template_string(wrap("Conditions", body))
 
 
