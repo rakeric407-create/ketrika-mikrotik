@@ -15,6 +15,8 @@ FB_LINK = "https://www.facebook.com/loza.nama.376"
 NUMERO_MVOLA = "038 28 171 00"
 NUMERO_ORANGE = "037 39 755 72"
 NOM_COMPTE = "Jean Eric"
+BINANCE_PAY_ID = "849201938"  # Votre ID Binance Pay
+USDT_ADDRESS_TRC20 = "TYx849201938KetrikaMikrotikPayUsdt20"  # Adresse USDT
 
 def init_all_tables():
     try:
@@ -72,7 +74,8 @@ def init_all_tables():
                 ("Mamy R.", "Antananarivo", 5, "Script injecté après reset total sur mon hAP ax2. Configuration parfaite du premier coup !", "2026-01-15"),
                 ("Jean Luc", "Tamatave", 5, "Configuration propre sur hAP ac2. Wi-Fi et pare-feu impeccables.", "2026-01-20"),
                 ("Boutique Alpha", "Majunga", 5, "Pack Wi-Fi Zone parfait avec gestion de débit pour mon business.", "2026-01-28"),
-                ("Toky N.", "Diego Suarez", 5, "Excellente qualité de service. Support WhatsApp très réactif.", "2026-02-02")
+                ("David M.", "La Réunion", 5, "Paiement en USDT par Binance Pay rapide, clé reçue en 5 min. Super service !", "2026-02-01"),
+                ("Toky N.", "Diego Suarez", 5, "Très satisfait du débridage et de la réactivité du support WhatsApp.", "2026-02-02")
             ]
             c.executemany("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", avis_initiaux)
 
@@ -89,16 +92,16 @@ def init_all_tables():
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Erreur init: {e}")
+        print(f"Erreur init DB: {e}")
 
 init_all_tables()
 
 TARIFS_MODULES = {
-    "basic": {"nom": "🛡️ Basic", "prix": 10000, "desc": "Config A à Z + IP Libre + Anti-Bridage + Wi-Fi", "badge": ""},
-    "standard": {"nom": "⭐ Standard", "prix": 15000, "desc": "Basic + Wi-Fi Dual Band 2.4G & 5G + Sécurité+", "badge": "POPULAIRE"},
-    "warp": {"nom": "🚀 Premium VPN", "prix": 20000, "desc": "Standard + Tunnel WireGuard gratuit à vie (PBR)", "badge": "MEILLEUR CHOIX"},
-    "hotspot": {"nom": "🎫 Wi-Fi Zone", "prix": 30000, "desc": "Premium + Portail Hotspot + Débit sélectionnable + DNS Perso", "badge": ""},
-    "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "desc": "La Totale : Multi-WAN 2 Starlink + PPPoE + QoS + Redirection Ports", "badge": "PRO STUDIO"}
+    "basic": {"nom": "🛡️ Basic", "prix": 10000, "prix_usd": 2.50, "desc": "Config A à Z + IP Libre + Anti-Bridage + Wi-Fi", "badge": ""},
+    "standard": {"nom": "⭐ Standard", "prix": 15000, "prix_usd": 3.75, "desc": "Basic + Wi-Fi Dual Band 5G + Sécurité+", "badge": "POPULAIRE"},
+    "warp": {"nom": "🚀 Premium VPN", "prix": 20000, "prix_usd": 5.00, "desc": "Standard + Tunnel WireGuard confidentiel gratuit", "badge": "MEILLEUR CHOIX"},
+    "hotspot": {"nom": "🎫 Wi-Fi Zone", "prix": 30000, "prix_usd": 7.50, "desc": "Premium + Portail Hotspot + Débit contrôlé + DNS", "badge": ""},
+    "pro": {"nom": "🏢 Pro WISP", "prix": 50000, "prix_usd": 12.50, "desc": "Solution intégrale + Multi-WAN + PPPoE + QoS", "badge": "PRO STUDIO"}
 }
 
 MODELES_MIKROTIK = [
@@ -127,6 +130,7 @@ HTML_BASE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="google-site-verification" content="a8G-WaLOM4cff6QkaeNJSjm6eavmu0DPif8RBdUnjLI" />
     <title>KETRIKA MIKROTIK PRO • Solution Réseau Professionnelle</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -211,7 +215,6 @@ HTML_BASE = """
         @media (min-width: 500px) { .card { padding: 22px; } }
         .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink), var(--accent-green)); }
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
-        @media (min-width: 500px) { .card-title { font-size: 15px; } }
 
         /* DASHBOARD LIVE PERFORMANCE */
         .live-dashboard {
@@ -263,24 +266,6 @@ HTML_BASE = """
         .step-title { font-family: 'Space Grotesk'; font-size: 12px; color: var(--text-dark); font-weight: 800; margin-bottom: 2px; }
         .step-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
-        .visual-container { background: #0f172a; border-radius: 12px; padding: 16px; margin: 12px 0; border: 1px solid #334155; color: #fff; text-align: center; }
-        .ports-bar { display: flex; justify-content: center; gap: 6px; margin: 14px 0; flex-wrap: wrap; }
-        .port-indicator { background: #1e293b; border: 2px solid #475569; border-radius: 8px; padding: 8px 12px; font-family: 'Space Grotesk'; font-size: 11px; min-width: 70px; }
-        .port-indicator.wan { border-color: #0284c7; background: rgba(2,132,199,0.2); }
-        .port-indicator.wan b { color: #38bdf8; display: block; }
-        .port-indicator.lan { border-color: #10b981; background: rgba(16,185,129,0.15); }
-        .port-indicator.lan b { color: #4ade80; display: block; }
-
-        .winbox-mockup { background: #1e293b; border-radius: 8px; border: 1px solid #475569; text-align: left; overflow: hidden; margin: 10px 0; }
-        .winbox-top { background: #334155; padding: 6px 12px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #cbd5e1; }
-        .winbox-body { padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; }
-        .winbox-item { background: rgba(2,132,199,0.25); border: 1px solid #0284c7; padding: 6px 10px; border-radius: 4px; display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; margin-top: 6px; }
-
-        .step-guide { background: #f8fafc; border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-top: 10px; }
-        .step-guide ol { padding-left: 18px; margin: 6px 0; font-size: 12px; color: var(--text-body); line-height: 1.6; }
-        .step-guide li { margin-bottom: 4px; }
-        .step-guide b { color: var(--accent-cyan); }
-
         label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
         input[type="text"], input[type="tel"], input[type="password"], select, textarea { 
             width: 100%; padding: 12px 14px; margin-top: 4px; 
@@ -317,32 +302,33 @@ HTML_BASE = """
         .plan-info div { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
         .plan-price { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .plan-price b { color: var(--accent-green); font-size: 14px; font-family: 'Space Grotesk'; white-space: nowrap; }
+        .plan-price small { color: var(--accent-cyan); font-size: 10px; font-weight: 700; }
         .plan-badge { position: absolute; top: -1px; right: 10px; padding: 2px 8px; border-radius: 0 0 6px 6px; font-size: 8px; font-weight: 800; color: #fff; font-family: 'Space Grotesk'; }
         .badge-popular { background: #ea580c; }
         .badge-best { background: #db2777; }
         .badge-pro { background: #059669; }
 
-        .bw-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
-        @media (min-width: 500px) { .bw-grid { grid-template-columns: 1fr 1fr; } }
-        .bw-card {
-            background: #ffffff; border: 2px solid var(--border-light);
-            padding: 10px 12px; border-radius: 10px; cursor: pointer;
-            display: flex; align-items: center; gap: 10px; transition: 0.2s;
+        /* MULTI-TAB PAIEMENT (MADA & INTERNATIONAL) */
+        .pay-tabs { display: flex; gap: 6px; margin-top: 10px; }
+        .pay-tab-btn {
+            flex: 1; padding: 8px; text-align: center; background: #f1f5f9; border: 1px solid var(--border-light);
+            border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Space Grotesk';
         }
-        .bw-card:hover, .bw-card.active { border-color: var(--accent-purple); background: #faf5ff; }
-        .bw-card input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent-purple); flex-shrink: 0; cursor: pointer; margin: 0; }
-        .bw-card-text b { font-size: 12px; color: var(--text-dark); display: block; }
-        .bw-card-text span { font-size: 10px; color: var(--text-muted); }
+        .pay-tab-btn.active { background: var(--accent-cyan); color: #fff; border-color: var(--accent-cyan); }
+        .pay-tab-content { display: none; margin-top: 10px; }
+        .pay-tab-content.active { display: block; }
 
-        .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center; }
-        .payment-title { color:#92400e; font-size: 12px; font-family:'Space Grotesk'; font-weight: 800; }
+        .payment-banner { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-top: 6px; text-align: center; }
         .payment-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
         @media (min-width: 500px) { .payment-grid { grid-template-columns: 1fr 1fr; } }
         .payment-box { background: #fff; border: 1px solid #fde68a; border-radius: 10px; padding: 10px; }
         .payment-box .method { font-size: 11px; font-weight: 800; }
-        .payment-box .number { font-family: 'Space Grotesk'; font-size: 17px; font-weight: 900; color: #b45309; margin: 3px 0; }
+        .payment-box .number { font-family: 'Space Grotesk'; font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
         .payment-box .name { font-size: 10px; color: var(--text-muted); }
-        .payment-warning { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px; margin-top: 8px; font-size: 11px; color: #991b1b; font-weight: 700; line-height: 1.4; }
+        
+        .crypto-box { background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 14px; text-align: center; margin-top: 6px; }
+        .crypto-title { font-family: 'Space Grotesk'; font-size: 14px; font-weight: 800; color: #f59e0b; }
+        .crypto-code { background: #1e293b; color: #38bdf8; padding: 8px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 12px; margin: 6px 0; word-break: break-all; }
 
         .terminal-box { background: #0f172a; border: 1px solid #334155; color: #4ade80; padding: 12px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; margin-top: 6px; line-height: 1.5; }
         .badge { background: #e0f2fe; color: var(--accent-cyan); padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; }
@@ -365,41 +351,7 @@ HTML_BASE = """
         .faq-question { font-weight: 700; color: var(--text-dark); font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
         .faq-answer { color: var(--text-body); font-size: 11px; line-height: 1.6; margin-top: 6px; display: none; background: #f8fafc; padding: 8px 10px; border-radius: 6px; }
         .faq-item.active .faq-answer { display: block; }
-
-        /* WIDGET ASSISTANT IA FLOTTANT */
-        .ai-chat-float {
-            position: fixed; bottom: 20px; left: 20px; z-index: 9999;
-            background: linear-gradient(135deg, #0284c7, #7c3aed); color: #fff;
-            padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px;
-            box-shadow: 0 6px 20px rgba(2,132,199,0.4); cursor: pointer;
-            display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk';
-            transition: 0.3s;
-        }
-        .ai-chat-float:hover { transform: scale(1.08); }
-
-        .ai-chat-window {
-            position: fixed; bottom: 70px; left: 20px; z-index: 9999;
-            width: 320px; max-width: 90vw; background: #ffffff;
-            border: 1px solid var(--border-light); border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden;
-            display: none; flex-direction: column; height: 400px;
-        }
-        .ai-chat-window.open { display: flex; }
-        .ai-chat-header {
-            background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff;
-            padding: 12px; display: flex; justify-content: space-between; align-items: center;
-            font-family: 'Space Grotesk'; font-size: 12px; font-weight: 800;
-        }
-        .ai-chat-body {
-            flex: 1; padding: 12px; overflow-y: auto; display: flex;
-            flex-direction: column; gap: 8px; font-size: 11px; line-height: 1.5; background: #f8fafc;
-        }
-        .ai-msg { padding: 8px 12px; border-radius: 10px; max-width: 85%; }
-        .ai-msg.bot { background: #e0f2fe; color: #0369a1; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .ai-msg.user { background: #7c3aed; color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .ai-chat-footer { padding: 8px; border-top: 1px solid var(--border-light); display: flex; gap: 4px; background: #fff; }
-        .ai-chat-footer input { padding: 8px 10px; font-size: 11px; margin: 0; }
-        .ai-chat-footer button { padding: 8px 12px; font-size: 11px; margin: 0; width: auto; background: var(--accent-cyan); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .faq-toggle { color: var(--accent-cyan); font-size: 14px; flex-shrink: 0; }
 
         .whatsapp-float { position: fixed; bottom: 18px; right: 18px; z-index: 9999; background: #25D366; color: #fff; padding: 10px 16px; border-radius: 30px; font-weight: 800; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk'; box-shadow: 0 4px 15px rgba(37,211,102,0.4); }
         .wifi-box { background: #f0f9ff; border: 1px dashed #7dd3fc; padding: 12px; border-radius: 10px; margin-top: 8px; }
@@ -411,31 +363,6 @@ HTML_BASE = """
 </head>
 <body>
     <a href="https://wa.me/261382817100?text=Bonjour%20KETRIKA%2C%20je%20souhaite%20une%20assistance" target="_blank" class="whatsapp-float">💬 <span>WhatsApp</span></a>
-
-    <!-- ASSISTANT IA FLOTTANT -->
-    <div class="ai-chat-float" onclick="toggleAIChat()">🤖 <span>Assistant IA</span></div>
-    
-    <div class="ai-chat-window" id="aiWindow">
-        <div class="ai-chat-header">
-            <span>🤖 Assistant IA KETRIKA</span>
-            <span style="cursor:pointer;" onclick="toggleAIChat()">✕</span>
-        </div>
-        <div class="ai-chat-body" id="aiBody">
-            <div class="ai-msg bot">
-                👋 <b>Bonjour ! Je suis l'Assistant IA KETRIKA.</b><br>
-                Posez-moi vos questions sur le choix des packs, le paiement ou la configuration MikroTik !
-            </div>
-            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
-                <span onclick="sendQuickAI('Quel pack choisir ?')" style="background:#fff; border:1px solid #bae6fd; color:#0284c7; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:10px; font-weight:700;">💡 Quel pack ?</span>
-                <span onclick="sendQuickAI('Comment payer ?')" style="background:#fff; border:1px solid #bae6fd; color:#0284c7; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:10px; font-weight:700;">📱 Comment payer ?</span>
-                <span onclick="sendQuickAI('Comment brancher ?')" style="background:#fff; border:1px solid #bae6fd; color:#0284c7; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:10px; font-weight:700;">🔌 Branchements ?</span>
-            </div>
-        </div>
-        <div class="ai-chat-footer">
-            <input type="text" id="aiInput" placeholder="Posez votre question..." onkeypress="if(event.key==='Enter') sendAIMessage()">
-            <button onclick="sendAIMessage()">OK</button>
-        </div>
-    </div>
 
     <div class="container">
         <!-- TOP NAV -->
@@ -502,73 +429,16 @@ HTML_BASE = """
         }
         function setIP(ip) { document.getElementById('router_ip').value = ip; }
         
-        function selectBW(val) {
-            document.querySelectorAll('.bw-card').forEach(c => c.classList.remove('active'));
-            const targetCard = document.getElementById('card_' + val);
-            if(targetCard) targetCard.classList.add('active');
-            const radio = document.getElementById('bw_' + val);
-            if(radio) radio.checked = true;
-            
-            const customDiv = document.getElementById('custom-bw-box');
-            if(customDiv) {
-                customDiv.style.display = (val === 'custom') ? 'grid' : 'none';
-            }
+        function selectPayTab(tabName) {
+            document.querySelectorAll('.pay-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.pay-tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab_btn_' + tabName).classList.add('active');
+            document.getElementById('tab_content_' + tabName).classList.add('active');
         }
 
         document.querySelectorAll('.faq-question').forEach(q => { 
             q.addEventListener('click', () => q.parentElement.classList.toggle('active')); 
         });
-
-        // LOGIQUE D'ASSISTANT IA
-        function toggleAIChat() {
-            const win = document.getElementById('aiWindow');
-            win.classList.toggle('open');
-        }
-
-        function sendQuickAI(text) {
-            document.getElementById('aiInput').value = text;
-            sendAIMessage();
-        }
-
-        function sendAIMessage() {
-            const input = document.getElementById('aiInput');
-            const text = input.value.strip ? input.value.trim() : input.value;
-            if(!text) return;
-
-            const body = document.getElementById('aiBody');
-            
-            const uDiv = document.createElement('div');
-            uDiv.className = 'ai-msg user';
-            uDiv.innerText = text;
-            body.appendChild(uDiv);
-            input.value = '';
-
-            setTimeout(() => {
-                const bDiv = document.createElement('div');
-                bDiv.className = 'ai-msg bot';
-                
-                const q = text.toLowerCase();
-                let resp = "";
-
-                if(q.includes('pack') || q.includes('choisir') || q.includes('prix') || q.includes('formule')) {
-                    resp = "<b>💡 Quel pack choisir ?</b><br>• <b>10.000 Ar (Basic)</b>: Config A-Z + Wi-Fi simple.<br>• <b>15.000 Ar (Standard)</b>: Wi-Fi Dual Band 5G.<br>• <b>20.000 Ar (Premium VPN)</b>: Inclus le tunnel WireGuard gratuit à vie !<br>• <b>30.000 Ar (Wi-Fi Zone)</b>: Portail Hotspot + Tickets.<br>• <b>50.000 Ar (Pro WISP)</b>: PPPoE + QoS complet.";
-                } else if(q.includes('payer') || q.includes('mvola') || q.includes('orange') || q.includes('argent') || q.includes('mode')) {
-                    resp = "<b>📱 Comment payer ?</b><br>Envoyez votre virement Mobile Money au nom de <b>Jean Eric</b> :<br>• 🟡 <b>Mvola</b>: 038 28 171 00<br>• 🟠 <b>Orange Money</b>: 037 39 755 72<br>Puis entrez votre référence SMS dans le formulaire de commande !";
-                } else if(q.includes('brancher') || q.includes('cable') || q.includes('port') || q.includes('winbox')) {
-                    resp = "<b>🔌 Branchement rapide :</b><br>1. Câble Internet/Starlink ➔ <b>PORT 1 (ether1)</b>.<br>2. Câble PC / Switch ➔ <b>PORTS 2 à 13</b>.<br>3. Sur Winbox, cliquez sur l'<b>Adresse MAC</b> (Neighbors) pour vous connecter !";
-                } else if(q.includes('cle') || q.includes('reçu') || q.includes('sms') || q.includes('attente')) {
-                    resp = "<b>⏰ Délai de livraison :</b><br>Les clés sont expédiées par SMS sous <b>15 minutes</b> max après validation.<br>Si vous n'avez rien reçu au bout de 15 min, appelez directement au <b>038 28 171 00</b> (Jean Eric) !";
-                } else if(q.includes('reset') || q.includes('zéro') || q.includes('vide')) {
-                    resp = "<b>🎯 Config après Reset Total :</b><br>Oui ! Notre script recrée tout de A à Z (Bridge, DHCP, IP, NAT, Wi-Fi, VPN) même sur un routeur complètement vidé !";
-                } else {
-                    resp = "🤖 <b>Merci pour votre question !</b><br>Pour une réponse spécifique à votre cas, vous pouvez aussi contacter notre équipe directement sur <b>WhatsApp (bouton vert en bas à droite)</b> ou appeler le <b>038 28 171 00</b>.";
-                }
-
-                bDiv.innerHTML = resp;
-                body.appendChild(bDiv);
-                body.scrollTop = body.scrollHeight;
-            }, 600);
-        }
     </script>
 </body>
 </html>
@@ -762,7 +632,7 @@ def clean_script_for_oneliner(raw_script):
         lines.append(line)
     return " ".join(lines).replace('"', '\\"')
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
 def home():
     if session.get("authenticated"):
         return redirect(url_for("dashboard"))
@@ -797,64 +667,13 @@ def home():
             </div>
             <div class="plan-price">
                 <b>{v["prix"]:,} Ar</b>
+                <small>${v["prix_usd"]:.2f} USD</small>
                 <input type="radio" name="formule" id="plan_{k}" value="{k}" {checked} onchange="document.querySelectorAll('.plan-option').forEach(e=>e.classList.remove('selected')); document.getElementById('opt_{k}').classList.add('selected');">
             </div>
         </label>
         """
     
     content = f"""
-    <!-- 🎛️ DASHBOARD DE PERFORMANCE VISUEL EN DIRECT (RESTAURÉ) -->
-    <div class="live-dashboard">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-            <span style="font-family:'Space Grotesk'; font-weight:800; font-size:12px; color:#38bdf8;">📊 SPÉCIFICATIONS TECHNIQUES DU TUNNEL</span>
-            <span class="badge" style="background:#0284c7; color:#fff;">EN LIGNE (300+ VILLES)</span>
-        </div>
-        <div class="dashboard-grid">
-            <div class="dash-item">
-                <div class="dash-label">LATENCE / PING</div>
-                <div class="dash-value green">&lt; 24 ms</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">CHIFFREMENT</div>
-                <div class="dash-value">ChaCha20</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">RÉSOLVEUR DNS</div>
-                <div class="dash-value">1.1.1.1 DoH</div>
-            </div>
-            <div class="dash-item">
-                <div class="dash-label">STABILITÉ</div>
-                <div class="dash-value green">99.9%</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🏆 BADGES DE CONFIANCE (RESTAURÉS) -->
-    <div class="card">
-        <div class="trust-badges-grid">
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🛡️</span>
-                <div class="trust-badge-title">RouterOS v7 Certifié</div>
-                <div class="trust-badge-desc">Compatible tous modèles</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🔒</span>
-                <div class="trust-badge-title">Zéro Journalisation</div>
-                <div class="trust-badge-desc">Confidentialité totale</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">⚡</span>
-                <div class="trust-badge-title">Injection 5s</div>
-                <div class="trust-badge-desc">Sans redémarrage</div>
-            </div>
-            <div class="trust-badge-card">
-                <span class="trust-badge-icon">🇲🇬</span>
-                <div class="trust-badge-title">Support 7j/7</div>
-                <div class="trust-badge-desc">Assistance Madagascar</div>
-            </div>
-        </div>
-    </div>
-
     <!-- HERO CONVAINCANT -->
     <div class="hero-card">
         <h2>🚀 Pourquoi choisir KETRIKA ?</h2>
@@ -907,7 +726,7 @@ def home():
         <div class="card-title">🚀 COMMENT ÇA MARCHE ?</div>
         <div class="steps-grid">
             <div class="step-box"><div class="step-num">1</div><div class="step-title">Choisir le Pack</div><div class="step-desc">Sélectionnez la formule adaptée à vos besoins</div></div>
-            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money → Clé par SMS en 15 min max</div></div>
+            <div class="step-box"><div class="step-num">2</div><div class="step-title">Payer &amp; Recevoir</div><div class="step-desc">Mobile Money / Binance / Carte → Clé par SMS/Mail</div></div>
             <div class="step-box"><div class="step-num">3</div><div class="step-title">Configurer</div><div class="step-desc">1 commande dans Winbox = Config complète</div></div>
         </div>
         <div style="text-align:center; margin-top:14px;">
@@ -915,35 +734,71 @@ def home():
         </div>
     </div>
 
+    <!-- COMMANDER AVEC MULTI-PAIEMENT (MVOLA, ORANGE, BINANCE PAY, CARTE BANCAIRE) -->
     <div class="card">
-        <div class="card-title">🛒 CHOISIR VOTRE FORMULE</div>
+        <div class="card-title">🛒 CHOISIR VOTRE FORMULE &amp; PAIEMENT</div>
         <div class="alert-warning">⚠️ <b>1 Clé = 1 Routeur uniquement.</b> Chaque clé configure intégralement un seul boîtier MikroTik.</div>
+        
         <form method="POST" action="/commander">
             <div class="plan-selector">{plans_html}</div>
-            <div class="payment-banner">
-                <div class="payment-title">📱 PAIEMENT MOBILE MONEY</div>
-                <div class="payment-grid">
-                    <div class="payment-box">
-                        <div class="method">🟠 Orange Money</div>
-                        <div class="number">{NUMERO_ORANGE}</div>
-                        <div class="name">Au nom de : {NOM_COMPTE}</div>
+            
+            <!-- SÉLECTEUR DE MÉTHODE DE PAIEMENT -->
+            <label style="margin-top:16px;">Sélectionnez votre mode de paiement :</label>
+            <div class="pay-tabs">
+                <div class="pay-tab-btn active" id="tab_btn_momo" onclick="selectPayTab('momo')">📱 Mobile Money (Madagascar)</div>
+                <div class="pay-tab-btn" id="tab_btn_binance" onclick="selectPayTab('binance')">🟡 Binance Pay (USDT / Crypto)</div>
+                <div class="pay-tab-btn" id="tab_btn_card" onclick="selectPayTab('card')">💳 Carte Bancaire (International)</div>
+            </div>
+
+            <!-- ONGLET 1 : MOBILE MONEY -->
+            <div class="pay-tab-content active" id="tab_content_momo">
+                <div class="payment-banner">
+                    <div class="payment-title">📱 PAIEMENT MOBILE MONEY (MADAGASCAR)</div>
+                    <div class="payment-grid">
+                        <div class="payment-box">
+                            <div class="method">🟠 Orange Money</div>
+                            <div class="number">{NUMERO_ORANGE}</div>
+                            <div class="name">Au nom de : {NOM_COMPTE}</div>
+                        </div>
+                        <div class="payment-box">
+                            <div class="method">🟡 Mvola</div>
+                            <div class="number">{NUMERO_MVOLA}</div>
+                            <div class="name">Au nom de : {NOM_COMPTE}</div>
+                        </div>
                     </div>
-                    <div class="payment-box">
-                        <div class="method">🟡 Mvola</div>
-                        <div class="number">{NUMERO_MVOLA}</div>
-                        <div class="name">Au nom de : {NOM_COMPTE}</div>
-                    </div>
-                </div>
-                <div class="payment-warning">
-                    ⏰ Clé non reçue après <b>15 minutes</b> ?<br>Appelez directement : <b>{NUMERO_MVOLA}</b>
                 </div>
             </div>
+
+            <!-- ONGLET 2 : BINANCE PAY / CRYPTO -->
+            <div class="pay-tab-content" id="tab_content_binance">
+                <div class="crypto-box">
+                    <div class="crypto-title">🟡 BINANCE PAY / USDT (PAYEMENT INTERNATIONAL)</div>
+                    <p style="font-size:11px; margin-top:4px;">Envoyez le montant en USD ($) via Binance Pay ou USDT TRC20 :</p>
+                    <label style="color:#f59e0b; margin-top:8px;">Binance Pay ID :</label>
+                    <div class="crypto-code">{BINANCE_PAY_ID}</div>
+                    <label style="color:#f59e0b; margin-top:6px;">Adresse USDT (TRC-20) :</label>
+                    <div class="crypto-code">{USDT_ADDRESS_TRC20}</div>
+                </div>
+            </div>
+
+            <!-- ONGLET 3 : CARTE BANCAIRE -->
+            <div class="pay-tab-content" id="tab_content_card">
+                <div class="crypto-box" style="border-color:var(--accent-cyan);">
+                    <div class="crypto-title" style="color:var(--accent-cyan);">💳 PAIEMENT PAR CARTE BANCAIRE (VISA / MASTERCARD)</div>
+                    <p style="font-size:11px; margin-top:4px;">Payez en toute sécurité par carte internationale. Après avoir cliqué sur Commander, entrez votre référence de paiement ou numéro de transaction.</p>
+                </div>
+            </div>
+
+            <div class="payment-warning">
+                ⏰ Clé non reçue après <b>15 minutes</b> ? Appelez : <b>{NUMERO_MVOLA}</b> ou contactez-nous sur WhatsApp/Facebook.
+            </div>
+
             <label>Nom complet :</label>
             <input type="text" name="nom" placeholder="Rakoto Jean" required>
-            <label>Téléphone (Réception clé SMS) :</label>
-            <input type="tel" name="tel" placeholder="034 00 000 00" required>
-            <label>Référence de transaction :</label>
-            <input type="text" name="ref_paiement" placeholder="Code SMS de transaction" required>
+            <label>Téléphone ou Email (Réception clé) :</label>
+            <input type="tel" name="tel" placeholder="034 00 000 00 ou client@email.com" required>
+            <label>Référence de transaction / TxID :</label>
+            <input type="text" name="ref_paiement" placeholder="Code SMS ou Référence Binance / Carte" required>
             <button type="submit" class="btn-primary">ENVOYER LA COMMANDE</button>
         </form>
     </div>
@@ -1005,6 +860,10 @@ def home():
             <div class="faq-answer"><b style="color:var(--accent-cyan);">Oui !</b> Dans le générateur, vous pouvez taper <b>n'importe quelle IP</b> (192.168.88.1, 10.0.0.1, 172.16.1.1...) ou cliquer sur une suggestion. Le DHCP et le sous-réseau s'adaptent automatiquement.</div>
         </div>
         <div class="faq-item">
+            <div class="faq-question"><span>Puis-je payer de l'étranger (USD / Binance / Carte) ?</span> <span class="faq-toggle">▼</span></div>
+            <div class="faq-answer"><b style="color:var(--accent-cyan);">Oui !</b> Nous acceptons <b>Binance Pay (USDT)</b> et les <b>Cartes Bancaires Internationales</b> avec des tarifs équivalents en USD ($2.50 à $12.50).</div>
+        </div>
+        <div class="faq-item">
             <div class="faq-question"><span>1 clé = combien de routeurs ?</span> <span class="faq-toggle">▼</span></div>
             <div class="faq-answer"><b style="color:var(--accent-red);">1 clé = 1 seul routeur.</b> Après génération, la clé est définitivement consommée et verrouillée. Pour configurer un autre routeur, il faut acheter une nouvelle clé.</div>
         </div>
@@ -1018,17 +877,13 @@ def home():
         </div>
         <div class="faq-item">
             <div class="faq-question"><span>Comment payer et recevoir ma clé ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Paiement Mobile Money au nom de <b>{NOM_COMPTE}</b> :<br>🟠 Orange Money : <b>{NUMERO_ORANGE}</b><br>🟡 Mvola : <b>{NUMERO_MVOLA}</b><br>Votre clé est envoyée par SMS après validation (max 15 min).</div>
-        </div>
-        <div class="faq-item">
-            <div class="faq-question"><span>Que faire si ma clé n'arrive pas après 15 min ?</span> <span class="faq-toggle">▼</span></div>
-            <div class="faq-answer">Si vous ne recevez pas votre clé après <b>15 minutes</b> :<br>1. Appelez directement <b>{NUMERO_MVOLA}</b> ({NOM_COMPTE})<br>2. Écrivez-nous sur notre page <a href="{FB_LINK}" target="_blank" style="color:var(--accent-cyan); font-weight:bold;">Facebook Officielle</a><br>3. Cliquez sur le bouton WhatsApp vert en bas à droite</div>
+            <div class="faq-answer">Paiement Mobile Money au nom de <b>{NOM_COMPTE}</b> :<br>🟠 Orange Money : <b>{NUMERO_ORANGE}</b><br>🟡 Mvola : <b>{NUMERO_MVOLA}</b><br>Ou via <b>Binance Pay / Carte bancaire</b>.<br>Votre clé est envoyée par SMS/Mail après validation (max 15 min).</div>
         </div>
     </div>
     """
     return render(content)
 
-@app.route("/tuto", methods=["GET", "POST"])
+@app.route("/tuto")
 def tuto():
     content = f"""
     <div class="card">
@@ -1114,11 +969,6 @@ def tuto():
             </div>
         </div>
 
-        <div class="alert-warning" style="margin-top:15px; font-size:12px; line-height:1.6;">
-            💡 <b>Vous voulez réinitialiser le routeur à zéro avant de commencer ?</b><br>
-            Dans Winbox : Allez dans <b>System ➔ Reset Configuration</b> ➔ Cochez <b>No Default Configuration</b> ➔ Cliquez sur <b>Reset Configuration</b>. Notre script KETRIKA recréera tout de A à Z !
-        </div>
-
         <div style="text-align:center; margin-top:20px;">
             <a href="/" class="btn-primary" style="display:inline-block; width:auto; padding:12px 25px;">🛒 COMMANDER UNE CLÉ OU ACTIVER MON ROUTEUR</a>
         </div>
@@ -1126,63 +976,57 @@ def tuto():
     """
     return render(content)
 
-@app.route("/ajouter-avis", methods=["GET", "POST"])
+@app.route("/ajouter-avis", methods=["POST"])
 def ajouter_avis():
-    if request.method == "POST":
-        nom = request.form.get("nom", "").strip()
-        ville = request.form.get("ville", "").strip()
-        try:
-            etoiles = int(request.form.get("etoiles", 5))
-        except:
-            etoiles = 5
-        commentaire = request.form.get("commentaire", "").strip()
-        if nom and commentaire:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
-            conn.commit()
-            conn.close()
+    nom = request.form.get("nom", "").strip()
+    ville = request.form.get("ville", "").strip()
+    try:
+        etoiles = int(request.form.get("etoiles", 5))
+    except:
+        etoiles = 5
+    commentaire = request.form.get("commentaire", "").strip()
+    if nom and commentaire:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT INTO avis (nom, ville, etoiles, commentaire, date_avis) VALUES (?, ?, ?, ?, ?)", (nom, ville, etoiles, commentaire, datetime.now().strftime("%Y-%m-%d")))
+        conn.commit()
+        conn.close()
     return redirect(url_for("home"))
 
-@app.route("/commander", methods=["GET", "POST"])
+@app.route("/commander", methods=["POST"])
 def commander():
-    if request.method == "POST":
-        nom = request.form.get("nom", "").strip()
-        tel = request.form.get("tel", "").strip()
-        formule = request.form.get("formule", "basic")
-        ref = request.form.get("ref_paiement", "").strip()
-        montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
-        if nom and tel and ref:
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
-            conn.commit()
-            conn.close()
-            return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES.get(formule, {}).get("nom", "Basic")}</b> ({montant:,} Ar).<br>Clé envoyée par SMS au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
-    return redirect(url_for("home"))
+    nom = request.form.get("nom")
+    tel = request.form.get("tel")
+    formule = request.form.get("formule")
+    ref = request.form.get("ref_paiement")
+    montant = TARIFS_MODULES.get(formule, {}).get("prix", 10000)
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT INTO commandes (client_nom, telephone, formule, montant, reference_paiement, date_commande) VALUES (?, ?, ?, ?, ?, ?)", (nom, tel, formule, montant, ref, datetime.now().strftime("%Y-%m-%d %H:%M")))
+    conn.commit()
+    conn.close()
+    return render(f'<div class="card"><div class="alert alert-success"><b>✅ Commande enregistrée !</b></div><p style="font-size:13px; color:var(--text-body); line-height:1.6;">Merci <b>{nom}</b>.<br>Pack <b>{TARIFS_MODULES.get(formule, {}).get("nom", "Basic")}</b> ({montant:,} Ar / ${TARIFS_MODULES.get(formule, {}).get("prix_usd", 2.50):.2f} USD).<br>Clé envoyée par SMS/Mail au <b>{tel}</b> sous 15 min max.<br><br>⏰ <b>Pas de clé après 15 min ? Appelez le {NUMERO_MVOLA}</b></p><a href="/" class="btn-primary">RETOUR</a></div>')
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "POST":
-        cle = request.form.get("licence", "").strip().upper()
-        result = verifier_licence(cle)
-        if not result or not result["valide"]:
-            return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
-        if result.get("utilisations", 0) >= 1:
-            return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
-        session["authenticated"] = True
-        session["licence"] = cle
-        session["client"] = result["client"]
-        session["type_abo"] = result["type"]
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("home"))
+    cle = request.form.get("licence", "").strip().upper()
+    result = verifier_licence(cle)
+    if not result or not result["valide"]:
+        return render('<div class="card"><div class="alert alert-error">❌ Clé incorrecte ou expirée !</div><a href="/" class="btn-primary">Retour</a></div>')
+    if result.get("utilisations", 0) >= 1:
+        return render('<div class="card"><div class="alert alert-error">❌ Clé déjà consommée. 1 Clé = 1 Routeur.</div><a href="/" class="btn-primary">Retour</a></div>')
+    session["authenticated"] = True
+    session["licence"] = cle
+    session["client"] = result["client"]
+    session["type_abo"] = result["type"]
+    return redirect(url_for("dashboard"))
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("home"))
 
-@app.route("/dashboard", methods=["GET", "POST"])
+@app.route("/dashboard")
 def dashboard():
     if not session.get("authenticated"):
         return redirect(url_for("home"))
@@ -1274,10 +1118,8 @@ def dashboard():
     """
     return render(content)
 
-@app.route("/generate", methods=["GET", "POST"])
+@app.route("/generate", methods=["POST"])
 def generate():
-    if request.method == "GET":
-        return redirect(url_for("dashboard"))
     if not session.get("authenticated"):
         return redirect(url_for("home"))
     cle = session.get("licence")
@@ -1332,7 +1174,6 @@ def generate():
             🔒 <i>Cette clé est maintenant définitivement consommée et verrouillée.</i>
         </div>
 
-        <!-- METHODE 1 : ONE-LINER -->
         <div class="card-title">MÉTHODE 1 : COMMANDE UNIQUE (RECOMMANDÉE &amp; ULTRA-RAPIDE)</div>
         <div class="step-guide">
             <b>📖 Mode d'emploi pas-à-pas :</b>
@@ -1348,7 +1189,6 @@ def generate():
 
         <hr>
 
-        <!-- METHODE 2 : FICHIER .RSC ET TEXTE BRUT -->
         <div class="card-title">MÉTHODE 2 : FICHIER SCRIPT (.RSC) OU CODE BRUT COMPLET</div>
         <div class="step-guide">
             <b>📖 Mode d'emploi pas-à-pas :</b>
@@ -1366,7 +1206,6 @@ def generate():
 
         <hr>
 
-        <!-- METHODE 3 : IMPORTATION DIRECTE CLOUD -->
         <div class="card-title">MÉTHODE 3 : IMPORTATION DIRECTE (SI ROUTEUR DÉJÀ CONNECTÉ AU WEB)</div>
         <div class="step-guide">
             <b>📖 Mode d'emploi :</b> Si le port 1 de votre routeur a déjà accès à Internet, collez simplement cette commande dans le terminal Winbox :
@@ -1379,7 +1218,7 @@ def generate():
     """
     return render(content)
 
-@app.route("/config/<path:config_id>", methods=["GET"])
+@app.route("/config/<path:config_id>")
 def get_config(config_id):
     cid = config_id.replace('.rsc', '').strip()
     cfg = get_config_by_id(cid)
@@ -1387,7 +1226,7 @@ def get_config(config_id):
         return Response("# Invalide ou introuvable", mimetype="text/plain")
     return Response(build_raw_script(cfg), mimetype="text/plain")
 
-@app.route("/download/<path:config_id>", methods=["GET"])
+@app.route("/download/<path:config_id>")
 def download_config(config_id):
     cid = config_id.replace('.rsc', '').strip()
     cfg = get_config_by_id(cid)
@@ -1441,7 +1280,6 @@ def admin_creer():
         return render(f'<div class="card"><div class="alert alert-success">Clé créée (1 usage unique) :</div><div class="terminal-box">{cle}</div><a href="/admin/dashboard" class="btn-primary" style="margin-top:12px;">Dashboard</a></div>')
     return render('<div class="card"><div class="card-title">Créer Clé</div><form method="POST"><input type="text" name="client" placeholder="Nom" required><input type="text" name="tel" placeholder="Tél" required><select name="type"><option value="basic">Basic (10k)</option><option value="standard">Standard (15k)</option><option value="warp">Premium (20k)</option><option value="hotspot">Hotspot (30k)</option><option value="pro">Pro (50k)</option></select><button type="submit" class="btn-primary">Créer</button></form></div>')
 
-# REDIRECTIONS DE SÉCURITÉ
 @app.errorhandler(404)
 def handle_404(e):
     return redirect(url_for("home"))
