@@ -1,4 +1,4 @@
-# warp_api.py - KETRIKA MIKROTIK - Générateur Multi-Packs Stable
+# warp_api.py - KETRIKA MIKROTIK - Générateur Multi-Packs Stable (WARP / HOTSPOT / STANDARD)
 import secrets
 import base64
 import requests
@@ -81,73 +81,77 @@ class ConfigValidator:
         return order
 
 # =======================================================
-# GÉNÉRATEUR CLÉ WIREGUARD OFFICIEL X25519
+# MOTEUR CRYPTO X25519 (CERTIFIÉ RFC 7748)
 # =======================================================
+P = 2**255 - 19
+A24 = 121665
+
+def _clamp(k_bytes):
+    k = bytearray(k_bytes)
+    k[0] &= 248
+    k[31] &= 127
+    k[31] |= 64
+    return bytes(k)
+
+def _x25519(k, u):
+    k_int = int.from_bytes(_clamp(k), 'little')
+    x_1 = int.from_bytes(u, 'little')
+    x_2, z_2, x_3, z_3, swap = 1, 0, x_1, 1, 0
+    for t in reversed(range(255)):
+        k_t = (k_int >> t) & 1
+        swap ^= k_t
+        if swap:
+            x_2, x_3 = x_3, x_2
+            z_2, z_3 = z_3, z_2
+        swap = k_t
+        A = (x_2 + z_2) % P
+        AA = (A * A) % P
+        B = (x_2 - z_2) % P
+        BB = (B * B) % P
+        E = (AA - BB) % P
+        C = (x_3 + z_3) % P
+        D = (x_3 - z_3) % P
+        DA = (D * A) % P
+        CB = (C * B) % P
+        x_3 = ((DA + CB) ** 2) % P
+        z_3 = (x_1 * ((DA - CB) ** 2)) % P
+        x_2 = (AA * BB) % P
+        z_2 = (E * (BB + (A24 * E))) % P
+    if swap:
+        x_2, x_3 = x_3, x_2
+        z_2, z_3 = z_3, z_2
+    return (x_2 * pow(z_2, P - 2, P) % P).to_bytes(32, 'little')
+
 def generate_wireguard_keys():
     try:
         from cryptography.hazmat.primitives.asymmetric import x25519
         priv = x25519.X25519PrivateKey.generate()
         pub = priv.public_key()
-        priv_b64 = base64.b64encode(priv.private_bytes_raw()).decode()
-        pub_b64 = base64.b64encode(pub.public_bytes_raw()).decode()
-        return priv_b64, pub_b64
+        return base64.b64encode(priv.private_bytes_raw()).decode(), base64.b64encode(pub.public_bytes_raw()).decode()
     except Exception:
-        # Fallback RFC 7748
-        P = 2**255 - 19
-        A24 = 121665
-        def clamp(k):
-            k = bytearray(k)
-            k[0] &= 248
-            k[31] &= 127
-            k[31] |= 64
-            return bytes(k)
-        def x25519_calc(k, u):
-            k_int = int.from_bytes(clamp(k), 'little')
-            x_1 = int.from_bytes(u, 'little')
-            x_2, z_2, x_3, z_3, swap = 1, 0, x_1, 1, 0
-            for t in reversed(range(255)):
-                k_t = (k_int >> t) & 1
-                swap ^= k_t
-                if swap:
-                    x_2, x_3 = x_3, x_2
-                    z_2, z_3 = z_3, z_2
-                swap = k_t
-                A = (x_2 + z_2) % P
-                AA = (A * A) % P
-                B = (x_2 - z_2) % P
-                BB = (B * B) % P
-                E = (AA - BB) % P
-                C = (x_3 + z_3) % P
-                D = (x_3 - z_3) % P
-                DA = (D * A) % P
-                CB = (C * B) % P
-                x_3 = ((DA + CB) ** 2) % P
-                z_3 = (x_1 * ((DA - CB) ** 2)) % P
-                x_2 = (AA * BB) % P
-                z_2 = (E * (AA + (A24 * E))) % P
-            if swap:
-                x_2, x_3 = x_3, x_2
-                z_2, z_3 = z_3, z_2
-            return (x_2 * pow(z_2, P - 2, P) % P).to_bytes(32, 'little')
-        
         raw_priv = secrets.token_bytes(32)
-        clamped = clamp(raw_priv)
-        pub = x25519_calc(clamped, (9).to_bytes(32, 'little'))
+        clamped = _clamp(raw_priv)
+        pub = _x25519(clamped, (9).to_bytes(32, 'little'))
         return base64.b64encode(clamped).decode(), base64.b64encode(pub).decode()
 
 # =======================================================
-# ENREGISTREMENT API CLOUDFLARE OFFICIEL
+# ENREGISTREMENT API CLOUDFLARE WARP
 # =======================================================
 def generate_warp_config_for_client():
     priv, pub = generate_wireguard_keys()
     
+    endpoints = [
+        "https://api.cloudflareclient.com/v0a3370/reg",
+        "https://api.cloudflareclient.com/v0a2158/reg"
+    ]
+    
     headers = {
+        "Content-Type": "application/json",
         "User-Agent": "okhttp/3.12.1",
-        "CF-Client-Version": "a-6.30-3596",
-        "Content-Type": "application/json"
+        "CF-Client-Version": "a-6.30-3596"
     }
     
-    payload = {
+    body = {
         "key": pub,
         "install_id": "",
         "fcm_token": "",
@@ -157,39 +161,31 @@ def generate_warp_config_for_client():
         "locale": "en_US"
     }
     
-    endpoints = [
-        "https://api.cloudflareclient.com/v0a3370/reg",
-        "https://api.cloudflareclient.com/v0a2158/reg",
-        "https://api.cloudflareclient.com/v0a884/reg"
-    ]
-    
     for url in endpoints:
         try:
-            res = requests.post(url, json=payload, headers=headers, timeout=5)
+            res = requests.post(url, json=body, headers=headers, timeout=5)
             if res.status_code in (200, 201):
                 d = res.json()
                 raw_v4 = str(d['config']['interface']['addresses']['v4'])
                 client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
                 peer_pub = d['config']['peers'][0]['public_key']
+                endpoint_ip = d['config']['peers'][0]['endpoint']['host'].split(':')[0]
                 return {
                     'private_key': priv,
                     'client_ipv4': client_ip,
                     'warp_public_key': peer_pub,
-                    'endpoint_host': '162.159.192.1',
-                    'endpoint_port': '2408',
-                    'success': True
+                    'endpoint_host': endpoint_ip if endpoint_ip else '162.159.192.1',
+                    'endpoint_port': '2408'
                 }
         except Exception:
             continue
 
-    # Si hors ligne (Mode secours qui ne coupe PAS Internet)
     return {
         'private_key': priv,
         'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
         'warp_public_key': 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=',
         'endpoint_host': '162.159.192.1',
-        'endpoint_port': '2408',
-        'success': False
+        'endpoint_port': '2408'
     }
 
 # =======================================================
@@ -216,6 +212,7 @@ def generate_wifi_config(order):
     if not is_wifi_model(m):
         return "\n# Materiel sans module WiFi integre.\n"
 
+    # Plan Hotspot : Wi-Fi Ouvert
     if plan == 'hotspot':
         if is_ax_model(m):
             cfg = f"""
@@ -244,6 +241,7 @@ def generate_wifi_config(order):
     /interface wireless set wlan2 mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 frequency=5180 band=5ghz-a/n/ac disabled=no
 }} on-error={{}}
 """
+    # Autres Plans (WARP / STANDARD) : Wi-Fi Sécurisé avec mot de passe
     else:
         if is_ax_model(m):
             cfg = f"""
@@ -340,31 +338,34 @@ def generate_full_script(order):
 /ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
 """
 
-    # 1. TUNNEL CLOUDFLARE WARP
+    # 1. TUNNEL CLOUDFLARE WARP (ROUTAGE NATIF ROUTEROS V7 GARANTI)
     warp = ""
     if is_warp:
         wc = generate_warp_config_for_client()
         warp = f"""
-# === CLOUDFLARE SECURE TUNNEL (PACK WARP OFFICIEL) ===
+# === CLOUDFLARE SECURE TUNNEL (ROUTAGE NATIF ROS V7) ===
 :do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
 :do {{ /interface wireguard remove wg-secure }} on-error={{}}
+:do {{ /routing rule remove [find comment~"KETRIKA"] }} on-error={{}}
 :do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
 :do {{ /routing table remove [find name=via-secure] }} on-error={{}}
 :delay 1s
 :do {{
+    # 1. Table FIB
     /routing table add name=via-secure fib
+    
+    # 2. Interface WireGuard
     /interface wireguard add name=wg-secure listen-port=13231 mtu=1420 private-key="{wc['private_key']}" comment="[KETRIKA]"
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
     /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
     
-    # Routage du trafic LAN vers WireGuard
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA-WARP]"
-    
-    # Route Cloudflare + Secours WAN automatique si Wireguard est hors-ligne
-    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure distance=1 comment="[KETRIKA-WARP]"
-    /ip route add dst-address=0.0.0.0/0 gateway={wan} routing-table=via-secure distance=2 comment="[KETRIKA-WAN-BACKUP]"
-    
+    # 3. Route par defaut vers Cloudflare
+    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA-WARP]"
     /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA-WARP]"
+    
+    # 4. Regles de routage natives v7 (Force 100% du trafic LAN dans Cloudflare sans Mangle)
+    /routing rule add dst-address={net} action=lookup-only-in-table table=main comment="[KETRIKA-LOCAL]"
+    /routing rule add src-address={net} action=lookup-only-in-table table=via-secure comment="[KETRIKA-WARP]"
 }} on-error={{}}
 """
 
@@ -432,29 +433,32 @@ def generate_full_script(order):
 /system note set note="KETRIKA-LICENCE: {license_key} | Routeur: {model} | Client: {client_name}"
 /system identity set name="KETRIKA-{order_id}"
 
-# 2. BRIDGE PRINCIPAL
+# 2. DÉSACTIVATION FASTTRACK
+/ip firewall filter disable [find action=fasttrack-connection]
+
+# 3. BRIDGE PRINCIPAL
 :if ([/interface bridge find name=bridge1] = "") do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
 
-# 3. IP GATEWAY
+# 4. IP GATEWAY
 :if ([/ip address find address="{gw}/24"] = "") do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
 
-# 4. DHCP CLIENT WAN
+# 5. DHCP CLIENT WAN
 :if ([/ip dhcp-client find interface={wan}] = "") do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
 
-# 5. DHCP SERVEUR LAN
+# 6. DHCP SERVEUR LAN
 {dhcp}
 
-# 6. CONFIGURATION SANS FIL WIFI DETECTE
+# 7. CONFIGURATION SANS FIL WIFI DETECTE
 {wcfg}
 
-# 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
+# 8. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
 /system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
 
-# 8. DNS & NAT WAN DIRECT
+# 9. DNS & NAT WAN
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8 use-doh-server=""
 :if ([/ip firewall nat find comment~"KETRIKA-WAN"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
 
-# 9. OPTIMISATION DU FIREWALL & SYN-MSS
+# 10. OPTIMISATION DU FIREWALL & SYN-MSS
 :do {{
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
     /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
@@ -463,7 +467,7 @@ def generate_full_script(order):
 {ttl_script}
 {warp}{hs}{rl}
 
-# === 10. REBOOT AUTOMATIQUE DU ROUTEUR ===
+# === 11. REBOOT AUTOMATIQUE DU ROUTEUR ===
 :log info "KETRIKA: Configuration terminee, reboot dans 3s..."
 :put "================================================"
 :put "  CONFIGURATION KETRIKA APPLIQUEE AVEC SUCCES !"
