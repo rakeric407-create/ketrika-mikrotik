@@ -1,4 +1,34 @@
-# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX avec Popup Hotspot Automatique Garanti
+J'ai trouvé exactement le problème ! 
+
+### La cause de l'erreur sur le Pack WARP :
+Dans le script du Pack WARP, il y avait la ligne suivante :
+```routeros
+/ip firewall mangle add chain=prerouting in-interface=bridge1 hotspot=auth ...
+```
+👉 **Le piège :** Dans le Pack **WARP**, il n'y a **PAS de Hotspot** (le Wi-Fi a un mot de passe normal). Comme aucun utilisateur n'est "authentifié Hotspot" (`hotspot=auth`), **MikroTik ignorait complètement la règle et envoyait tout sur la connexion normale au lieu de Cloudflare !**
+
+---
+
+### Chaque Offre est désormais 100% séparée et indépendante :
+
+1. **PACK WARP (Sécurisé Cloudflare) :**
+   * Wi-Fi avec mot de passe (WPA2-PSK).
+   * **Tout le trafic passe à 100% par l'IP Cloudflare** (pas de règle Hotspot qui bloque).
+   * Masquage TTL actif pour le partage opérateur.
+   * Pas de portail captif.
+
+2. **PACK HOTSPOT (Zone Wi-Fi / Tickets) :**
+   * Wi-Fi ouvert sans mot de passe.
+   * **Popup de connexion automatique instantanée** (Android & iOS).
+   * Sortie WAN directe ultra-rapide dès validation du ticket.
+   * Gestion des vouchers et profils de vitesse.
+
+---
+
+### Fichier complet corrigé : `warp_api.py`
+
+```python
+# warp_api.py - KETRIKA MIKROTIK - Générateur Multi-Packs (WARP / HOTSPOT / STANDARD)
 import secrets
 import base64
 import requests
@@ -6,6 +36,7 @@ import re
 import ipaddress
 import datetime
 
+# Dictionnaire de secours (Anti-crash 500)
 DEFAULT_MODELS = {
     'hAP lite (RB941)': {'ports': 4, 'wifi': True, 'wifi5g': False},
     'hAP ac2': {'ports': 5, 'wifi': True, 'wifi5g': True},
@@ -130,35 +161,44 @@ def generate_wireguard_keys():
 
 def generate_warp_config_for_client():
     priv, pub = generate_wireguard_keys()
-    try:
-        res = requests.post(
-            "https://api.cloudflareclient.com/v0a3370/reg",
-            json={
-                "key": pub,
-                "install_id": "",
-                "fcm_token": "",
-                "tos": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                "model": "PC",
-                "serial_number": secrets.token_hex(16),
-                "locale": "en_US"
-            },
-            headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
-            timeout=4
-        )
-        if res.status_code in (200, 201):
-            d = res.json()
-            raw_v4 = str(d['config']['interface']['addresses']['v4'])
-            client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
-            return {
-                'private_key': priv,
-                'client_ipv4': client_ip,
-                'warp_public_key': d['config']['peers'][0]['public_key'],
-                'endpoint_host': '162.159.192.1',
-                'endpoint_port': '2408'
-            }
-    except Exception:
-        pass
+    
+    # Double tentative d'API Cloudflare
+    endpoints = [
+        "https://api.cloudflareclient.com/v0a3370/reg",
+        "https://api.cloudflareclient.com/v0a2158/reg"
+    ]
+    
+    for url in endpoints:
+        try:
+            res = requests.post(
+                url,
+                json={
+                    "key": pub,
+                    "install_id": "",
+                    "fcm_token": "",
+                    "tos": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "model": "PC",
+                    "serial_number": secrets.token_hex(16),
+                    "locale": "en_US"
+                },
+                headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
+                timeout=4
+            )
+            if res.status_code in (200, 201):
+                d = res.json()
+                raw_v4 = str(d['config']['interface']['addresses']['v4'])
+                client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
+                return {
+                    'private_key': priv,
+                    'client_ipv4': client_ip,
+                    'warp_public_key': d['config']['peers'][0]['public_key'],
+                    'endpoint_host': '162.159.192.1',
+                    'endpoint_port': '2408'
+                }
+        except Exception:
+            continue
 
+    # Fallback IP si hors-ligne
     return {
         'private_key': priv,
         'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
@@ -191,6 +231,7 @@ def generate_wifi_config(order):
     if not is_wifi_model(m):
         return "\n# Materiel sans module WiFi integre.\n"
 
+    # Plan Hotspot : Wi-Fi Ouvert
     if plan == 'hotspot':
         if is_ax_model(m):
             cfg = f"""
@@ -219,6 +260,7 @@ def generate_wifi_config(order):
     /interface wireless set wlan2 mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 frequency=5180 band=5ghz-a/n/ac disabled=no
 }} on-error={{}}
 """
+    # Autres Plans (WARP / STANDARD) : Wi-Fi Sécurisé avec mot de passe
     else:
         if is_ax_model(m):
             cfg = f"""
@@ -273,7 +315,8 @@ def generate_full_script(order):
     
     plan_type = safe_get(order, 'plan_type', 'warp')
     is_hs = (plan_type == 'hotspot')
-    needs_warp = plan_type in ('warp', 'hotspot')
+    is_warp = (plan_type == 'warp')
+    
     license_key = safe_get(order, 'license_key', 'KETRIKA-FREE')
     order_id = safe_get(order, 'order_id', '0001')
     client_name = safe_get(order, 'client_name', 'Client')
@@ -303,7 +346,7 @@ def generate_full_script(order):
 :if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # TTL Script
+    # TTL
     if ttl_value == 'disabled':
         ttl_script = "\n# Optimisation TTL : Desactivee par le client\n"
     else:
@@ -314,12 +357,12 @@ def generate_full_script(order):
 /ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
 """
 
-    # Tunnel WireGuard (avec secours WAN et filtrage hotspot=auth)
+    # 1. TUNNEL CLOUDFLARE WARP (UNIQUEMENT POUR LE PACK WARP)
     warp = ""
-    if needs_warp:
+    if is_warp:
         wc = generate_warp_config_for_client()
         warp = f"""
-# === CLOUDFLARE SECURE TUNNEL (ROS v7) ===
+# === CLOUDFLARE SECURE TUNNEL (PACK WARP PURE ROUTING) ===
 :do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
 :do {{ /interface wireguard remove wg-secure }} on-error={{}}
 :do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
@@ -331,16 +374,15 @@ def generate_full_script(order):
     /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
     /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA]"
     
-    # Ne router vers Wireguard QUE les clients authentifies (permet la popup pour les nouveaux)
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 hotspot=auth dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA-WARP]"
+    # Redirection de TOUS les clients du Bridge vers Cloudflare (Sans restriction Hotspot)
+    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=yes comment="[KETRIKA-WARP]"
     
     /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure distance=1 comment="[KETRIKA-WARP]"
-    /ip route add dst-address=0.0.0.0/0 gateway={wan} routing-table=via-secure distance=2 comment="[KETRIKA-WAN-BACKUP]"
     /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA]"
 }} on-error={{}}
 """
 
-    # Hotspot avec Portail Captif & Popup Automatique
+    # 2. PORTAIL CAPTIF (UNIQUEMENT POUR LE PACK HOTSPOT)
     hs = ""
     if is_hs:
         rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
@@ -358,14 +400,10 @@ def generate_full_script(order):
     /ip hotspot user profile add name=1mois {rl_hs} shared-users=3 session-timeout=30d idle-timeout=30m
     /ip hotspot user add name=admin password=admin123 profile=1mois
     
-    # 1. DNS Static obligatoire pour la resolution de wifi.ketrika.mg
+    # Capture DNS pour declencher la popup instantanee
     /ip dns static add name="wifi.ketrika.mg" address={gw} comment="[KETRIKA-HOTSPOT]"
-    
-    # 2. Forcer la capture DNS pour les smartphones avec DNS custom
     /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=udp dst-port=53 action=redirect to-ports=53 comment="[HOTSPOT-DNS-FORCE]"
     /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=tcp dst-port=53 action=redirect to-ports=53 comment="[HOTSPOT-DNS-FORCE]"
-    
-    # 3. Option DHCP 114 (Declenchement Popup RFC 8910 pour iOS et Android)
     /ip dhcp-server option add name=captive-portal code=114 value="s'http://{gw}/login'"
 }} on-error={{}}
 """
@@ -385,7 +423,7 @@ def generate_full_script(order):
                 c = secrets.token_hex(4).upper()
                 hs += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
 
-    # Configuration DHCP LAN
+    # DHCP Server
     opt_dhcp = "dhcp-option=captive-portal" if is_hs else ""
     dns_dhcp = gw if is_hs else "1.1.1.1,8.8.8.8"
     dhcp = f"""
@@ -427,7 +465,7 @@ def generate_full_script(order):
 # 7. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
 /system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
 
-# 8. DNS & NAT WAN
+# 8. DNS & NAT WAN DIRECT
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8 use-doh-server=""
 :if ([/ip firewall nat find comment~"KETRIKA-WAN"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
 
@@ -446,9 +484,11 @@ def generate_full_script(order):
 :put "  CONFIGURATION KETRIKA APPLIQUEE AVEC SUCCES !"
 :put "  Licence  : {license_key}"
 :put "  Routeur  : {model}"
+:put "  Pack     : {plan_type.upper()}"
 :put "  TTL Base : {ttl_value}"
 :put "  Le routeur va redemarrer automatiquement dans 3 secondes..."
 :put "================================================"
 
 /system scheduler add name=ketrika_reboot interval=0s start-time=([/system clock get time] + 00:00:03) on-event="/system scheduler remove ketrika_reboot; /system reboot;"
 """
+```
