@@ -1,139 +1,107 @@
-# database.py - KETRIKA MIKROTIK - Modèle Stable (1 Clé = 1 Routeur)
+#!/usr/bin/env python3
+"""
+KETRIKA MIKROTIK - Base de données et dictionnaire de modèles
+"""
+
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
 from datetime import datetime
-import secrets
 
 db = SQLAlchemy()
 
-class Admin(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-
 class Order(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.String(30), unique=True, nullable=False, index=True)
+    """Modèle de commande client"""
+    __tablename__ = 'orders'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    order_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    license_key = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    client_name = db.Column(db.String(200), nullable=False)
+    whatsapp_number = db.Column(db.String(50), nullable=False)
+    plan_type = db.Column(db.String(20), nullable=False, default='standard')
+    mikrotik_model = db.Column(db.String(100), nullable=False)
+    ssid = db.Column(db.String(100), default='KETRIKA-WiFi')
+    wifi_password = db.Column(db.String(100), default='12345678')
+    wan_interface = db.Column(db.String(50), default='ether1')
+    lan_gateway = db.Column(db.String(50), default='192.168.88.1')
+    lan_network = db.Column(db.String(50), default='192.168.88.0/24')
+    dhcp_pool = db.Column(db.String(100), default='192.168.88.10-192.168.88.250')
+    ttl_value = db.Column(db.String(10), default='64')
+    dl_limit = db.Column(db.String(20), default='0')
+    ul_limit = db.Column(db.String(20), default='0')
+    pppoe_enabled = db.Column(db.Boolean, default=False)
+    voucher_enabled = db.Column(db.Boolean, default=True)
+    payment_proof = db.Column(db.String(300), nullable=True)
+    status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Client
-    client_name = db.Column(db.String(100), nullable=False)
-    client_email = db.Column(db.String(120), nullable=False)
-    client_phone = db.Column(db.String(30))
+    def __repr__(self):
+        return f'<Order {self.order_id}>'
 
-    # Formule
-    plan_type = db.Column(db.String(20), nullable=False)
-    plan_price = db.Column(db.Integer, nullable=False)
+def get_next_lan_subnet():
+    """
+    Génère un sous-réseau LAN unique pour chaque nouveau client.
+    Incrémente automatiquement le 3ème octet de l'IP (192.168.10.1, 192.168.11.1, etc.)
+    """
+    try:
+        last_order = Order.query.order_by(Order.id.desc()).first()
+        if last_order and last_order.lan_gateway:
+            parts = last_order.lan_gateway.split('.')
+            if len(parts) == 4:
+                third_octet = int(parts[2]) + 1
+                if third_octet > 254 or third_octet < 10:
+                    third_octet = 10
+            else:
+                third_octet = 10
+        else:
+            third_octet = 10
+    except Exception:
+        third_octet = 10
 
-    # Routeur
-    mikrotik_model = db.Column(db.String(50), nullable=False)
-    wan_interface = db.Column(db.String(20), default='ether1')
-    lan_network = db.Column(db.String(20), default='192.168.88.0/24')
-    lan_gateway = db.Column(db.String(20), default='192.168.88.1')
-    dhcp_pool = db.Column(db.String(50), default='192.168.88.10-192.168.88.250')
-    ssid = db.Column(db.String(50), default='WiFiZone-Ketrika')
-    wifi_password = db.Column(db.String(50), default='Ketrika2024')
-    ttl_value = db.Column(db.Integer, default=65)
-    dl_limit = db.Column(db.String(20), default='10M')
-    ul_limit = db.Column(db.String(20), default='5M')
-
-    # Options Hotspot
-    hotspot_name = db.Column(db.String(50))
-    pppoe_enabled = db.Column(db.Boolean, default=False)
-    voucher_enabled = db.Column(db.Boolean, default=False)
-
-    # Paiement
-    payment_proof = db.Column(db.String(200))
-    payment_method = db.Column(db.String(30))
-
-    # Statut & Licence
-    status = db.Column(db.String(20), default='pending')
-    license_key = db.Column(db.String(50), unique=True)
-    script_content = db.Column(db.Text)
-
-    def generate_order_id(self):
-        self.order_id = f"KTK-{datetime.now().strftime('%y%m%d')}-{secrets.token_hex(3).upper()}"
-
-    def generate_license_key(self):
-        h = secrets.token_hex(8).upper()
-        self.license_key = f"KTK-{h[:4]}-{h[4:8]}-{h[8:12]}-{h[12:16]}"
-
-    @property
-    def status_badge(self):
-        return {
-            'pending': '🟡 En attente',
-            'delivered': '🟢 Actif (1 Routeur Verrouillé)',
-            'rejected': '🔴 Rejeté'
-        }.get(self.status, self.status)
-
-MIKROTIK_MODELS = {
-    'hAP lite (RB941)':       {'ports': 4, 'wifi': True,  'wifi5g': False},
-    'hAP ac2 (RBD52G)':       {'ports': 5, 'wifi': True,  'wifi5g': True},
-    'hAP ac3 (RBD53iG)':      {'ports': 5, 'wifi': True,  'wifi5g': True},
-    'hAP ax2 (C52iG)':        {'ports': 5, 'wifi': True,  'wifi5g': True},
-    'hAP ax3 (C53UiG+)':      {'ports': 5, 'wifi': True,  'wifi5g': True},
-    'hEX (RB750Gr3)':         {'ports': 5, 'wifi': False, 'wifi5g': False},
-    'hEX S (RB760iGS)':       {'ports': 5, 'wifi': False, 'wifi5g': False},
-    'RB3011':                 {'ports': 10,'wifi': False, 'wifi5g': False},
-    'RB4011':                 {'ports': 10,'wifi': True,  'wifi5g': True},
-    'CCR1009':                {'ports': 8, 'wifi': False, 'wifi5g': False},
-    'CCR2004':                {'ports': 12,'wifi': False, 'wifi5g': False},
-}
-
-PLANS = {
-    'basic': {
-        'name': 'Pack Essentiel',
-        'subtitle': 'Configuration standard optimisée',
-        'price': 30000,
-        'currency': 'Ar',
-        'features': [
-            '1 Clé = 1 Routeur Verrouillé',
-            'Bridge & interfaces auto-configurés',
-            'DHCP Server & NAT sécurisé',
-            'Normalisation TCP & Protection FAI',
-            'Attribution asynchrone (Zéro coupure)',
-            'Garantie sans erreur RouterOS v7'
-        ],
-        'color': '#0284c7'
-    },
-    'warp': {
-        'name': 'Pack Premium Cloudflare',
-        'subtitle': 'Débit illimité & Tunnel Sécurisé',
-        'price': 50000,
-        'currency': 'Ar',
-        'features': [
-            '1 Clé = 1 Routeur Verrouillé',
-            'Cloudflare Secure WireGuard Tunnel',
-            'Débit illimité sans perte de vitesse',
-            'Chiffrement AES-256 complet',
-            'Stabilité multi-utilisateurs garantie',
-            'DNS-over-HTTPS (DoH) intégré',
-            'Clés WireGuard auto-générées'
-        ],
-        'color': '#10b981',
-        'popular': True
-    },
-    'hotspot': {
-        'name': 'Pack Business WiFi Zone',
-        'subtitle': 'Solution complète opérateur',
-        'price': 80000,
-        'currency': 'Ar',
-        'features': [
-            '1 Clé = 1 Routeur Verrouillé',
-            'Tout le Pack Premium inclus',
-            'Portail Hotspot RouterOS v7',
-            'Serveur PPPoE multi-clients',
-            'Gestion de vitesse par utilisateur',
-            '10 Vouchers pré-générés',
-            'Profils horaires (1h, 1j, 1sem, 1mois)'
-        ],
-        'color': '#f97316'
+    return {
+        'gateway': f'192.168.{third_octet}.1',
+        'network': f'192.168.{third_octet}.0/24',
+        'pool': f'192.168.{third_octet}.10-192.168.{third_octet}.250'
     }
+
+# Dictionnaire complet de tous les modèles MikroTik existants
+MIKROTIK_MODELS = {
+    'hap_lite': {'name': 'hAP lite (RB941-2nD)', 'eth_ports': 4, 'has_wifi': True, 'has_5ghz': False, 'wifi_type': 'n'},
+    'hap_lite_tc': {'name': 'hAP lite TC (RB941-2nD-TC)', 'eth_ports': 4, 'has_wifi': True, 'has_5ghz': False, 'wifi_type': 'n'},
+    'hap': {'name': 'hAP (RB951Ui-2nD)', 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': False, 'wifi_type': 'n'},
+    'hap_ac_lite': {'name': 'hAP ac lite (RB952Ui-5ac2nD)', 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ac'},
+    'hap_ac2': {'name': 'hAP ac² (RB952Ui-5ac2nD-TC)', 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ac'},
+    'hap_ac3': {'name': 'hAP ac³ (RBD53iG-5HacD2HnD)', 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ac'},
+    'hap_ax_lite': {'name': 'hAP ax lite (L41G-2axD)', 'eth_ports': 4, 'has_wifi': True, 'has_5ghz': False, 'wifi_type': 'ax'},
+    'hap_ax2': {'name': 'hAP ax² (C52iG-5HaxD2HaxD-TC)', 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ax'},
+    'hap_ax3': {'name': 'hAP ax³ (C53UiG+5HPaxD2HPaxD)', 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ax'},
+    'cap_ac': {'name': 'cAP ac (RBcAPGi-5acD2nD)', 'eth_ports': 2, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ac'},
+    'cap_ax': {'name': 'cAP ax (CAPGi-5HaxD2HaxD)', 'eth_ports': 2, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ax'},
+    'wap_ac': {'name': 'wAP ac (RBwAPG-5HacT2HnD)', 'eth_ports': 1, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ac'},
+    'wap_ax': {'name': 'wAP ax (L11UG-5HaxD)', 'eth_ports': 1, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ax'},
+    'hex': {'name': 'hEX (RB750Gr3)', 'eth_ports': 5, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'hex_s': {'name': 'hEX S (RB760iGS)', 'eth_ports': 5, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'hex_lite': {'name': 'hEX lite (RB750r2)', 'eth_ports': 5, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'rb3011': {'name': 'RB3011UiAS-RM', 'eth_ports': 10, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'rb4011': {'name': 'RB4011iGS+RM', 'eth_ports': 10, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'rb5009': {'name': 'RB5009UG+S+IN', 'eth_ports': 8, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'ccr2004': {'name': 'CCR2004-1G-12S+2XS', 'eth_ports': 1, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'ccr2116': {'name': 'CCR2116-12G-4S+', 'eth_ports': 12, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'l009': {'name': 'L009UiGS-RM', 'eth_ports': 8, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'},
+    'l009_wifi': {'name': 'L009UiGS-2HaxD-IN', 'eth_ports': 8, 'has_wifi': True, 'has_5ghz': False, 'wifi_type': 'ax'}
 }
 
-PAYMENT_CONFIG = {
-    'mvola': '038 28 171 00',
-    'orange': '037 39 755 72',
-    'beneficiaire': 'Jean Eric',
-    'whatsapp': '038 28 171 00'
-}
+def get_model_info(model_key):
+    """Retourne les caractéristiques d'un modèle de routeur"""
+    if model_key in MIKROTIK_MODELS:
+        return MIKROTIK_MODELS[model_key]
+    
+    # Détection automatique intelligente si modèle "Autre" saisi manuellement
+    m_lower = str(model_key).lower()
+    if 'ax' in m_lower:
+        return {'name': model_key, 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ax'}
+    elif 'ac' in m_lower or 'dual' in m_lower:
+        return {'name': model_key, 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': True, 'wifi_type': 'ac'}
+    elif 'hex' in m_lower or 'rb' in m_lower or 'ccr' in m_lower or 'l009' in m_lower:
+        return {'name': model_key, 'eth_ports': 5, 'has_wifi': False, 'has_5ghz': False, 'wifi_type': 'none'}
+    
+    return {'name': model_key, 'eth_ports': 5, 'has_wifi': True, 'has_5ghz': False, 'wifi_type': 'n'}
