@@ -539,7 +539,8 @@ def dashboard():
         bw_cards_html = ""
         for k, v in BANDWIDTH_PROFILES.items():
             ck = "checked" if k == "illimite" else ""
-            bw_cards_html += f'<div style="background:#ffffff; border:2px solid {\'#a855f7\' if k==\'illimite\' else \'#e2e8f0\'}; padding:10px; border-radius:10px; cursor:pointer; display:flex; align-items:center; gap:8px;" onclick="document.querySelectorAll(\'input[name=bandwidth]\').forEach(r=>r.parentElement.style.borderColor=\'#e2e8f0\'); this.style.borderColor=\'#a855f7\'; this.querySelector(\'input\').checked=true; document.getElementById(\'custom-bw-box\').style.display=(\'{k}\'===\'custom\'?\'grid\':\'none\');"><input type="radio" name="bandwidth" value="{k}" {ck} style="width:16px;height:16px;margin:0;"><div><b style="font-size:11px; display:block;">{v["nom"]}</b><span style="font-size:9px; color:#64748b;">{v["desc"]}</span></div></div>'
+            border_color = "#a855f7" if k == "illimite" else "#e2e8f0"
+            bw_cards_html += f'<div style="background:#ffffff; border:2px solid {border_color}; padding:10px; border-radius:10px; cursor:pointer; display:flex; align-items:center; gap:8px;" onclick="document.querySelectorAll(\'input[name=bandwidth]\').forEach(r=>r.parentElement.style.borderColor=\'#e2e8f0\'); this.style.borderColor=\'#a855f7\'; this.querySelector(\'input\').checked=true; document.getElementById(\'custom-bw-box\').style.display=(\'{k}\'===\'custom\'?\'grid\':\'none\');"><input type="radio" name="bandwidth" value="{k}" {ck} style="width:16px;height:16px;margin:0;"><div><b style="font-size:11px; display:block;">{v["nom"]}</b><span style="font-size:9px; color:#64748b;">{v["desc"]}</span></div></div>'
         bandwidth_html = f'<div style="background:linear-gradient(135deg, #f8fafc, #f1f5f9); border:1px dashed #c4b5fd; padding:14px; border-radius:12px; margin-top:12px;"><div style="font-size:11px; font-weight:800; color:#7c3aed; margin-bottom:8px;">📊 LIMITATION DU DÉBIT (CLIQUEZ SUR VOTRE CHOIX) :</div><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">{bw_cards_html}</div><div id="custom-bw-box" style="display:none; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;"><div><label style="margin-top:0;">Download (ex: 5M)</label><input type="text" name="custom_down" value="3M"></div><div><label style="margin-top:0;">Upload (ex: 1M)</label><input type="text" name="custom_up" value="1M"></div></div></div>'
     if plan_key == "pro":
         feat_html += "<div style='background:#fef2f2; padding:8px 12px; border-radius:8px; font-size:11px; border-left:4px solid #dc2626; margin-bottom:4px; color:#334155;'>🏢 <b>Pack Pro WISP</b> : Serveur PPPoE + QoS Bandwidth (PCQ).</div>"
@@ -894,4 +895,5 @@ def handle_404(e): return redirect(url_for("home"))
 @app.errorhandler(500)
 def handle_500(e): return redirect(url_for("home"))
 
-if __name__ == "__main__": app.run(host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")))
