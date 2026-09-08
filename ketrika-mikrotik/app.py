@@ -62,11 +62,11 @@ def wrap(title, body_content, extra_js=""):
     flashes = """
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-        <div class="max-w-4xl mx-auto mt-4 px-4">
+        <div class="max-w-4xl mx-auto mt-4 px-4 animate-fade-in">
             {% for cat, msg in messages %}
                 <div class="p-4 rounded-xl mb-3 flex items-center gap-3 text-sm {% if cat=='success' %}bg-emerald-50 text-emerald-800 border-l-4 border-emerald-500{% elif cat=='error' %}bg-rose-50 text-rose-800 border-l-4 border-rose-500{% else %}bg-amber-50 text-amber-800 border-l-4 border-amber-500{% endif %}">
-                    <span>{% if cat=='success' %}✅{% elif cat=='error' %}❌{% else %}⚠️{% endif %}</span>
-                    <p class="font-medium">{{ msg }}</p>
+                    <span class="text-lg">{% if cat=='success' %}✅{% elif cat=='error' %}❌{% else %}⚠️{% endif %}</span>
+                    <p class="font-semibold">{{ msg }}</p>
                 </div>
             {% endfor %}
         </div>
@@ -87,8 +87,8 @@ def wrap(title, body_content, extra_js=""):
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
     <!-- BARRE DE NAVIGATION -->
-    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100 shadow-sm">
-        <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+    <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex justify-between items-center">
             <a href="/" class="flex items-center gap-2 text-xl font-extrabold text-emerald-600 tracking-tight">
                 🛰️ KETRIKA <span class="text-sky-600 font-medium text-lg">MIKROTIK</span>
             </a>
@@ -134,8 +134,8 @@ def wrap(title, body_content, extra_js=""):
 def index():
     plans_html = ""
     for key, p in PLANS.items():
-        border_cls = "ring-2 ring-emerald-500 shadow-xl relative scale-[1.03] md:scale-105" if p.get('popular') else "border border-slate-100 shadow-md"
-        badge = f'<div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-wider shadow">⭐ POPULAIRE</div>' if p.get('popular') else ''
+        border_cls = "ring-2 ring-emerald-500 shadow-xl relative scale-[1.02] md:scale-105" if p.get('popular') else "border border-slate-100 shadow-md"
+        badge = f'<div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-wider shadow">⭐ RECOMMANDÉ</div>' if p.get('popular') else ''
         features = "".join(f'<li class="py-2.5 text-xs text-slate-600 border-b border-slate-50 flex items-center gap-2">✅ <span class="flex-1">{f}</span></li>' for f in p['features'])
         plans_html += f"""
         <div class="bg-white rounded-2xl p-6 flex flex-col justify-between {border_cls}">
@@ -158,11 +158,11 @@ def index():
     <!-- BANNIÈRE ACCUEIL -->
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center mb-12">
         <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">Solution SaaS Professionnelle</span>
-        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Optimisez vos zones WiFi sous Starlink</h1>
-        <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Générez un script MikroTik RouterOS v7 optimisé pour sécuriser vos flux et bypasser les limites de partage FAI.</p>
+        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mt-4 leading-tight">Bypass & Optimisation WiFi Zone Starlink</h1>
+        <p class="text-slate-500 text-sm max-w-xl mx-auto mt-3">Générez un script MikroTik RouterOS v7 professionnel. <strong>Pas de coupures, pas de redémarrages.</strong></p>
         <div class="mt-6 flex flex-wrap justify-center gap-4">
             <a href="#plans" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md transition">🚀 Voir nos Plans</a>
-            <a href="/track" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-xs font-bold transition">🔍 Suivi de Commande</a>
+            <a href="/track" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-xs font-bold transition">🔍 Récupérer Configuration</a>
         </div>
     </div>
 
@@ -174,7 +174,7 @@ def index():
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
             <div class="text-2xl font-extrabold text-sky-600">99.9%</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Taux de stabilité</p>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Stabilité</p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
             <div class="text-2xl font-extrabold text-amber-500">&lt; 30s</div>
@@ -245,15 +245,15 @@ def track():
             flash(f"Aucune commande trouvée : {code}", "error")
             return redirect(url_for('track'))
         if o.status in ('validated', 'delivered'):
-            return redirect(url_for('result', oid=o.order_id)) # CORRIGÉ : utilise oid
-        return redirect(url_for('order_status', oid=o.order_id)) # CORRIGÉ : utilise oid
+            return redirect(url_for('result', oid=o.order_id))
+        return redirect(url_for('order_status', oid=o.order_id))
     body = """
     <div class="max-w-md mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md text-center">
         <h2 class="text-xl font-bold text-slate-900">🔍 Suivi & Récupération de Script</h2>
         <p class="text-xs text-slate-400 mt-2 mb-6">Entrez votre code commande ou votre licence pour y accéder</p>
         <form method="POST" class="space-y-4">
-            <input name="code" placeholder="Ex: KTK-241215-ABCDEF" required class="text-center font-bold tracking-wider py-3.5 rounded-xl border border-slate-200">
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow">🚀 Accéder à mon espace</button>
+            <input name="code" placeholder="Ex: KTK-241215-ABCDEF" required class="w-full text-center font-bold tracking-wider py-3.5 rounded-xl border border-slate-200 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition">
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">🚀 Accéder à mon espace</button>
         </form>
     </div>"""
     return render_template_string(wrap("Suivi", body))
@@ -301,84 +301,172 @@ def configure(pt):
         o.status = 'pending'
         db.session.add(o)
         db.session.commit()
-        return redirect(url_for('payment', oid=o.order_id)) # CORRIGÉ : utilise oid
+        return redirect(url_for('payment', oid=o.order_id))
 
     mo = "".join(f'<option value="{m}">{m}</option>' for m in MIKROTIK_MODELS)
     hs = ""
     if pt == 'hotspot':
-        hs = """
+        hs = f"""
         <div class="pt-6 border-t border-slate-100">
             <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🌐 Configuration Hotspot & PPPoE</h3>
-            <div class="row">
-                <div><label>Nom du Hotspot</label><input name="hotspot_name" value="WiFiZone"></div>
+            <div class="grid grid-cols-1 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nom du Hotspot</label>
+                    <input name="hotspot_name" value="WiFiZone" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                </div>
             </div>
-            <div class="flex flex-col gap-2 mt-4">
-                <div class="check"><input type="checkbox" name="pppoe" id="pppoe"><label for="pppoe" class="cursor-pointer select-none text-slate-600">Activer le serveur PPPoE</label></div>
-                <div class="check"><input type="checkbox" name="voucher" id="voucher" checked><label for="voucher" class="cursor-pointer select-none text-slate-600">Générer 10 vouchers d'accès</label></div>
+            <div class="flex flex-col gap-3 mt-4">
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100/50 transition cursor-pointer">
+                    <input type="checkbox" name="pppoe" id="pppoe" class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                    <label for="pppoe" class="cursor-pointer select-none text-slate-700 text-sm font-semibold">Activer le serveur PPPoE</label>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100/50 transition cursor-pointer">
+                    <input type="checkbox" name="voucher" id="voucher" checked class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                    <label for="voucher" class="cursor-pointer select-none text-slate-700 text-sm font-semibold">Générer 10 vouchers d'accès d'un coup</label>
+                </div>
             </div>
         </div>"""
 
     body = f"""
     <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
-        <div class="text-center pb-6 border-b border-slate-100 mb-6">
-            <h2 class="text-xl font-bold" style="color:{plan['color']}">⚙️ Configuration : {plan['name']}</h2>
-            <p class="text-sm text-slate-400 mt-1">Tarif unique : <strong class="text-slate-800">{plan['price']:,} {plan['currency']}</strong></p>
+        <div class="text-center pb-6 border-b border-slate-100 mb-8">
+            <h2 class="text-xl font-bold" style="color:{plan['color']}">⚙️ Configuration du plan : {plan['name']}</h2>
+            <p class="text-xs text-slate-400 mt-1">Tarif unique : <strong class="text-slate-800">{plan['price']:,} {plan['currency']}</strong></p>
         </div>
         
         <form method="POST" class="space-y-6">
+            <!-- COORDONNÉES CLIENT -->
             <div>
-                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">👤 Coordonnées Client</h3>
-                <div class="row">
-                    <div><label>Nom complet *</label><input name="client_name" required placeholder="Rakoto Andry"></div>
-                    <div><label>Email *</label><input name="client_email" type="email" required placeholder="rakoto@gmail.com"></div>
-                    <div><label>Téléphone</label><input name="client_phone" placeholder="034 00 000 00"></div>
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">👤 Vos Coordonnées</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nom complet *</label>
+                        <input name="client_name" required placeholder="Rakoto Andry" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email *</label>
+                        <input name="client_email" type="email" required placeholder="rakoto@gmail.com" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Téléphone</label>
+                        <input name="client_phone" placeholder="034 00 000 00" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
                 </div>
             </div>
 
+            <!-- CARACTÉRISTIQUES DU ROUTEUR -->
             <div class="pt-6 border-t border-slate-100">
                 <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🖥️ Caractéristiques du Routeur</h3>
-                <div class="row">
-                    <div><label>Modèle MikroTik *</label><select name="mikrotik_model" id="ms" required><option value="">-- Sélectionner --</option>{mo}</select></div>
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Modèle de votre MikroTik *</label>
+                        <select name="mikrotik_model" id="ms" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                            <option value="">-- Sélectionner le modèle --</option>
+                            {mo}
+                        </select>
+                    </div>
                 </div>
                 <div id="pp" class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mt-4 flex items-center gap-3" style="display:none">
-                    <strong class="text-xs font-bold text-emerald-800 shrink-0">📍 Configuration des Ports :</strong>
+                    <strong class="text-xs font-bold text-emerald-800 shrink-0">📍 Auto-détection :</strong>
                     <div id="pv" class="flex gap-2 flex-wrap"></div>
                 </div>
             </div>
 
+            <!-- INFORMATIONS RÉSEAU -->
             <div class="pt-6 border-t border-slate-100">
                 <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🌐 Informations Réseau</h3>
-                <div class="row">
-                    <div><label>Interface WAN (Starlink)</label><select name="wan_interface"><option value="ether1">ether1</option><option value="sfp1">sfp1</option></select></div>
-                    <div><label>Plage d'IP LAN</label><input name="lan_network" value="192.168.88.0/24"></div>
-                    <div><label>IP Gateway</label><input name="lan_gateway" value="192.168.88.1"></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Interface WAN (Starlink)</label>
+                        <select name="wan_interface" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                            <option value="ether1">ether1 (WAN principal)</option>
+                            <option value="sfp1">sfp1 (Fibre)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Plage d'IP LAN</label>
+                        <input name="lan_network" value="192.168.88.0/24" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">IP Passerelle (Gateway)</label>
+                        <input name="lan_gateway" value="192.168.88.1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
                 </div>
-                <div class="row mt-4">
-                    <div><label>Plage DHCP</label><input name="dhcp_pool" value="192.168.88.10-192.168.88.250"></div>
-                    <div><label>SSID WiFi principal</label><input name="ssid" value="WiFiZone-Ketrika"></div>
-                    <div><label>Mot de passe du WiFi</label><input name="wifi_password" value="Ketrika2024"></div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Plage d'IP DHCP Pool</label>
+                        <input name="dhcp_pool" value="192.168.88.10-192.168.88.250" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">SSID WiFi Principal</label>
+                        <input name="ssid" value="WiFiZone-Ketrika" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mot de passe du WiFi</label>
+                        <input name="wifi_password" value="Ketrika2024" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
                 </div>
             </div>
 
+            <!-- CONFIGURATION DE LA BANDE PASSANTE -->
             <div class="pt-6 border-t border-slate-100">
-                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">🛡️ Optimisation de Bande Passante</h3>
-                <div class="row">
-                    <div><label>Force TTL</label><select name="ttl_value"><option value="65" selected>65 (Idéal Starlink)</option><option value="64">64</option><option value="128">128</option></select></div>
-                    <div><label>Limitation bande passante</label><select name="limit_mode" id="lm" onchange="tl()"><option value="preset">📊 Profil prédéfini</option><option value="nolimit">🚀 Illimité (Pas de limitation)</option><option value="custom">⚙️ Vitesse personnalisée</option></select></div>
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">⚙️ Optimisation & Bypass Réseau</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Force TTL (Bypass FAI)</label>
+                        <select name="ttl_value" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                            <option value="65" selected>65 (Idéal Starlink)</option>
+                            <option value="64">64 (Bypass standard)</option>
+                            <option value="128">128 (Windows)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mode de limitation des clients</label>
+                        <select name="limit_mode" id="lm" onchange="tl()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                            <option value="preset">📊 Profil prédéfini (Vitesse recommandée)</option>
+                            <option value="nolimit">🚀 Illimité (Aucun bridage)</option>
+                            <option value="custom">⚙️ Vitesse personnalisée (Manuel)</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <div id="pl" class="row mt-4">
-                    <div><label>Vitesse de Download (Réception)</label><select name="dl_preset"><option value="5M">5 Mbps</option><option value="10M" selected>10 Mbps</option><option value="20M">20 Mbps</option><option value="50M">50 Mbps</option></select></div>
-                    <div><label>Vitesse d'Upload (Envoi)</label><select name="ul_preset"><option value="2M">2 Mbps</option><option value="5M" selected>5 Mbps</option><option value="10M">10 Mbps</option></select></div>
+                <!-- PROFIL PRÉDÉFINI -->
+                <div id="pl" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vitesse de Download (Réception)</label>
+                        <select name="dl_preset" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                            <option value="5M">5 Mbps</option>
+                            <option value="10M" selected>10 Mbps</option>
+                            <option value="20M">20 Mbps</option>
+                            <option value="50M">50 Mbps</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vitesse d'Upload (Envoi)</label>
+                        <select name="ul_preset" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                            <option value="2M">2 Mbps</option>
+                            <option value="5M" selected>5 Mbps</option>
+                            <option value="10M">10 Mbps</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <div id="cl" class="row mt-4" style="display:none">
-                    <div><label>Download manuel (ex: 15M, 800k)</label><input name="dl_custom" placeholder="25M" value="25M"></div>
-                    <div><label>Upload manuel (ex: 8M, 400k)</label><input name="ul_custom" placeholder="10M" value="10M"></div>
+                <!-- VITESSE MANUELLE -->
+                <div id="cl" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6" style="display:none">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Download personnalisé (ex: 25M, 100k)</label>
+                        <input name="dl_custom" placeholder="25M" value="25M" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Upload personnalisé (ex: 8M, 200k)</label>
+                        <input name="ul_custom" placeholder="10M" value="10M" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+                    </div>
                 </div>
                 
-                <div id="nl" class="p-4 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-semibold mt-4" style="display:none">
-                    🚀 Limitation désactivée. Les clients utiliseront l'intégralité de la bande passante Starlink.
+                <!-- ILLIMITÉ -->
+                <div id="nl" class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs font-semibold mt-6" style="display:none">
+                    🚀 Mode Illimité actif. Les clients branchés utiliseront l'intégralité de la bande passante Starlink en temps réel.
                 </div>
             </div>
 
@@ -414,7 +502,7 @@ def payment(oid):
             o.payment_method = request.form.get('pm', 'mvola')
             db.session.commit()
             flash('Preuve de transfert enregistrée ! Votre script est en cours de traitement.', 'success')
-            return redirect(url_for('order_status', oid=o.order_id)) # CORRIGÉ : utilise oid
+            return redirect(url_for('order_status', oid=o.order_id))
         flash('Veuillez joindre la capture d\'écran de confirmation', 'error')
     body = f"""
     <div class="max-w-xl mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
@@ -472,7 +560,7 @@ def result(oid):
     o = Order.query.filter_by(order_id=oid).first_or_404()
     if o.status not in ('validated', 'delivered'):
         flash('Commande en attente de traitement', 'warning')
-        return redirect(url_for('order_status', oid=o.order_id)) # CORRIGÉ : utilise oid
+        return redirect(url_for('order_status', oid=o.order_id))
     if not o.script_content:
         o.script_content = generate_full_script(o)
         db.session.commit()
@@ -530,8 +618,14 @@ def admin_login():
     <div class="max-w-sm mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-md">
         <h2 class="text-xl font-bold text-slate-900 text-center mb-6">🔐 Accès Gestion</h2>
         <form method="POST" class="space-y-4">
-            <div><label>Identifiant</label><input name="username" required></div>
-            <div><label>Mot de passe</label><input name="password" type="password" required></div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Identifiant</label>
+                <input name="username" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mot de passe</label>
+                <input name="password" type="password" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all">
+            </div>
             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg text-xs transition mt-4">Connexion</button>
         </form>
     </div>"""
