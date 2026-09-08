@@ -1,4 +1,4 @@
-# app.py - KETRIKA MIKROTIK - Plateforme SaaS Complète (1 Clé = 1 Routeur)
+# app.py - KETRIKA MIKROTIK - Serveur SaaS Stable
 import os
 import io
 import secrets
@@ -15,8 +15,9 @@ from database import db, Admin, Order, MIKROTIK_MODELS, PLANS, PAYMENT_CONFIG
 from warp_api import generate_full_script
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'ketrika-secure-saas-2024-final')
+app.secret_key = os.environ.get('SECRET_KEY', 'ketrika-secure-key-2024-stable')
 
+# Base de données
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///ketrika.db')
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -43,6 +44,7 @@ login_manager.login_view = 'admin_login'
 def load_user(uid):
     return Admin.query.get(int(uid))
 
+# Initialisation et réparation automatique de la base
 with app.app_context():
     try:
         db.create_all()
@@ -52,7 +54,15 @@ with app.app_context():
             db.session.add(Admin(username=admin_u, password_hash=generate_password_hash(admin_p)))
             db.session.commit()
     except Exception as e:
-        print(f"DB Error: {e}")
+        # En cas de corruption ou de structure obsolète, recréation propre
+        print(f"Auto-réparation de la DB : {e}")
+        try:
+            db.drop_all()
+            db.create_all()
+            db.session.add(Admin(username='admin', password_hash=generate_password_hash('KetrikaAdmin2024!')))
+            db.session.commit()
+        except Exception as e2:
+            print(f"Erreur fatale DB: {e2}")
 
 def wrap(title, body_content, extra_js=""):
     flashes = """
@@ -100,8 +110,7 @@ def wrap(title, body_content, extra_js=""):
         <div class="max-w-4xl mx-auto px-4">{body_content}</div>
     </main>
     <footer class="bg-white border-t border-slate-100 py-10 mt-16 text-center text-xs text-slate-400">
-        <p class="font-bold text-slate-700 text-sm">🛰️ KETRIKA MIKROTIK - Solutions Professionnelles RouterOS v7</p>
-        <p class="mt-1">Règle : 1 Achat = 1 Clé = 1 Routeur Unique Configuré</p>
+        <p class="font-bold text-slate-700 text-sm">🛰️ KETRIKA MIKROTIK - Règle : 1 Achat = 1 Clé = 1 Routeur Verrouillé</p>
         <p class="mt-1">📞 MVola : 038 28 171 00 | Orange : 037 39 755 72 (Jean Eric)</p>
     </footer>
     {extra_js}
@@ -159,7 +168,7 @@ def index():
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center">
             <div class="text-2xl font-extrabold text-rose-500">0</div>
-            <p class="text-xs font-semibold text-slate-400 mt-1">Coupure de session</p>
+            <p class="text-xs font-semibold text-slate-400 mt-1">Coupure WinBox</p>
         </div>
     </div>
     
@@ -167,7 +176,7 @@ def index():
     <div class="grid md:grid-cols-3 gap-6 mb-12">{plans_html}</div>
     
     <div class="bg-slate-100/60 rounded-3xl p-8 border border-slate-200/50 text-center">
-        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">🖥️ Modèles compatibles avec détection automatique</h3>
+        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">🖥️ Modèles compatibles avec auto-détection</h3>
         <div class="flex flex-wrap justify-center gap-2">{models_html}</div>
     </div>"""
     return render_template_string(wrap("Accueil", body))
@@ -536,7 +545,6 @@ def result(oid):
     # Génération UNIQUE si pas encore généré
     if not o.script_content:
         o.script_content = generate_full_script(o)
-        o.is_locked = True
         db.session.commit()
     
     lim = "🚀 Débit Illimité (Cloudflare)" if o.dl_limit == 'nolimit' else f"⬇️ {o.dl_limit} / ⬆️ {o.ul_limit}"
@@ -547,7 +555,7 @@ def result(oid):
         <p class="text-xs text-emerald-600 mt-1">ID Commande : <strong>{o.order_id}</strong></p>
         <p class="text-xs text-slate-700 mt-2">Licence Unique : <strong class="text-slate-800 font-bold">{o.license_key}</strong></p>
         <div class="mt-3 inline-block bg-white border border-emerald-200 px-4 py-2 rounded-lg">
-            <p class="text-xs font-bold text-emerald-700">🔒 Verrouillé pour : {o.mikrotik_model}</p>
+            <p class="text-xs font-bold text-emerald-700">🔒 1 Clé = 1 Routeur Verrouillé ({o.mikrotik_model})</p>
         </div>
         <p class="text-xs text-slate-500 mt-3">Gestion Bande Passante : <strong class="font-bold text-slate-700">{lim}</strong></p>
     </div>
@@ -581,7 +589,6 @@ def download(oid):
         return redirect(url_for('index'))
     if not o.script_content:
         o.script_content = generate_full_script(o)
-        o.is_locked = True
         db.session.commit()
     return send_file(io.BytesIO(o.script_content.encode()), mimetype='text/plain', as_attachment=True, download_name=f'ketrika_{o.order_id}.rsc')
 
@@ -653,10 +660,7 @@ def admin_val(oid):
     if request.form.get('a') == 'v':
         o.generate_license_key()
         o.script_content = generate_full_script(o)
-        o.is_locked = True
         o.status = 'delivered'
-        o.validated_at = datetime.utcnow()
-        o.delivered_at = datetime.utcnow()
         db.session.commit()
         try:
             if app.config['MAIL_USERNAME']:
@@ -666,13 +670,12 @@ def admin_val(oid):
 Votre commande {o.order_id} est validée !
 
 🔑 Clé de licence : {o.license_key}
-🖥️ Matériel configuré : {o.mikrotik_model}
+🖥️ Matériel : {o.mikrotik_model}
 📥 Accès à votre script : {request.host_url}result/{o.order_id}
 
-Rappel : Cette clé est verrouillée pour ce routeur uniquement.
+Rappel : 1 Clé = 1 Routeur Verrouillé.
 
-Support WhatsApp : {PAYMENT_CONFIG['whatsapp']} (Jean Eric)
-
+WhatsApp : {PAYMENT_CONFIG['whatsapp']} (Jean Eric)
 KETRIKA MIKROTIK"""
                 mail.send(msg)
         except Exception:
