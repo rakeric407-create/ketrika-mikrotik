@@ -12,7 +12,7 @@ import base64
 import time
 import hashlib
 
-# Clé publique Cloudflare WARP officielle par défaut
+# Clé publique Cloudflare WARP officielle
 CF_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
 
 def safe_get(obj, key, default=''):
@@ -23,7 +23,7 @@ def safe_get(obj, key, default=''):
         return default
 
 def curve25519_scalarmult(scalar):
-    """Calcul de clé publique Curve25519 pure-Python (évite la dépendance cryptography)"""
+    """Calcul de clé publique Curve25519 pure-Python (évite la dépendance externe)"""
     P = 2**255 - 19
     def dec(s): return int.from_bytes(s, 'little')
     def enc(u): return (u % P).to_bytes(32, 'little')
@@ -141,7 +141,9 @@ def generate_script(order):
     ports = [500, 853, 4500, 2408]
     endpoint = f"{random.choice(endpoints)}:{random.choice(ports)}"
 
-    script = f"""# ============================================================
+    # 1. EN-TÊTE DU SCRIPT
+    script_parts = []
+    script_parts.append(f"""# ============================================================
 # KETRIKA MIKROTIK - SCRIPT DE CONFIGURATION AUTOMATIQUE v7
 # LICENCE : {lic}
 # SYSTEME : RouterOS v7
@@ -168,16 +170,16 @@ def generate_script(order):
 
 # --- Création du Bridge ---
 /interface bridge add name=bridge1 comment="LAN-KETRIKA"
+""")
 
-# --- Attribution dynamique des ports Ethernet ---
-"""
-    # Ajout automatique de tous les ports physiques sauf le WAN au bridge via scheduler
+    # 2. ADJONCTION DES PORTS PHYSIQUES AU BRIDGE
     for i in range(1, info['eth_ports'] + 1):
         p = f"ether{i}"
         if p != wan:
-            script += f"""/system scheduler add name="br-{p}" start-time=startup interval=0 on-event="/interface bridge port add bridge=bridge1 interface={p}; /system scheduler remove br-{p}"\n"""
+            script_parts.append(f'/system scheduler add name="br-{p}" start-time=startup interval=0 on-event="/interface bridge port add bridge=bridge1 interface={p}; /system scheduler remove br-{p}"')
 
-    script += f"""
+    # 3. RÉSEAU DE BASE
+    script_parts.append(f"""
 # --- Connexion Internet (Client DHCP sur port WAN) ---
 /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no
 
@@ -191,28 +193,28 @@ def generate_script(order):
 
 # --- Serveur DNS Sécurisé (Cloudflare DoH) ---
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server=https://cloudflare-dns.com/dns-query
-"""
+""")
 
-    # Configuration WiFi adaptée
+    # 4. CONFIGURATION WI-FI DÉTECTÉE
     if wifi_type == 'ax':
-        script += f"""
+        script_parts.append(f"""
 # --- Config WiFi 6 (AX) ---
 /interface wifi set wifi1 configuration.ssid="{ssid}" configuration.country=madagascar security.authentication-types=wpa2-psk,wpa3-psk security.passphrase="{wifi_pass}" disabled=no
 /system scheduler add name="br-wifi1" start-time=startup interval=0 on-event="/interface bridge port add bridge=bridge1 interface=wifi1; /system scheduler remove br-wifi1"
-"""
+""")
     elif wifi_type in ['ac', 'n']:
-        script += f"""
+        script_parts.append(f"""
 # --- Config WiFi 5 (AC) ---
 /interface wireless set wlan1 mode=ap-bridge ssid="{ssid}" frequency=auto security-profile=default disabled=no
 /interface wireless security-profiles set default mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="{wifi_pass}"
 /system scheduler add name="br-wlan1" start-time=startup interval=0 on-event="/interface bridge port add bridge=bridge1 interface=wlan1; /system scheduler remove br-wlan1"
-"""
+""")
 
-    # Intégration VPN Cloudflare WARP si pack 2 ou 3
+    # 5. CONFIGURATION VPN WARP (SI PACK SÉCURITÉ OU HOTSPOT)
     if plan in ['warp', 'hotspot']:
-        script += f"""
+        script_parts.append(f"""
 # --- Tunnel Chiffré WireGuard WARP ---
-/interface wireguard add name=wg-secure mtu=1280 listen-port=0 private-key="{keys['private_key']}"
+/interface wireguard add name=wg-secure mtu=1280 listen-port=0 private-key="{keys['private_key']}" comment="WARP-KETRIKA"
 /ip address add address={warp_ip}/32 interface=wg-secure
 /interface wireguard peers add interface=wg-secure public-key="{CF_PUBLIC_KEY}" endpoint-address={endpoint.split(':')[0]} endpoint-port={endpoint.split(':')[1]} allowed-address=0.0.0.0/0 persistent-keepalive=25
 
@@ -229,11 +231,11 @@ def generate_script(order):
 
 # --- Optimisation MSS (Anti-DPI / Starlink) ---
 /ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes
-"""
+""")
 
-    # Portail Captif Hotspot (Pack 3)
+    # 6. PORTAIL CAPTIF (SI PACK HOTSPOT)
     if plan == 'hotspot':
-        script += f"""
+        script_parts.append(f"""
 # --- Portail Captif WiFi Zone ---
 /ip dns static add name=wifi.ketrika.mg address={gw}
 /ip hotspot profile add name=ketrika-hotspot hotspot-address={gw} dns-name=wifi.ketrika.mg login-by=http-pap,cookie http-cookie-lifetime=1d use-radius=no
@@ -245,41 +247,43 @@ def generate_script(order):
 /ip hotspot user profile add name="1mois" rate-limit="10M/20M" session-timeout=30d shared-users=3
 
 # --- Génération de 10 Vouchers de test ---
-"""
+""")
+        # Injection sécurisée des vouchers
         for _ in range(10):
             vc = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-            script += f'/ip hotspot user add name="{vc}" password="{vc}" profile="1jour" comment="Ticket-Test"\n'
+            script_parts.append(f'/ip hotspot user add name="{vc}" password="{vc}" profile="1jour" comment="Ticket-Test"')
 
-        # Blocage des Torrents
-        script += f"""
+        script_parts.append("""
 # --- Firewall Blocage P2P / Torrents ---
 /ip firewall filter add chain=forward protocol=tcp dst-port=6881-6999 action=drop
 /ip firewall filter add chain=forward protocol=udp dst-port=6881-6999 action=drop
-"""
+""")
 
-    # NAT standard
-    script += f"""
+    # 7. SÉCURITÉ STANDARD ET TTL MASQUAGE
+    script_parts.append(f"""
 # --- Règles de NAT & Sécurité standard ---
 /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade
+""")
 
-# --- Masquage TTL (Anti-partage FAI) ---
-"""
     if str(ttl) != '0':
-        script += f"""/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:{ttl} passthrough=yes\n"""
+        script_parts.append(f'/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:{ttl} passthrough=yes')
 
-    # QoS simple
+    # 8. QOS
     if dl != '0' or ul != '0':
         lim_ul = f"{ul}" if 'M' in str(ul) else f"{ul}M"
         lim_dl = f"{dl}" if 'M' in str(dl) else f"{dl}M"
-        script += f"""/queue simple add name="QoS-Global" target={net} max-limit={lim_ul}/{lim_dl}\n"""
+        script_parts.append(f'/queue simple add name="QoS-Global" target={net} max-limit={lim_ul}/{lim_dl}')
 
-    script += f"""
+    # 9. PIED DE PAGE ET REBOOT AUTOMATIQUE
+    script_parts.append(f"""
 # --- Changement d'identité ---
 /system identity set name="KETRIKA-{lic[-4:]}"
 
-# --- Redémarrage automatique propre ---
+# --- Redémarrage automatique propre (3 secondes de sursis) ---
 /system scheduler add name="reboot-auto" start-time=startup interval=3s on-event="/system reboot; /system scheduler remove reboot-auto"
 :delay 1s
 /system scheduler set reboot-auto start-time=[/system clock get time]
-"""
-    return script
+""")
+
+    # Jointure de toutes les sections de façon propre et unifiée
+    return "\n".join(script_parts)
