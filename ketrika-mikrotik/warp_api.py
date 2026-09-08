@@ -1,567 +1,719 @@
-C'est maintenant parfaitement clair ! Voici l'architecture exacte de vos **3 Packs distincts** :
+#!/usr/bin/env python3
+"""
+KETRIKA MIKROTIK - Serveur d'Application Flask Principal
+"""
 
----
-
-### 📦 La logique exacte de vos 3 Packs :
-
-| Pack | VPN Cloudflare (Anti-FAI) | Portail Hotspot (Tickets) | Serveur PPPoE | Wi-Fi | Description |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| **1. STANDARD** | ❌ Non | ❌ Non | ❌ Non | 🔒 Sécurisé (Mot de passe) | Connexion classique directe sur le FAI avec QoS et masquage TTL. |
-| **2. WARP (Anti-FAI)** | ✅ **OUI** | ❌ Non | ❌ Non | 🔒 Sécurisé (Mot de passe) | **100% du trafic passe par l'IP Cloudflare**, Anti-DPI, Anti-blocage FAI. |
-| **3. HOTSPOT PRO** | ✅ **OUI** | ✅ **OUI** | ✅ **OUI** (Optionnel) | 🔓 Ouvert (Portail) | **Popup automatique + Tickets Vouchers**, et **une fois connecté, tout le monde navigue sous l'IP Cloudflare (Anti-FAI)**. |
-
----
-
-### Pourquoi l'IP Cloudflare ne marchait pas auparavant ?
-- Dans le **Pack 2 (WARP seul)**, la règle de routage contenait `hotspot=auth`. Comme il n'y a pas de Hotspot dans le Pack 2, MikroTik ignorait la règle et vous renvoyait sur le FAI.
-- Dans le **Pack 3 (Hotspot + WARP)**, le tunnel interceptait les requêtes avant l'affichage du portail.
-
-👉 **Tout est maintenant corrigé et séparé selon le Pack choisi !**
-
----
-
-### Code complet `warp_api.py` :
-
-```python
-# warp_api.py - KETRIKA MIKROTIK - Générateur 3 Packs Officiels (Standard / WARP Anti-FAI / Hotspot WARP)
+import os
+import uuid
 import secrets
-import base64
-import requests
-import re
-import ipaddress
-import datetime
+import traceback
+from datetime import datetime
+from flask import (
+    Flask, request, redirect, url_for,
+    send_file, session, abort
+)
 
-DEFAULT_MODELS = {
-    'hAP lite (RB941)': {'ports': 4, 'wifi': True, 'wifi5g': False},
-    'hAP ac2': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ac3': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ax2 (C52iG)': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ax2': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hAP ax3': {'ports': 5, 'wifi': True, 'wifi5g': True},
-    'hEX (RB750Gr3)': {'ports': 5, 'wifi': False, 'wifi5g': False},
-    'hEX S': {'ports': 5, 'wifi': False, 'wifi5g': False},
-    'RB3011 / RB4011 / RB5009': {'ports': 10, 'wifi': False, 'wifi5g': False},
-}
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
-def safe_get(obj, key, default=""):
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'payments')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'ketrika2024admin')
+
+# Importation sécurisée
+from database import db, Order, MIKROTIK_MODELS, get_next_lan_subnet, get_model_info
+
+# Configuration Base de données compatible Render (PostgreSQL / SQLite de secours)
+db_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'ketrika.db'))
+if db_url.startswith('postgres://'):
+    db_url = db_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+
+with app.app_context():
     try:
-        if obj is None:
-            return default
-        if isinstance(obj, dict):
-            return obj.get(key, default) or default
-        return getattr(obj, key, default) or default
+        db.create_all()
+    except Exception as e:
+        print(f"[DB INIT ERROR] {e}")
+
+def safe_get(obj, key, default=''):
+    try:
+        val = getattr(obj, key, default)
+        return val if val is not None else default
     except Exception:
         return default
 
-# =======================================================
-# VALIDATEUR STRICT DE CONFIGURATION
-# =======================================================
-class ConfigValidator:
-    @staticmethod
-    def validate_ip(ip_str):
-        try:
-            ipaddress.IPv4Address(str(ip_str).strip())
-            return True
-        except Exception:
-            return False
+# ===================== STYLE ET RENDER HTML SÉCURISÉ =====================
 
-    @staticmethod
-    def validate_network(net_str):
-        try:
-            ipaddress.IPv4Network(str(net_str).strip(), strict=False)
-            return True
-        except Exception:
-            return False
+CSS_STYLES = """
+:root { --primary: #0d6efd; --success: #28a745; --dark: #212529; --light: #f8f9fa; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fafafa; color: #333; }
+.navbar-brand { font-weight: 800; font-size: 1.4rem; }
+.hero-section { background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 100%); padding: 90px 0; }
+.hero-title { font-size: 3rem; font-weight: 800; }
+.hero-title span { color: var(--success); }
+.hero-subtitle { font-size: 1.15rem; color: #6c757d; margin: 20px 0 35px; line-height: 1.7; }
+.btn-cta { background: var(--success); border: none; padding: 15px 40px; font-size: 1.1rem; font-weight: 700; border-radius: 50px; color: #fff; box-shadow: 0 8px 20px rgba(40,167,69,0.3); transition: 0.3s; }
+.btn-cta:hover { background: #218838; transform: translateY(-2px); color:#fff; }
+.badge-compat { display: inline-block; background: #fff; border: 2px solid var(--success); color: var(--success); padding: 8px 20px; border-radius: 50px; font-weight: 600; margin-top: 15px; }
+.feature-card { background: #fff; border-radius: 16px; padding: 35px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eee; height: 100%; transition: 0.3s; }
+.feature-card:hover { transform: translateY(-5px); }
+.feature-icon { width: 60px; height: 60px; background: #e8f5e9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 1.6rem; color: var(--success); }
+.pricing-card { background: #fff; border-radius: 20px; padding: 40px 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 2px solid #eee; height: 100%; display: flex; flex-direction: column; position: relative; }
+.pricing-card.popular { border-color: var(--success); box-shadow: 0 8px 25px rgba(40,167,69,0.15); }
+.pricing-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 5px 25px; border-radius: 50px; font-weight: 700; font-size: 0.8rem; }
+.pricing-badge.pro { background: var(--primary); }
+.pricing-price { font-size: 2.6rem; font-weight: 800; color: var(--success); margin: 15px 0; }
+.pricing-features { list-style: none; padding: 0; margin: 20px 0; text-align: left; flex-grow: 1; }
+.pricing-features li { padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 0.93rem; }
+.pricing-features li i { color: var(--success); margin-right: 8px; }
+.btn-pricing { padding: 12px; border-radius: 50px; font-weight: 700; width: 100%; }
+.step-number { width: 50px; height: 50px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.3rem; font-weight: 800; margin: 0 auto 15px; }
+.order-form { background: #fff; border-radius: 20px; padding: 35px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eee; }
+.form-control, .form-select { border-radius: 10px; padding: 12px 15px; }
+.pack-radio { display: none; }
+.pack-label { display: block; border: 2px solid #dee2e6; border-radius: 14px; padding: 20px; cursor: pointer; transition: 0.3s; text-align: center; }
+.pack-radio:checked+.pack-label { border-color: var(--success); background: #e8f5e9; }
+.summary-box { background: #e8f5e9; border-radius: 16px; padding: 25px; border: 1px solid #c8e6c9; }
+.script-area { background: #1e1e1e; color: #d4d4d4; border-radius: 12px; padding: 20px; font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+.guide-section { background: #f0f7ff; border: 1px solid #b8d4f0; border-radius: 14px; padding: 25px; margin-top: 25px; }
+.stat-card { background: #fff; border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eee; }
+.stat-card .number { font-size: 2.2rem; font-weight: 800; color: var(--success); }
+.status-badge { padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 600; }
+.status-pending { background: #fff3cd; color: #856404; }
+.status-active { background: #d4edda; color: #155724; }
+.status-rejected { background: #f8d7da; color: #721c24; }
+footer { background: var(--dark); color: #fff; padding: 45px 0; }
+footer a { color: var(--success); text-decoration: none; }
+"""
 
-    @staticmethod
-    def auto_fix_order(order):
-        if order is None:
-            return order
+def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} - KETRIKA MIKROTIK</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>{CSS_STYLES}</style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/"><i class="fas fa-network-wired text-success me-2"></i>KETRIKA <span class="text-success">MIKROTIK</span></a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain"><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="navMain">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link fw-semibold" href="/#pricing">Tarifs</a></li>
+                    <li class="nav-item"><a class="nav-link fw-semibold" href="/#how">Comment ça marche</a></li>
+                    <li class="nav-item"><a class="nav-link fw-semibold" href="/#faq">FAQ</a></li>
+                    <li class="nav-item ms-lg-3"><a class="btn btn-success btn-sm px-4 rounded-pill fw-bold text-white" href="/order"><i class="fas fa-shopping-cart me-1"></i> Commander</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {body_html}
+    <footer>
+        <div class="container text-center">
+            <p class="mb-2"><i class="fas fa-network-wired me-2"></i><strong>KETRIKA MIKROTIK</strong></p>
+            <p class="mb-2"><a href="https://wa.me/261340000000" target="_blank"><i class="fab fa-whatsapp me-1"></i> Support WhatsApp</a></p>
+            <p class="mb-2"><i class="fas fa-lock me-1"></i> Paiement sécurisé MVola &amp; Orange Money</p>
+            <p class="mt-3 mb-0" style="color:#adb5bd;font-size:0.8rem">&copy; 2024 KETRIKA MIKROTIK - Tous droits réservés</p>
+        </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {extra_script}
+</body>
+</html>"""
 
-        gw = str(safe_get(order, 'lan_gateway', '192.168.88.1'))
-        if not ConfigValidator.validate_ip(gw):
-            setattr(order, 'lan_gateway', '192.168.88.1')
+# ===================== ACCUEIL =====================
+HOME_BODY = """
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="hero-title">Configurez votre <span>MikroTik</span> en 1 clic</h1>
+                <p class="hero-subtitle">Scripts professionnels RouterOS v7 prêts à l'emploi. VPN illimité, Hotspot WiFi Zone, protection réseau avancée.</p>
+                <a href="/order" class="btn btn-cta"><i class="fas fa-bolt me-2"></i>Commander maintenant</a>
+                <br><span class="badge-compat"><i class="fas fa-check-circle me-1"></i> 100% Compatible RouterOS v7</span>
+            </div>
+            <div class="col-lg-5 d-none d-lg-block text-center">
+                <div class="hero-image-inner" style="font-size: 10rem; color: #28a745;"><i class="fas fa-server"></i></div>
+            </div>
+        </div>
+    </div>
+</section>
 
-        net = str(safe_get(order, 'lan_network', '192.168.88.0/24'))
-        if not ConfigValidator.validate_network(net):
-            setattr(order, 'lan_network', '192.168.88.0/24')
-        
-        ssid = str(safe_get(order, 'ssid', '') or "WiFiZone-Ketrika")
-        cleaned_ssid = re.sub(r'[^\w\s\-\.]', '', ssid)
-        setattr(order, 'ssid', cleaned_ssid[:32].strip() or "WiFiZone-Ketrika")
-        
-        pwd = str(safe_get(order, 'wifi_password', '') or "Ketrika2024")
-        setattr(order, 'wifi_password', pwd if len(pwd) >= 8 else "Ketrika2024")
-        
-        try:
-            ttl_val = str(safe_get(order, 'ttl_value', '65')).strip().lower()
-            if ttl_val in ('0', 'none', 'disabled', ''):
-                setattr(order, 'ttl_value', 'disabled')
+<section class="py-5 bg-white">
+    <div class="container">
+        <h2 class="section-title text-center mb-5">Pourquoi nous choisir ?</h2>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h5 class="text-center">Configuration Rapide</h5><p class="text-muted text-center mb-0">Copiez-collez le script généré, configuration automatique en 30 secondes.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-shield-halved"></i></div><h5 class="text-center">VPN Cloudflare WARP</h5><p class="text-muted text-center mb-0">Naviguez anonymement et sans baisse de débit via les tunnels sécurisés.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-router"></i></div><h5 class="text-center">Tous modèles compatibles</h5><p class="text-muted text-center mb-0">Détection intelligente pour configurations WiFi 5 et WiFi 6.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fab fa-whatsapp"></i></div><h5 class="text-center">Assistance 24/7</h5><p class="text-muted text-center mb-0">Assistance et livraison de licence directement par WhatsApp.</p></div></div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5" id="pricing">
+    <div class="container">
+        <h2 class="section-title text-center">Nos Tarifs</h2>
+        <p class="text-center text-muted mb-5">Sélectionnez le pack dont vous avez besoin pour votre routeur</p>
+        <div class="row g-4 justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="pricing-card">
+                    <div class="pricing-name fw-bold">PACK ESSENTIEL</div>
+                    <div class="pricing-price">30 000 <small style="font-size:1.2rem">Ar</small></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Configuration complète du Bridge</li>
+                        <li><i class="fas fa-check"></i> Wi-Fi Sécurisé (WPA2-PSK)</li>
+                        <li><i class="fas fa-check"></i> DNS Chiffré Cloudflare DoH</li>
+                        <li><i class="fas fa-check"></i> Masquage TTL (Anti-partage)</li>
+                        <li><i class="fas fa-check"></i> Limitation QoS Simple</li>
+                    </ul>
+                    <a href="/order?pack=standard" class="btn btn-outline-success btn-pricing">Commander</a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="pricing-card popular">
+                    <div class="pricing-badge">POPULAIRE</div>
+                    <div class="pricing-name fw-bold mt-2">PACK SÉCURITÉ VPN</div>
+                    <div class="pricing-price">50 000 <small style="font-size:1.2rem">Ar</small></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Tout le Pack Essentiel +</li>
+                        <li><i class="fas fa-check"></i> VPN Cloudflare WARP illimité</li>
+                        <li><i class="fas fa-check"></i> Contournement DPI et FAI</li>
+                        <li><i class="fas fa-check"></i> MSS Clamping automatique</li>
+                        <li><i class="fas fa-check"></i> Guide Réseau Avancé (PDF)</li>
+                    </ul>
+                    <a href="/order?pack=warp" class="btn btn-success text-white btn-pricing">Commander</a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="pricing-card">
+                    <div class="pricing-badge pro">PRO</div>
+                    <div class="pricing-name fw-bold mt-2">PACK BUSINESS HOTSPOT</div>
+                    <div class="pricing-price">80 000 <small style="font-size:1.2rem">Ar</small></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Tout le Pack Sécurité VPN +</li>
+                        <li><i class="fas fa-check"></i> Portail Captif WiFi Zone</li>
+                        <li><i class="fas fa-check"></i> Serveur PPPoE intégré</li>
+                        <li><i class="fas fa-check"></i> 10 Vouchers de test inclus</li>
+                        <li><i class="fas fa-check"></i> Pare-feu Anti-Torrent</li>
+                    </ul>
+                    <a href="/order?pack=hotspot" class="btn btn-primary btn-pricing">Commander</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-white" id="how">
+    <div class="container">
+        <h2 class="section-title text-center mb-5">Comment ça marche ?</h2>
+        <div class="row g-4">
+            <div class="col-md-4 text-center">
+                <div class="step-number">1</div>
+                <h5>Personnalisez</h5>
+                <p class="text-muted">Remplissez le formulaire de configuration en indiquant vos besoins.</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="step-number">2</div>
+                <h5>Payez</h5>
+                <p class="text-muted">Payez via Mobile Money (MVola/Orange) et envoyez votre capture d'écran.</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="step-number">3</div>
+                <h5>Collez</h5>
+                <p class="text-muted">Recevez votre licence, ouvrez le Terminal de Winbox et collez le script.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5" id="faq">
+    <div class="container" style="max-width: 800px;">
+        <h2 class="section-title text-center mb-5">Foire Aux Questions (FAQ)</h2>
+        <div class="accordion" id="faqAcc">
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f1">Est-ce que le VPN ralentit le débit internet ?</button></h2>
+                <div id="f1" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non. Cloudflare utilise un protocole très optimisé (WireGuard) qui préserve l'intégralité de votre bande passante.</div></div>
+            </div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f2">Comment fonctionne le contournement de détection de partage ?</button></h2>
+                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Les opérateurs analysent la valeur TTL. Le script fige cette valeur sur votre routeur pour masquer le partage réseau.</div></div>
+            </div>
+        </div>
+    </div>
+</section>
+"""
+
+@app.route('/')
+def home():
+    try:
+        return render_page(HOME_BODY, title="Plateforme d'automatisation")
+    except Exception as e:
+        traceback.print_exc()
+        return f"<h1>Erreur Serveur</h1><pre>{e}</pre>", 500
+
+# ===================== COMMANDES =====================
+@app.route('/order', methods=['GET', 'POST'])
+def order():
+    try:
+        if request.method == 'POST':
+            client_name = (request.form.get('client_name') or '').strip()
+            whatsapp = (request.form.get('whatsapp') or '').strip()
+            plan_type = request.form.get('plan_type') or 'standard'
+            mikrotik_model = request.form.get('mikrotik_model') or 'hap_ac2'
+            if mikrotik_model == 'other':
+                mikrotik_model = (request.form.get('other_model') or 'Unknown').strip()
+
+            ssid = (request.form.get('ssid') or 'KETRIKA-WiFi').strip()
+            wifi_password = (request.form.get('wifi_password') or 'ketrika2024').strip()
+            wan_interface = (request.form.get('wan_interface') or 'ether1').strip()
+            ttl_value = request.form.get('ttl_value') or '64'
+            dl_limit = request.form.get('dl_limit') or '0'
+            ul_limit = request.form.get('ul_limit') or '0'
+            pppoe_enabled = request.form.get('pppoe_enabled') == '1'
+            voucher_enabled = request.form.get('voucher_enabled') == '1'
+
+            subnet_info = get_next_lan_subnet()
+            order_id = 'KTR-' + uuid.uuid4().hex[:8].upper()
+            license_key = 'LIC-' + secrets.token_hex(16).upper()
+
+            new_order = Order(
+                order_id=order_id,
+                license_key=license_key,
+                client_name=client_name,
+                whatsapp_number=whatsapp,
+                plan_type=plan_type,
+                mikrotik_model=mikrotik_model,
+                ssid=ssid,
+                wifi_password=wifi_password,
+                wan_interface=wan_interface,
+                lan_gateway=subnet_info['gateway'],
+                lan_network=subnet_info['network'],
+                dhcp_pool=subnet_info['pool'],
+                ttl_value=ttl_value,
+                dl_limit=dl_limit,
+                ul_limit=ul_limit,
+                pppoe_enabled=pppoe_enabled,
+                voucher_enabled=voucher_enabled,
+                status='pending',
+                created_at=datetime.utcnow()
+            )
+            db.session.add(new_order)
+            db.session.commit()
+            return redirect(url_for('pay', order_id=order_id))
+
+        # GET
+        preselect = request.args.get('pack', 'standard')
+        options_html = '<option value="">-- Sélectionnez votre modèle --</option>'
+        for key, info in MIKROTIK_MODELS.items():
+            options_html += f'<option value="{key}">{info["name"]}</option>'
+        options_html += '<option value="other">Autre / Modèle non listé</option>'
+
+        c1 = 'checked' if preselect == 'standard' else ''
+        c2 = 'checked' if preselect == 'warp' else ''
+        c3 = 'checked' if preselect == 'hotspot' else ''
+
+        body = f"""
+<section class="py-5">
+    <div class="container" style="max-width:850px">
+        <h2 class="section-title text-center mb-4"><i class="fas fa-shopping-cart text-success me-2"></i>Commande</h2>
+        <form class="order-form" method="POST" action="/order">
+            <div class="mb-3"><label class="form-label">Nom complet du client</label><input type="text" name="client_name" class="form-control" required placeholder="Ex: Jean Luc"></div>
+            <div class="mb-3"><label class="form-label"><i class="fab fa-whatsapp text-success"></i> Numéro WhatsApp</label><input type="text" name="whatsapp" class="form-control" placeholder="+261 34 XX XXX XX" required></div>
+            <div class="mb-4">
+                <label class="form-label">Type de Pack</label>
+                <div class="row g-3">
+                    <div class="col-md-4"><input type="radio" name="plan_type" value="standard" id="p1" class="pack-radio" {c1}><label class="pack-label" for="p1"><h6>Pack Essentiel</h6><div class="price">30 000 Ar</div></label></div>
+                    <div class="col-md-4"><input type="radio" name="plan_type" value="warp" id="p2" class="pack-radio" {c2}><label class="pack-label" for="p2"><h6>Pack Sécurité VPN</h6><div class="price">50 000 Ar</div></label></div>
+                    <div class="col-md-4"><input type="radio" name="plan_type" value="hotspot" id="p3" class="pack-radio" {c3}><label class="pack-label" for="p3"><h6>Pack Business</h6><div class="price">80 000 Ar</div></label></div>
+                </div>
+            </div>
+            <div class="mb-3"><label class="form-label">Modèle de routeur MikroTik</label><select name="mikrotik_model" class="form-select" id="modelSelect" required>{options_html}</select></div>
+            <div class="mb-3" id="otherModelDiv" style="display:none"><label class="form-label">Indiquez la référence exacte</label><input type="text" name="other_model" class="form-control" placeholder="Ex: RB1100AHx4"></div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6"><label class="form-label">SSID (Nom Wi-Fi)</label><input type="text" name="ssid" class="form-control" value="KETRIKA-WiFi"></div>
+                <div class="col-md-6"><label class="form-label">Clé de sécurité Wi-Fi (minimum 8 caractères)</label><input type="text" name="wifi_password" class="form-control" minlength="8" value="ketrika2024"></div>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6"><label class="form-label">Interface WAN</label><input type="text" name="wan_interface" class="form-control" value="ether1"></div>
+                <div class="col-md-6"><label class="form-label">IP LAN &amp; DHCP</label><input type="text" class="form-control" value="Génération d'IP unique active" disabled></div>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Valeur du TTL</label>
+                    <select name="ttl_value" class="form-select">
+                        <option value="64" selected>64 (Masquage)</option>
+                        <option value="65">65</option>
+                        <option value="128">128</option>
+                        <option value="0">Désactivé</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Limite Download</label>
+                    <select name="dl_limit" class="form-select">
+                        <option value="0">Illimité</option><option value="5M">5 Mbps</option><option value="10M">10 Mbps</option><option value="20M">20 Mbps</option><option value="50M">50 Mbps</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Limite Upload</label>
+                    <select name="ul_limit" class="form-select">
+                        <option value="0">Illimité</option><option value="2M">2 Mbps</option><option value="5M">5 Mbps</option><option value="10M">10 Mbps</option><option value="20M">20 Mbps</option>
+                    </select>
+                </div>
+            </div>
+            <div id="hotspotOptions" style="display:none;background:#f0f7ff;padding:20px;border-radius:12px" class="mb-3">
+                <h6 class="fw-bold text-primary"><i class="fas fa-wifi me-1"></i> Options Business Hotspot</h6>
+                <div class="form-check mb-2"><input type="checkbox" name="pppoe_enabled" class="form-check-input" id="pppoeCheck" value="1"><label class="form-check-label" for="pppoeCheck">Activer serveur PPPoE</label></div>
+                <div class="form-check"><input type="checkbox" name="voucher_enabled" class="form-check-input" id="voucherCheck" value="1" checked><label class="form-check-label" for="voucherCheck">Générer 10 codes d'accès Wi-Fi</label></div>
+            </div>
+            <button type="submit" class="btn btn-cta w-100"><i class="fas fa-check me-2"></i>Valider la configuration</button>
+        </form>
+    </div>
+</section>
+"""
+        js = """
+<script>
+document.querySelectorAll('input[name=plan_type]').forEach(function(r){
+    r.addEventListener('change',function(){
+        document.getElementById('hotspotOptions').style.display=this.value==='hotspot'?'block':'none';
+    });
+});
+document.getElementById('modelSelect').addEventListener('change',function(){
+    document.getElementById('otherModelDiv').style.display=this.value==='other'?'block':'none';
+});
+(function(){
+    var s=document.querySelector('input[name=plan_type]:checked');
+    if(s&&s.value==='hotspot')document.getElementById('hotspotOptions').style.display='block';
+})();
+</script>
+"""
+        return render_page(body, title="Configuration", extra_script=js)
+    except Exception as e:
+        traceback.print_exc()
+        return f"<h1>Erreur formulaire</h1><pre>{e}</pre>", 500
+
+# ===================== PAIEMENTS =====================
+@app.route('/pay/<order_id>', methods=['GET', 'POST'])
+def pay(order_id):
+    try:
+        order_obj = Order.query.filter_by(order_id=order_id).first()
+        if not order_obj:
+            abort(404)
+
+        if request.method == 'POST':
+            file = request.files.get('payment_proof')
+            if file and file.filename:
+                fname = secure_filename(f"{order_id}_{file.filename}")
+                fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+                file.save(fpath)
+                order_obj.payment_proof = fname
+
+            wa_confirm = (request.form.get('whatsapp_confirm') or '').strip()
+            if wa_confirm:
+                order_obj.whatsapp_number = wa_confirm
+            db.session.commit()
+
+            body = f"""
+<section class="py-5">
+    <div class="container text-center" style="max-width:600px">
+        <div class="order-form">
+            <div class="text-success mb-3" style="font-size: 5rem;"><i class="fas fa-check-circle"></i></div>
+            <h3 class="fw-bold">Preuve reçue</h3>
+            <p class="text-muted">La validation de votre clé de licence est en cours. Vous recevrez une notification d'activation sur WhatsApp sous 10 minutes.</p>
+            <a href="/" class="btn btn-outline-success rounded-pill px-4 mt-3">Retour au site</a>
+        </div>
+    </div>
+</section>
+"""
+            return render_page(body, title="Preuve reçue")
+
+        # GET
+        plan = safe_get(order_obj, 'plan_type', 'standard')
+        price_map = {'standard': ('30 000 Ar', 'Pack Essentiel'), 'warp': ('50 000 Ar', 'Pack Sécurité VPN'), 'hotspot': ('80 000 Ar', 'Pack Business')}
+        price, name = price_map.get(plan, ('30 000 Ar', 'Pack Essentiel'))
+
+        body = f"""
+<section class="py-5">
+    <div class="container" style="max-width:700px">
+        <div class="order-form">
+            <h3 class="text-center fw-bold mb-4"><i class="fas fa-mobile text-success me-2"></i>Instructions de Paiement</h3>
+            <div class="summary-box mb-4">
+                <p class="mb-1"><strong>Référence :</strong> {safe_get(order_obj, 'order_id')}</p>
+                <p class="mb-1"><strong>Formule :</strong> {name}</p>
+                <p class="mb-0"><strong>Montant :</strong> <span class="fw-bold text-success">{price}</span></p>
+            </div>
+            <div class="alert alert-warning">
+                <h6>Envoyez le paiement de <strong>{price}</strong> sur un de ces numéros :</h6>
+                <p class="mb-1"><strong>MVola :</strong> 034 00 000 00 (Au nom de JEAN ERIC)</p>
+                <p class="mb-0"><strong>Orange Money :</strong> 032 00 000 00 (Au nom de JEAN ERIC)</p>
+            </div>
+            <form method="POST" action="/pay/{order_id}" enctype="multipart/form-data">
+                <div class="mb-3"><label class="form-label fw-bold">Capture d'écran de la preuve</label><input type="file" name="payment_proof" class="form-control" accept="image/*" required></div>
+                <div class="mb-3"><label class="form-label fw-bold">Rappel de votre numéro WhatsApp</label><input type="text" name="whatsapp_confirm" class="form-control" value="{safe_get(order_obj, 'whatsapp_number')}" required></div>
+                <button type="submit" class="btn btn-cta w-100">Transmettre la capture d'écran</button>
+            </form>
+        </div>
+    </div>
+</section>
+"""
+        return render_page(body, title="Instructions")
+    except Exception as e:
+        traceback.print_exc()
+        return f"<h1>Erreur paiement</h1><pre>{e}</pre>", 500
+
+# ===================== SCRIPT & LICENCE =====================
+@app.route('/license/<key>')
+def license_page(key):
+    try:
+        order_obj = Order.query.filter_by(license_key=key).first()
+        if not order_obj:
+            abort(404)
+
+        if safe_get(order_obj, 'status') != 'active':
+            body = f"""
+<section class="py-5 text-center">
+    <div class="container" style="max-width: 600px">
+        <div class="order-form">
+            <div style="font-size: 4rem; color: #ffc107;" class="mb-3"><i class="fas fa-clock"></i></div>
+            <h4 class="fw-bold">Validation en cours</h4>
+            <p class="text-muted">Cette clé de licence ({key}) n'est pas encore approuvée. Le support vérifie votre versement.</p>
+        </div>
+    </div>
+</section>
+"""
+            return render_page(body, title="Licence en attente")
+
+        from warp_api import generate_script
+        script = generate_script(order_obj)
+        esc_script = script.replace('<', '&lt;').replace('>', '&gt;')
+
+        body = f"""
+<section class="py-5">
+    <div class="container" style="max-width: 900px">
+        <div class="order-form">
+            <div class="text-center mb-4">
+                <div style="font-size: 3rem; color: #28a745;"><i class="fas fa-key"></i></div>
+                <h4 class="fw-bold">Licence Activée</h4>
+                <span class="badge bg-success py-2 px-3">{key}</span>
+            </div>
+            <div class="summary-box mb-4">
+                <p class="mb-1"><strong>Client :</strong> {safe_get(order_obj, 'client_name')}</p>
+                <p class="mb-1"><strong>Modèle :</strong> {safe_get(order_obj, 'mikrotik_model')}</p>
+                <p class="mb-0"><strong>IP LAN :</strong> {safe_get(order_obj, 'lan_gateway')}</p>
+            </div>
+            <h6 class="fw-bold">Script de Configuration RouterOS v7 :</h6>
+            <div class="script-area" id="scrText">{esc_script}</div>
+            <div class="row g-3 mt-3">
+                <div class="col-6"><button class="btn btn-success w-100 text-white" id="cpBtn" onclick="cp()"><i class="fas fa-copy me-2"></i>Copier</button></div>
+                <div class="col-6"><a href="/download/{key}" class="btn btn-outline-primary w-100"><i class="fas fa-download me-2"></i>Télécharger (.rsc)</a></div>
+            </div>
+            <div class="alert alert-info mt-4">
+                <h6>Procédure d'installation :</h6>
+                <ol class="mb-0">
+                    <li>Ouvrez votre console d'administration <strong>Winbox</strong>.</li>
+                    <li>Ouvrez le menu <strong>New Terminal</strong>.</li>
+                    <li>Collez (Ctrl+V) le code copié ci-dessus.</li>
+                    <li>Votre MikroTik s'autoconfigure et redémarre tout seul.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+"""
+        js = """
+<script>
+function cp(){
+    var t=document.getElementById('scrText').innerText;
+    navigator.clipboard.writeText(t).then(function(){
+        var b=document.getElementById('cpBtn');
+        b.innerHTML='<i class="fas fa-check"></i> Copié !';
+        setTimeout(function(){ b.innerHTML='<i class="fas fa-copy me-2"></i>Copier'; }, 2000);
+    });
+}
+</script>
+"""
+        return render_page(body, title="Ma Licence", extra_script=js)
+    except Exception as e:
+        traceback.print_exc()
+        return f"<h1>Erreur génération de licence</h1><pre>{e}</pre>", 500
+
+@app.route('/download/<key>')
+def download_script(key):
+    try:
+        order_obj = Order.query.filter_by(license_key=key, status='active').first()
+        if not order_obj:
+            abort(404)
+        from warp_api import generate_script
+        script = generate_script(order_obj)
+        fname = f"ketrika_{key[:10]}.rsc"
+        fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+        with open(fpath, 'w', encoding='utf-8') as f:
+            f.write(script)
+        return send_file(fpath, as_attachment=True, download_name=fname)
+    except Exception as e:
+        return str(e), 500
+
+# ===================== SÉCURITÉ ADMIN =====================
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_login():
+    try:
+        if session.get('admin_logged'):
+            return redirect(url_for('admin_dashboard'))
+        err = ""
+        if request.method == 'POST':
+            if request.form.get('password') == ADMIN_PASSWORD:
+                session['admin_logged'] = True
+                return redirect(url_for('admin_dashboard'))
+            err = '<div class="alert alert-danger">Mot de passe invalide</div>'
+
+        body = f"""
+<div class="d-flex align-items-center justify-content-center" style="min-height:75vh">
+    <div class="order-form text-center" style="max-width:400px; width:100%;">
+        <h3>Administration</h3>
+        {err}
+        <form method="POST">
+            <input type="password" name="password" class="form-control mb-3 text-center" placeholder="Clé Secrète" required>
+            <button class="btn btn-success w-100 text-white">Se connecter</button>
+        </form>
+    </div>
+</div>
+"""
+        return render_page(body, title="Login Admin")
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    try:
+        if not session.get('admin_logged'):
+            return redirect(url_for('admin_login'))
+
+        orders = Order.query.order_by(Order.created_at.desc()).all()
+        total = len(orders)
+        pending = sum(1 for o in orders if safe_get(o, 'status') == 'pending')
+        active = sum(1 for o in orders if safe_get(o, 'status') == 'active')
+
+        rows = ""
+        for o in orders:
+            stat = safe_get(o, 'status')
+            p_type = safe_get(o, 'plan_type')
+
+            if stat == 'pending':
+                badg = '<span class="status-badge status-pending">En attente</span>'
+                act = f"""
+                <form method="POST" action="/admin/validate/{o.order_id}" style="display:inline"><button class="btn btn-sm btn-success text-white"><i class="fas fa-check"></i></button></form>
+                <form method="POST" action="/admin/reject/{o.order_id}" style="display:inline"><button class="btn btn-sm btn-danger"><i class="fas fa-times"></i></button></form>
+                """
+            elif stat == 'active':
+                badg = '<span class="status-badge status-active">Validé</span>'
+                act = f'<a href="/license/{o.license_key}" target="_blank" class="btn btn-sm btn-outline-success"><i class="fas fa-eye"></i></a>'
             else:
-                ttl = int(ttl_val)
-                setattr(order, 'ttl_value', ttl if 1 <= ttl <= 255 else 65)
-        except Exception:
-            setattr(order, 'ttl_value', 65)
-            
-        return order
+                badg = '<span class="status-badge status-rejected">Refusé</span>'
+                act = ""
 
-# =======================================================
-# MOTEUR CRYPTO X25519 OFFICIEL
-# =======================================================
-P = 2**255 - 19
-A24 = 121665
+            proof_btn = "-"
+            if safe_get(o, 'payment_proof'):
+                proof_btn = f'<a href="/admin/proof/{o.order_id}" target="_blank" class="btn btn-sm btn-light"><i class="fas fa-image"></i></a>'
 
-def _clamp(k_bytes):
-    k = bytearray(k_bytes)
-    k[0] &= 248
-    k[31] &= 127
-    k[31] |= 64
-    return bytes(k)
-
-def _x25519(k, u):
-    k_int = int.from_bytes(_clamp(k), 'little')
-    x_1 = int.from_bytes(u, 'little')
-    x_2, z_2, x_3, z_3, swap = 1, 0, x_1, 1, 0
-    for t in reversed(range(255)):
-        k_t = (k_int >> t) & 1
-        swap ^= k_t
-        if swap:
-            x_2, x_3 = x_3, x_2
-            z_2, z_3 = z_3, z_2
-        swap = k_t
-        A = (x_2 + z_2) % P
-        AA = (A * A) % P
-        B = (x_2 - z_2) % P
-        BB = (B * B) % P
-        E = (AA - BB) % P
-        C = (x_3 + z_3) % P
-        D = (x_3 - z_3) % P
-        DA = (D * A) % P
-        CB = (C * B) % P
-        x_3 = ((DA + CB) ** 2) % P
-        z_3 = (x_1 * ((DA - CB) ** 2)) % P
-        x_2 = (AA * BB) % P
-        z_2 = (E * (BB + (A24 * E))) % P
-    if swap:
-        x_2, x_3 = x_3, x_2
-        z_2, z_3 = z_3, z_2
-    return (x_2 * pow(z_2, P - 2, P) % P).to_bytes(32, 'little')
-
-def generate_wireguard_keys():
-    try:
-        from cryptography.hazmat.primitives.asymmetric import x25519
-        priv = x25519.X25519PrivateKey.generate()
-        pub = priv.public_key()
-        return base64.b64encode(priv.private_bytes_raw()).decode(), base64.b64encode(pub.public_bytes_raw()).decode()
-    except Exception:
-        raw_priv = secrets.token_bytes(32)
-        clamped = _clamp(raw_priv)
-        pub = _x25519(clamped, (9).to_bytes(32, 'little'))
-        return base64.b64encode(clamped).decode(), base64.b64encode(pub).decode()
-
-# =======================================================
-# ENREGISTREMENT API CLOUDFLARE WARP
-# =======================================================
-def generate_warp_config_for_client():
-    priv, pub = generate_wireguard_keys()
-    
-    stealth_ports = ['500', '853', '4500', '2408']
-    selected_port = secrets.choice(stealth_ports)
-    
-    cloudflare_endpoints = ['162.159.192.1', '162.159.193.1', '188.114.96.1', '188.114.97.1']
-    selected_ip = secrets.choice(cloudflare_endpoints)
-    
-    endpoints = [
-        "https://api.cloudflareclient.com/v0a3370/reg",
-        "https://api.cloudflareclient.com/v0a2158/reg"
-    ]
-    
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "okhttp/3.12.1",
-        "CF-Client-Version": "a-6.30-3596"
-    }
-    
-    body = {
-        "key": pub,
-        "install_id": "",
-        "fcm_token": "",
-        "tos": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-        "model": "PC",
-        "serial_number": secrets.token_hex(16),
-        "locale": "en_US"
-    }
-    
-    for url in endpoints:
-        try:
-            res = requests.post(url, json=body, headers=headers, timeout=4)
-            if res.status_code in (200, 201):
-                d = res.json()
-                raw_v4 = str(d['config']['interface']['addresses']['v4'])
-                client_ip = raw_v4.split('/')[0] if '/' in raw_v4 else raw_v4
-                peer_pub = d['config']['peers'][0]['public_key']
-                return {
-                    'private_key': priv,
-                    'client_ipv4': client_ip,
-                    'warp_public_key': peer_pub,
-                    'endpoint_host': selected_ip,
-                    'endpoint_port': selected_port
-                }
-        except Exception:
-            continue
-
-    return {
-        'private_key': priv,
-        'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
-        'warp_public_key': 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=',
-        'endpoint_host': selected_ip,
-        'endpoint_port': selected_port
-    }
-
-# =======================================================
-# HELPERS MATÉRIEL AC / AX
-# =======================================================
-def format_limit(v):
-    return '0' if v in ('nolimit', '0', '', None) else str(v)
-
-def is_ax_model(m):
-    return any(k in str(m or "") for k in ['ax', 'AX', 'C52', 'C53', 'hAP ax'])
-
-def is_wifi_model(m):
-    return not any(k in str(m or "") for k in ['hEX', 'RB750', 'RB760', 'RB3011', 'CCR'])
-
-def has_5ghz(m):
-    return not any(k in str(m or "") for k in ['hAP lite', 'RB941']) and is_wifi_model(m)
-
-def generate_wifi_config(order, is_hs):
-    m = safe_get(order, 'mikrotik_model', '')
-    s = safe_get(order, 'ssid', 'WiFiZone-Ketrika')
-    p = safe_get(order, 'wifi_password', 'Ketrika2024')
-
-    if not is_wifi_model(m):
-        return "\n# Materiel sans module WiFi integre.\n"
-
-    # Si Pack Hotspot : Wi-Fi Ouvert sans mot de passe
-    if is_hs:
-        if is_ax_model(m):
-            cfg = f"""
-# === CONFIGURATION SANS FIL WIFI 6 AX (HOTSPOT OUVERT) ===
-:do {{
-    /interface wifi set [find name=wifi1] configuration.mode=ap configuration.ssid="{s}" disabled=no
-}} on-error={{}}
+            rows += f"""
+<tr>
+    <td>{safe_get(o, 'order_id')}</td>
+    <td>{safe_get(o, 'client_name')}</td>
+    <td><a href="https://wa.me/{safe_get(o, 'whatsapp_number').replace(' ','')}" target="_blank">{safe_get(o, 'whatsapp_number')}</a></td>
+    <td>{p_type.upper()}</td>
+    <td>{proof_btn}</td>
+    <td>{badg}</td>
+    <td>{act}</td>
+</tr>
 """
-            if has_5ghz(m):
-                cfg += f"""
-:do {{
-    /interface wifi set [find name=wifi2] configuration.mode=ap configuration.ssid="{s}-5G" disabled=no
-}} on-error={{}}
+        if not rows:
+            rows = '<tr><td colspan="7" class="text-center text-muted py-4">Aucune commande</td></tr>'
+
+        body = f"""
+<div class="bg-dark py-3 mb-4">
+    <div class="container d-flex justify-content-between align-items-center">
+        <h5 class="text-white mb-0">CONSOLE KETRIKA ADMIN</h5>
+        <a href="/admin/logout" class="btn btn-sm btn-outline-light">Déconnexion</a>
+    </div>
+</div>
+<section class="container pb-5">
+    <div class="row g-3 mb-4 text-center">
+        <div class="col-4"><div class="stat-card"><h5>Total</h5><div class="number">{total}</div></div></div>
+        <div class="col-4"><div class="stat-card"><h5>En attente</h5><div class="number text-warning">{pending}</div></div></div>
+        <div class="col-4"><div class="stat-card"><h5>Actifs</h5><div class="number text-success">{active}</div></div></div>
+    </div>
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-0">
+            <table class="table mb-0 align-middle">
+                <thead class="table-light">
+                    <tr><th>Référence</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Preuve</th><th>Statut</th><th>Action</th></tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+    </div>
+</section>
 """
-        else:
-            cfg = f"""
-# === CONFIGURATION SANS FIL WIFI AC (HOTSPOT OUVERT) ===
-:do {{
-    /interface wireless security-profiles set [find default=yes] mode=none
-    /interface wireless set [find name=wlan1] mode=ap-bridge ssid="{s}" wireless-protocol=802.11 frequency=2412 band=2ghz-b/g/n disabled=no
-}} on-error={{}}
-"""
-            if has_5ghz(m):
-                cfg += f"""
-:do {{
-    /interface wireless set [find name=wlan2] mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 frequency=5180 band=5ghz-a/n/ac disabled=no
-}} on-error={{}}
-"""
-    # Si Pack 1 ou Pack 2 : Wi-Fi Sécurisé avec mot de passe
-    else:
-        if is_ax_model(m):
-            cfg = f"""
-# === CONFIGURATION SANS FIL WIFI 6 AX (SECURISE) ===
-:do {{
-    /interface wifi set [find name=wifi1] configuration.mode=ap configuration.ssid="{s}" security.authentication-types=wpa2-psk security.passphrase="{p}" disabled=no
-}} on-error={{}}
-"""
-            if has_5ghz(m):
-                cfg += f"""
-:do {{
-    /interface wifi set [find name=wifi2] configuration.mode=ap configuration.ssid="{s}-5G" security.authentication-types=wpa2-psk security.passphrase="{p}" disabled=no
-}} on-error={{}}
-"""
-        else:
-            cfg = f"""
-# === CONFIGURATION SANS FIL WIFI AC (SECURISE) ===
-:do {{
-    /interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk wpa2-pre-shared-key="{p}" mode=dynamic-keys
-    /interface wireless set [find name=wlan1] mode=ap-bridge ssid="{s}" wireless-protocol=802.11 frequency=2412 band=2ghz-b/g/n disabled=no
-}} on-error={{}}
-"""
-            if has_5ghz(m):
-                cfg += f"""
-:do {{
-    /interface wireless set [find name=wlan2] mode=ap-bridge ssid="{s}-5G" wireless-protocol=802.11 frequency=5180 band=5ghz-a/n/ac disabled=no
-}} on-error={{}}
-"""
-    return cfg
+        return render_page(body, title="Console Admin")
+    except Exception as e:
+        return str(e), 500
 
-# =======================================================
-# GÉNÉRATEUR SCRIPT COMPLET
-# =======================================================
-def generate_full_script(order):
-    try:
-        from database import MIKROTIK_MODELS
-        models = MIKROTIK_MODELS
-    except Exception:
-        models = DEFAULT_MODELS
+@app.route('/admin/validate/<order_id>', methods=['POST'])
+def admin_validate(order_id):
+    if not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    o = Order.query.filter_by(order_id=order_id).first()
+    if o:
+        o.status = 'active'
+        db.session.commit()
+    return redirect(url_for('admin_dashboard'))
 
-    order = ConfigValidator.auto_fix_order(order)
-    model = safe_get(order, 'mikrotik_model', 'hAP ac2')
-    info = models.get(model, {'ports': 5, 'wifi': True, 'wifi5g': False})
-    ports = info.get('ports', 5)
+@app.route('/admin/reject/<order_id>', methods=['POST'])
+def admin_reject(order_id):
+    if not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    o = Order.query.filter_by(order_id=order_id).first()
+    if o:
+        o.status = 'rejected'
+        db.session.commit()
+    return redirect(url_for('admin_dashboard'))
 
-    wan = safe_get(order, 'wan_interface', 'ether1') or 'ether1'
-    gw = safe_get(order, 'lan_gateway', '192.168.88.1')
-    net = safe_get(order, 'lan_network', '192.168.88.0/24')
-    pool = safe_get(order, 'dhcp_pool', '192.168.88.10-192.168.88.254')
-    dl = format_limit(safe_get(order, 'dl_limit', '0'))
-    ul = format_limit(safe_get(order, 'ul_limit', '0'))
-    
-    plan_type = str(safe_get(order, 'plan_type', 'warp')).lower()
-    
-    # Détection des 3 packs
-    is_pack_standard = plan_type in ('standard', 'basic', 'illimite', 'classic')
-    is_pack_warp = plan_type in ('warp', 'vpn', 'stealth')
-    is_pack_hotspot = plan_type in ('hotspot', 'hotspot_vpn', 'full')
+@app.route('/admin/proof/<order_id>')
+def admin_proof(order_id):
+    if not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    o = Order.query.filter_by(order_id=order_id).first()
+    if not o or not o.payment_proof:
+        abort(404)
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], o.payment_proof))
 
-    license_key = safe_get(order, 'license_key', 'KETRIKA-FREE')
-    order_id = safe_get(order, 'order_id', '0001')
-    client_name = safe_get(order, 'client_name', 'Client')
-    ttl_value = safe_get(order, 'ttl_value', 65)
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged', None)
+    return redirect(url_for('admin_login'))
 
-    # Ports Bridge
-    bp = ""
-    for i in range(2, ports + 1):
-        bp += f"/interface bridge port add bridge=bridge1 interface=ether{i}; "
-    
-    if is_wifi_model(model):
-        if is_ax_model(model):
-            bp += "/interface bridge port add bridge=bridge1 interface=wifi1; "
-            if has_5ghz(model):
-                bp += "/interface bridge port add bridge=bridge1 interface=wifi2; "
-        else:
-            bp += "/interface bridge port add bridge=bridge1 interface=wlan1; "
-            if has_5ghz(model):
-                bp += "/interface bridge port add bridge=bridge1 interface=wlan2; "
+@app.route('/health')
+def health():
+    return {"status": "healthy"}, 200
 
-    wcfg = generate_wifi_config(order, is_pack_hotspot)
+# Fonction utilitaire de sécurisation des noms de fichiers
+def secure_filename(filename):
+    for c in ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', ' ']:
+        filename = filename.replace(c, '_')
+    return filename
 
-    # Limitation QoS
-    rl = "\n# Mode Illimite : Aucun bridage de vitesse\n" if dl == '0' else f"""
-:if ([/queue type find name=pcq-dl-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
-:if ([/queue type find name=pcq-ul-ketrika] = "") do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
-:if ([/queue simple find name=KETRIKA-Speed] = "") do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
-"""
-
-    # Masquage TTL Dynamique
-    if ttl_value == 'disabled':
-        ttl_script = "\n# Masquage TTL : Desactive par le client\n"
-    else:
-        ttl_script = f"""
-# OPTIMISATION RESEAU & MASQUAGE TTL (CHOIX CLIENT: {ttl_value})
-/ip firewall mangle remove [find comment~"KETRIKA-TTL"]
-/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
-/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:{ttl_value} passthrough=yes comment="[KETRIKA-TTL]"
-"""
-
-    # =======================================================
-    # PACK 1 : STANDARD (SANS VPN, SANS HOTSPOT)
-    # =======================================================
-    if is_pack_standard:
-        custom_block = f"""
-# === PACK 1: STANDARD SANS VPN (SORTIE DIRECTE WAN) ===
-/ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8 use-doh-server=""
-:if ([/ip firewall nat find comment~"KETRIKA-WAN"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
-
-# DHCP Standard
-:do {{
-    /ip pool add name=pool-lan ranges={pool}
-    /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no
-    /ip dhcp-server network add address={net} gateway={gw} dns-server=1.1.1.1,8.8.8.8 netmask=24
-}} on-error={{}}
-"""
-
-    # =======================================================
-    # PACK 2 : WARP ANTI-FAI (AVEC VPN, SANS HOTSPOT)
-    # =======================================================
-    elif is_pack_warp:
-        wc = generate_warp_config_for_client()
-        custom_block = f"""
-# === PACK 2: WARP ANTI-FAI (100% TRAFIC SOUS IP CLOUDFLARE) ===
-/ip firewall filter disable [find action=fasttrack-connection]
-:do {{ /ipv6 settings set disable-ipv6=yes }} on-error={{}}
-
-:do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
-:do {{ /interface wireguard remove wg-secure }} on-error={{}}
-:do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
-:do {{ /routing table remove [find name=via-secure] }} on-error={{}}
-:delay 1s
-:do {{
-    /routing table add name=via-secure fib
-    /interface wireguard add name=wg-secure listen-port=13231 mtu=1280 private-key="{wc['private_key']}" comment="[KETRIKA-VPN]"
-    /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
-    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA-VPN]"
-    
-    # Routage strict : TOUT le trafic LAN passe obligatoirement par Wireguard
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=no comment="[KETRIKA-WARP]"
-    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA-WARP]"
-    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA-WARP]"
-    
-    # Anti-Fuite DNS & Anti-DPI
-    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=udp dst-port=53 action=redirect to-ports=53 comment="[ANTI-DNS-LEAK]"
-    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=tcp dst-port=53 action=redirect to-ports=53 comment="[ANTI-DNS-LEAK]"
-    /ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes comment="[ANTI-DPI]"
-}} on-error={{}}
-
-# NAT Sortie de secours WAN
-:if ([/ip firewall nat find comment~"KETRIKA-WAN"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
-
-# DHCP LAN
-:do {{
-    /ip pool add name=pool-lan ranges={pool}
-    /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no
-    /ip dhcp-server network add address={net} gateway={gw} dns-server=1.1.1.1,1.0.0.1 netmask=24
-}} on-error={{}}
-"""
-
-    # =======================================================
-    # PACK 3 : HOTSPOT + WARP VPN + PPPOE (FULL PACK)
-    # =======================================================
-    else:
-        wc = generate_warp_config_for_client()
-        rl_hs = f"rate-limit={ul}/{dl}" if dl != '0' else ""
-        
-        pppoe_block = ""
-        if safe_get(order, 'pppoe_enabled', False):
-            rl_p = f"rate-limit={ul}/{dl}" if dl != '0' else ""
-            pppoe_block = f"""
-:do {{
-    /ip pool add name=pool-pppoe ranges=192.168.99.10-192.168.99.250
-    /ppp profile add dns-server=1.1.1.1,8.8.8.8 local-address=192.168.99.1 name=pppoe-ketrika {rl_p} remote-address=pool-pppoe
-    /interface pppoe-server server add default-profile=pppoe-ketrika disabled=no interface=bridge1 one-session-per-host=yes service-name=KETRIKA
-    /ppp secret add name=client1 password=pass123 profile=pppoe-ketrika service=pppoe
-    /ip firewall mangle add chain=prerouting src-address=192.168.99.0/24 dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=no comment="[PPPOE-WARP]"
-}} on-error={{}}
-"""
-        voucher_block = ""
-        if safe_get(order, 'voucher_enabled', False):
-            voucher_block = "\n/ip hotspot user\n"
-            for _ in range(10):
-                c = secrets.token_hex(4).upper()
-                voucher_block += f'add name=V-{c} password={c} profile=1heure comment="Voucher 1H"\n'
-
-        custom_block = f"""
-# === PACK 3: HOTSPOT PRO + WARP VPN ANTI-FAI ===
-/ip firewall filter disable [find action=fasttrack-connection]
-:do {{ /ipv6 settings set disable-ipv6=yes }} on-error={{}}
-
-# 1. Tunnel Wireguard Cloudflare
-:do {{ /interface wireguard peers remove [find interface=wg-secure] }} on-error={{}}
-:do {{ /interface wireguard remove wg-secure }} on-error={{}}
-:do {{ /ip route remove [find comment~"KETRIKA"] }} on-error={{}}
-:do {{ /routing table remove [find name=via-secure] }} on-error={{}}
-:delay 1s
-:do {{
-    /routing table add name=via-secure fib
-    /interface wireguard add name=wg-secure listen-port=13231 mtu=1280 private-key="{wc['private_key']}" comment="[KETRIKA-VPN]"
-    /interface wireguard peers add interface=wg-secure public-key="{wc['warp_public_key']}" endpoint-address={wc['endpoint_host']} endpoint-port={wc['endpoint_port']} allowed-address=0.0.0.0/0 persistent-keepalive=25s
-    /ip address add address={wc['client_ipv4']}/32 interface=wg-secure comment="[KETRIKA-VPN]"
-    
-    # Routage : Seuls les utilisateurs connectes au Hotspot (hotspot=auth) sont diriges dans Cloudflare
-    /ip firewall mangle add chain=prerouting in-interface=bridge1 hotspot=auth dst-address-type=!local dst-address=!{net} action=mark-routing new-routing-mark=via-secure passthrough=no comment="[KETRIKA-WARP]"
-    /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure comment="[KETRIKA-WARP]"
-    /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="[KETRIKA-WARP]"
-}} on-error={{}}
-
-# 2. Portail Captif Hotspot & Popup Automatique
-:do {{ /ip hotspot remove [find name=hotspot-ketrika] }} on-error={{}}
-:do {{ /ip hotspot profile remove [find name=hsprof-ketrika] }} on-error={{}}
-:delay 1s
-:do {{
-    /ip hotspot profile add dns-name="wifi.ketrika.mg" hotspot-address={gw} html-directory=hotspot login-by=http-chap,http-pap,mac-cookie,cookie name=hsprof-ketrika use-radius=no
-    /ip hotspot add address-pool=pool-lan disabled=no interface=bridge1 name=hotspot-ketrika profile=hsprof-ketrika
-    /ip hotspot user profile add name=1heure {rl_hs} shared-users=1 session-timeout=1h idle-timeout=5m
-    /ip hotspot user profile add name=1jour {rl_hs} shared-users=2 session-timeout=1d idle-timeout=10m
-    /ip hotspot user profile add name=1semaine {rl_hs} shared-users=3 session-timeout=7d idle-timeout=15m
-    /ip hotspot user profile add name=1mois {rl_hs} shared-users=3 session-timeout=30d idle-timeout=30m
-    /ip hotspot user add name=admin password=admin123 profile=1mois
-    
-    /ip dns static add name="wifi.ketrika.mg" address={gw} comment="[KETRIKA-HOTSPOT]"
-    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=udp dst-port=53 action=redirect to-ports=53 comment="[HOTSPOT-DNS-FORCE]"
-    /ip firewall nat add chain=dstnat in-interface=bridge1 protocol=tcp dst-port=53 action=redirect to-ports=53 comment="[HOTSPOT-DNS-FORCE]"
-    /ip dhcp-server option add name=captive-portal code=114 value="s'http://{gw}/login'"
-}} on-error={{}}
-
-{pppoe_block}
-{voucher_block}
-
-# NAT WAN
-:if ([/ip firewall nat find comment~"KETRIKA-WAN"] = "") do={{ /ip firewall nat add chain=srcnat out-interface={wan} action=masquerade comment="[KETRIKA-WAN]" }}
-
-# DHCP Serveur avec declencheur de popup
-:do {{
-    /ip pool add name=pool-lan ranges={pool}
-    /ip dhcp-server add address-pool=pool-lan interface=bridge1 name=dhcp-lan disabled=no
-    /ip dhcp-server network add address={net} gateway={gw} dns-server={gw} dhcp-option=captive-portal netmask=24
-}} on-error={{}}
-"""
-
-    return f"""# =============================================
-# KETRIKA MIKROTIK - SCRIPT VERROUILLE (ROUTEROS V7)
-# Pack : {plan_type.upper()} | Routeur : {model}
-# Licence : {license_key} (1 SEUL ROUTEUR)
-# =============================================
-
-:put "KETRIKA - Configuration en cours..."
-:delay 1s
-
-# 1. VERROUILLAGE MATERIEL DANS LE ROUTEUR
-/system note set note="KETRIKA-LICENCE: {license_key} | Routeur: {model} | Client: {client_name}"
-/system identity set name="KETRIKA-{order_id}"
-
-# 2. BRIDGE PRINCIPAL
-:if ([/interface bridge find name=bridge1] = "") do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
-
-# 3. IP GATEWAY
-:if ([/ip address find address="{gw}/24"] = "") do={{ /ip address add address={gw}/24 interface=bridge1 comment="[KETRIKA]" }}
-
-# 4. DHCP CLIENT WAN
-:if ([/ip dhcp-client find interface={wan}] = "") do={{ /ip dhcp-client add interface={wan} disabled=no add-default-route=yes use-peer-dns=no }}
-
-# 5. CONFIGURATION SANS FIL WIFI DETECTE
-{wcfg}
-
-# 6. ATTRIBUTION DES PORTS EN ARRIERE PLAN (ZERO COUPURE WINBOX)
-/system scheduler add name=ketrika_ports interval=0s start-time=([/system clock get time] + 00:00:04) on-event="{bp}/system scheduler remove ketrika_ports;"
-
-# 7. DNS & MSS
-/ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8 use-doh-server=""
-:do {{
-    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp tcp-flags=syn action=change-mss new-mss=clamp-to-pmtu passthrough=yes
-    /ip firewall mangle add chain=forward out-interface={wan} protocol=tcp action=change-mss new-mss=1360 passthrough=yes
-}} on-error={{}}
-
-{ttl_script}
-{custom_block}
-{rl}
-
-# === REBOOT AUTOMATIQUE DU ROUTEUR ===
-:log info "KETRIKA: Configuration terminee, reboot dans 3s..."
-:put "================================================"
-:put "  CONFIGURATION KETRIKA APPLIQUEE AVEC SUCCES !"
-:put "  Licence  : {license_key}"
-:put "  Routeur  : {model}"
-:put "  Pack     : {plan_type.upper()}"
-:put "  TTL Base : {ttl_value}"
-:put "  Le routeur va redemarrer automatiquement dans 3 secondes..."
-:put "================================================"
-
-/system scheduler add name=ketrika_reboot interval=0s start-time=([/system clock get time] + 00:00:03) on-event="/system scheduler remove ketrika_reboot; /system reboot;"
-"""
-```
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
