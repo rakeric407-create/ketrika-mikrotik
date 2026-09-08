@@ -1,49 +1,64 @@
-# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX sans Reboot
+# warp_api.py - KETRIKA MIKROTIK - Générateur Stable AC/AX sans Reboot & Anti-Crash 500
 import secrets
 import base64
 import requests
 import re
 import ipaddress
 
+# Modèles MikroTik intégrés par défaut pour éviter tout crash d'import circulaire
+DEFAULT_MODELS = {
+    'hAP lite (RB941)': {'ports': 4, 'wifi': True, 'wifi5g': False},
+    'hAP ac2': {'ports': 5, 'wifi': True, 'wifi5g': True},
+    'hAP ac3': {'ports': 5, 'wifi': True, 'wifi5g': True},
+    'hAP ax2': {'ports': 5, 'wifi': True, 'wifi5g': True},
+    'hAP ax3': {'ports': 5, 'wifi': True, 'wifi5g': True},
+    'hEX (RB750Gr3)': {'ports': 5, 'wifi': False, 'wifi5g': False},
+    'hEX S': {'ports': 5, 'wifi': False, 'wifi5g': False},
+    'RB3011 / RB4011 / RB5009': {'ports': 10, 'wifi': False, 'wifi5g': False},
+}
+
 # =======================================================
-# VALIDATEUR STRICT DE CONFIGURATION
+# VALIDATEUR STRICT DE CONFIGURATION (SÉCURISÉ)
 # =======================================================
 class ConfigValidator:
     @staticmethod
     def validate_ip(ip_str):
         try:
-            ipaddress.IPv4Address(ip_str)
+            ipaddress.IPv4Address(str(ip_str).strip())
             return True
-        except:
+        except Exception:
             return False
 
     @staticmethod
     def validate_network(net_str):
         try:
-            ipaddress.IPv4Network(net_str, strict=False)
+            ipaddress.IPv4Network(str(net_str).strip(), strict=False)
             return True
-        except:
+        except Exception:
             return False
 
     @staticmethod
     def auto_fix_order(order):
-        if not ConfigValidator.validate_ip(order.lan_gateway):
-            order.lan_gateway = '192.168.88.1'
-        if not ConfigValidator.validate_network(order.lan_network):
-            order.lan_network = '192.168.88.0/24'
+        gw = getattr(order, 'lan_gateway', '192.168.88.1')
+        if not ConfigValidator.validate_ip(gw):
+            setattr(order, 'lan_gateway', '192.168.88.1')
+
+        net = getattr(order, 'lan_network', '192.168.88.0/24')
+        if not ConfigValidator.validate_network(net):
+            setattr(order, 'lan_network', '192.168.88.0/24')
         
-        # Nettoyage SSID & Mot de passe
-        cleaned_ssid = re.sub(r'[^\w\s\-\.]', '', str(order.ssid or "WiFiZone-Ketrika"))
-        order.ssid = cleaned_ssid[:32].strip() or "WiFiZone-Ketrika"
+        ssid = str(getattr(order, 'ssid', '') or "WiFiZone-Ketrika")
+        cleaned_ssid = re.sub(r'[^\w\s\-\.]', '', ssid)
+        setattr(order, 'ssid', cleaned_ssid[:32].strip() or "WiFiZone-Ketrika")
         
-        pwd = str(order.wifi_password or "Ketrika2024")
-        order.wifi_password = pwd if len(pwd) >= 8 else "Ketrika2024"
+        pwd = str(getattr(order, 'wifi_password', '') or "Ketrika2024")
+        setattr(order, 'wifi_password', pwd if len(pwd) >= 8 else "Ketrika2024")
         
         try:
-            ttl = int(order.ttl_value)
-            order.ttl_value = ttl if 1 <= ttl <= 255 else 65
-        except:
-            order.ttl_value = 65
+            ttl = int(getattr(order, 'ttl_value', 65))
+            setattr(order, 'ttl_value', ttl if 1 <= ttl <= 255 else 65)
+        except Exception:
+            setattr(order, 'ttl_value', 65)
             
         return order
 
@@ -98,12 +113,20 @@ def generate_wireguard_keys():
 def generate_warp_config_for_client():
     priv, pub = generate_wireguard_keys()
     try:
-        res = requests.post("https://api.cloudflareclient.com/v0a2158/reg",
-            json={"key": pub, "install_id": secrets.token_hex(11),
-                  "fcm_token": "", "tos": "2024-01-01T00:00:00.000Z",
-                  "model": "PC", "serial_number": secrets.token_hex(16), "locale": "en_US"},
+        res = requests.post(
+            "https://api.cloudflareclient.com/v0a2158/reg",
+            json={
+                "key": pub, 
+                "install_id": secrets.token_hex(11),
+                "fcm_token": "", 
+                "tos": "2024-01-01T00:00:00.000Z",
+                "model": "PC", 
+                "serial_number": secrets.token_hex(16), 
+                "locale": "en_US"
+            },
             headers={"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1", "CF-Client-Version": "a-6.30-3596"},
-            timeout=5)
+            timeout=3
+        )
         if res.status_code in (200, 201):
             d = res.json()
             raw_ip = d['config']['interface']['addresses']['v4']
@@ -117,6 +140,7 @@ def generate_warp_config_for_client():
             }
     except Exception:
         pass
+
     return {
         'private_key': priv,
         'client_ipv4': f"172.16.0.{secrets.randbelow(200) + 10}",
@@ -126,22 +150,28 @@ def generate_warp_config_for_client():
     }
 
 # =======================================================
-# DÉTECTION CONFIGURATION MATÉRIEL AC / AX
+# HELPERS MODÈLE MATÉRIEL (ANTI-CRASH)
 # =======================================================
 def format_limit(v):
     return '0' if v in ('nolimit', '0', '', None) else str(v)
 
 def is_ax_model(m):
-    return any(k in m for k in ['ax', 'AX', 'C52', 'C53', 'hAP ax'])
+    m_str = str(m or "")
+    return any(k in m_str for k in ['ax', 'AX', 'C52', 'C53', 'hAP ax'])
 
 def is_wifi_model(m):
-    return not any(k in m for k in ['hEX', 'RB750', 'RB760', 'RB3011', 'CCR'])
+    m_str = str(m or "")
+    return not any(k in m_str for k in ['hEX', 'RB750', 'RB760', 'RB3011', 'CCR'])
 
 def has_5ghz(m):
-    return not any(k in m for k in ['hAP lite', 'RB941']) and is_wifi_model(m)
+    m_str = str(m or "")
+    return not any(k in m_str for k in ['hAP lite', 'RB941']) and is_wifi_model(m_str)
 
 def generate_wifi_config(order):
-    m, s, p = order.mikrotik_model, order.ssid, order.wifi_password
+    m = getattr(order, 'mikrotik_model', '')
+    s = getattr(order, 'ssid', 'WiFiZone-Ketrika')
+    p = getattr(order, 'wifi_password', 'Ketrika2024')
+
     if not is_wifi_model(m):
         return "\n# Materiel sans module WiFi integre.\n"
 
@@ -183,42 +213,58 @@ def generate_wifi_config(order):
 # GÉNÉRATEUR SCRIPT COMPLET
 # =======================================================
 def generate_full_script(order):
-    from database import MIKROTIK_MODELS
-    order = ConfigValidator.auto_fix_order(order)
-    info = MIKROTIK_MODELS.get(order.mikrotik_model, {'ports': 5, 'wifi': True, 'wifi5g': False})
-    ports = info['ports']
-    wan, gw, net = order.wan_interface, order.lan_gateway, order.lan_network
-    pool, ttl = order.dhcp_pool, order.ttl_value
-    dl, ul = format_limit(order.dl_limit), format_limit(order.ul_limit)
-    is_hs = order.plan_type == 'hotspot'
-    needs_warp = order.plan_type in ('warp', 'hotspot')
+    try:
+        from database import MIKROTIK_MODELS
+        models_dict = MIKROTIK_MODELS
+    except Exception:
+        models_dict = DEFAULT_MODELS
 
-    # Ajout sécurisé des ports au bridge (sans jamais écraser ni déconnecter Winbox)
+    order = ConfigValidator.auto_fix_order(order)
+    model_name = getattr(order, 'mikrotik_model', 'hAP ac2')
+    info = models_dict.get(model_name, {'ports': 5, 'wifi': True, 'wifi5g': False})
+    
+    ports = info.get('ports', 5)
+    wan = getattr(order, 'wan_interface', 'ether1') or 'ether1'
+    gw = getattr(order, 'lan_gateway', '192.168.88.1')
+    net = getattr(order, 'lan_network', '192.168.88.0/24')
+    pool = getattr(order, 'dhcp_pool', '192.168.88.10-192.168.88.254')
+    ttl = getattr(order, 'ttl_value', 65)
+    dl = format_limit(getattr(order, 'dl_limit', '0'))
+    ul = format_limit(getattr(order, 'ul_limit', '0'))
+    
+    plan_type = getattr(order, 'plan_type', 'warp')
+    is_hs = (plan_type == 'hotspot')
+    needs_warp = plan_type in ('warp', 'hotspot')
+    license_key = getattr(order, 'license_key', 'KETRIKA-FREE')
+    order_id = getattr(order, 'order_id', '0001')
+    client_name = getattr(order, 'client_name', 'Client')
+
+    # Ports Bridge
     bp_list = []
     for i in range(2, ports + 1):
         bp_list.append(f':if ([:len [/interface bridge port find bridge=bridge1 interface=ether{i}]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=ether{i} }}')
     
-    if is_wifi_model(order.mikrotik_model):
-        if is_ax_model(order.mikrotik_model):
+    if is_wifi_model(model_name):
+        if is_ax_model(model_name):
             bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wifi1]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wifi1 }}')
-            if has_5ghz(order.mikrotik_model):
+            if has_5ghz(model_name):
                 bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wifi2]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wifi2 }}')
         else:
             bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wlan1]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wlan1 }}')
-            if has_5ghz(order.mikrotik_model):
+            if has_5ghz(model_name):
                 bp_list.append(':if ([:len [/interface bridge port find bridge=bridge1 interface=wlan2]] = 0) do={{ /interface bridge port add bridge=bridge1 interface=wlan2 }}')
 
     bp_commands = "\n".join(bp_list)
     wcfg = generate_wifi_config(order)
 
-    # QoS Bande Passante
+    # QoS
     rl = "\n# Mode Illimite : Aucun bridage de vitesse\n" if dl == '0' else f"""
 :if ([:len [/queue type find name=pcq-dl-ketrika]] = 0) do={{ /queue type add kind=pcq name=pcq-dl-ketrika pcq-classifier=dst-address pcq-rate={dl} }}
 :if ([:len [/queue type find name=pcq-ul-ketrika]] = 0) do={{ /queue type add kind=pcq name=pcq-ul-ketrika pcq-classifier=src-address pcq-rate={ul} }}
 :if ([:len [/queue simple find name=KETRIKA-Speed]] = 0) do={{ /queue simple add name="KETRIKA-Speed" target={net} queue=pcq-ul-ketrika/pcq-dl-ketrika comment="[KETRIKA] QoS" }}
 """
 
-    # Cloudflare Secure Tunnel (Correction Route & Table ROS v7)
+    # Tunnel Cloudflare
     warp = ""
     if needs_warp:
         wc = generate_warp_config_for_client()
@@ -269,7 +315,7 @@ def generate_full_script(order):
     /ip hotspot user add name=admin password=admin123 profile=1mois
 }} on-error={{}}
 """
-        if order.pppoe_enabled:
+        if getattr(order, 'pppoe_enabled', False):
             rl_p = f"rate-limit={ul}/{dl}" if dl != '0' else ""
             hs += f"""
 :do {{
@@ -279,7 +325,7 @@ def generate_full_script(order):
     :if ([:len [/ppp secret find name=client1]] = 0) do={{ /ppp secret add name=client1 password=pass123 profile=pppoe-ketrika service=pppoe }}
 }} on-error={{}}
 """
-        if order.voucher_enabled:
+        if getattr(order, 'voucher_enabled', False):
             hs += "\n/ip hotspot user\n"
             for _ in range(10):
                 c = secrets.token_hex(4).upper()
@@ -295,15 +341,15 @@ def generate_full_script(order):
 
     return f"""# =============================================
 # KETRIKA MIKROTIK - SCRIPT STABLE (ROUTEROS V7)
-# Pack : {order.plan_type.upper()} | Routeur : {order.mikrotik_model}
-# Licence : {order.license_key}
+# Pack : {plan_type.upper()} | Routeur : {model_name}
+# Licence : {license_key}
 # =============================================
 
 :put "KETRIKA - Application de la configuration..."
 
 # 1. VERROUILLAGE LICENCE
-/system note set note="KETRIKA-LICENCE: {order.license_key} | Routeur: {order.mikrotik_model} | Client: {order.client_name}"
-/system identity set name="KETRIKA-{order.order_id}"
+/system note set note="KETRIKA-LICENCE: {license_key} | Routeur: {model_name} | Client: {client_name}"
+/system identity set name="KETRIKA-{order_id}"
 
 # 2. BRIDGE PRINCIPAL
 :if ([:len [/interface bridge find name=bridge1]] = 0) do={{ /interface bridge add name=bridge1 protocol-mode=none comment="KETRIKA" }}
@@ -317,7 +363,7 @@ def generate_full_script(order):
 # 5. DHCP SERVEUR LAN
 {dhcp}
 
-# 6. PORTS DU BRIDGE (AJOUT SANS COUPURE WINBOX)
+# 6. PORTS DU BRIDGE (SANS COUPURE WINBOX)
 {bp_commands}
 
 # 7. CONFIGURATION SANS FIL DETECTEE
