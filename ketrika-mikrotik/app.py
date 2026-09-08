@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Serveur d'Application Flask Principal (Version Finale 2026)
+KETRIKA MIKROTIK - Serveur d'Application Flask Principal (Version Finale Corrigée 2026)
 """
 
 import os
@@ -25,7 +25,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'ketrika2024admin')
 
-# Coordonnées de paiement (centralisées)
+# Coordonnées de paiement
 MVOLA_NUMBER = "038 28 171 00"
 ORANGE_NUMBER = "037 39 755 72"
 WHATSAPP_NUMBER = "0382817100"  # sans indicatif pour lien wa.me
@@ -97,7 +97,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fafafa; colo
 .status-active { background: #d4edda; color: #155724; }
 .status-rejected { background: #f8d7da; color: #721c24; }
 
-/* Footer riche */
+/* Footer */
 footer.main-footer {
     background: linear-gradient(180deg, #1a2332 0%, #0f1620 100%);
     color: #fff;
@@ -176,7 +176,7 @@ footer.main-footer .whatsapp-btn:hover {
     font-weight: 700;
 }
 
-/* Bouton panier flottant */
+/* Boutons flottants */
 .floating-cart {
     position: fixed;
     bottom: 30px;
@@ -223,7 +223,6 @@ footer.main-footer .whatsapp-btn:hover {
     100% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 0 rgba(40, 167, 69, 0); }
 }
 
-/* Bouton WhatsApp flottant */
 .floating-whatsapp {
     position: fixed;
     bottom: 110px;
@@ -433,7 +432,6 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
     <footer class="main-footer">
         <div class="container">
             <div class="row g-4">
-                <!-- Colonne 1 : Marque -->
                 <div class="col-lg-4 col-md-6">
                     <h5><i class="fas fa-network-wired me-2"></i>KETRIKA MIKROTIK</h5>
                     <p style="color:#adb5bd;line-height:1.7;margin-top:15px">
@@ -445,7 +443,6 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
                     </a>
                 </div>
                 
-                <!-- Colonne 2 : Liens rapides -->
                 <div class="col-lg-3 col-md-6">
                     <h5><i class="fas fa-link me-2"></i>Liens rapides</h5>
                     <div class="d-flex flex-column">
@@ -458,7 +455,6 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
                     </div>
                 </div>
                 
-                <!-- Colonne 3 : Paiement -->
                 <div class="col-lg-5 col-md-12">
                     <h5><i class="fas fa-credit-card me-2"></i>Modes de paiement</h5>
                     <div class="footer-payment-box">
@@ -492,7 +488,6 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
                 </div>
             </div>
             
-            <!-- Bandeau du bas -->
             <div class="footer-bottom-bar">
                 <p class="mb-1">
                     &copy; 2026 <span class="brand-badge">KETRIKA MIKROTIK</span> — Tous droits réservés
@@ -508,12 +503,10 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
         </div>
     </footer>
     
-    <!-- Bouton WhatsApp flottant -->
     <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="floating-whatsapp" title="Contactez-nous sur WhatsApp">
         <i class="fab fa-whatsapp"></i>
     </a>
     
-    <!-- Bouton Panier flottant -->
     <a href="/order" class="floating-cart" title="Commander maintenant">
         <i class="fas fa-shopping-cart"></i>
         <span class="cart-badge">3</span>
@@ -534,7 +527,7 @@ HOME_BODY = """
                 <h1 class="hero-title">Configurez votre <span>MikroTik</span> en 1 clic</h1>
                 <p class="hero-subtitle">Scripts professionnels RouterOS v7 prêts à l'emploi. VPN illimité, Hotspot WiFi Zone, protection réseau avancée.</p>
                 <a href="/order" class="btn btn-cta"><i class="fas fa-bolt me-2"></i>Commander maintenant</a>
-                <a href="/my-license" class="btn btn-outline-primary ms-2 rounded-pill px-4 py-3"><i class="fas fa-key me-2"></i>J'ai déjà une clé</a>
+                <a href="/my-license" class="btn btn-outline-primary ms-2 rounded-pill px-4 py-3"><i class="fas fa-key me-2"></i>J'ai déjà une clé/référence</a>
                 <br><span class="badge-compat"><i class="fas fa-check-circle me-1"></i> 100% Compatible RouterOS v7</span>
             </div>
             <div class="col-lg-5 d-none d-lg-block text-center">
@@ -626,16 +619,16 @@ HOME_BODY = """
             <div class="col-md-3 text-center">
                 <div class="step-number">3</div>
                 <h5>Recevez la clé</h5>
-                <p class="text-muted">Votre clé de licence arrive sur WhatsApp en moins de 10 min.</p>
+                <p class="text-muted">Votre clé de licence ou ID de commande est validé en moins de 10 min.</p>
             </div>
             <div class="col-md-3 text-center">
                 <div class="step-number">4</div>
                 <h5>Récupérez le script</h5>
-                <p class="text-muted">Allez sur <strong>"Ma Licence"</strong>, entrez la clé et copiez le script dans Winbox.</p>
+                <p class="text-muted">Allez sur <strong>"Ma Licence"</strong>, entrez votre référence et copiez le script.</p>
             </div>
         </div>
         <div class="text-center mt-5">
-            <a href="/my-license" class="btn btn-outline-success btn-lg rounded-pill px-5"><i class="fas fa-key me-2"></i>J'ai une clé, récupérer mon script</a>
+            <a href="/my-license" class="btn btn-outline-success btn-lg rounded-pill px-5"><i class="fas fa-key me-2"></i>Récupérer mon script de configuration</a>
         </div>
     </div>
 </section>
@@ -650,7 +643,7 @@ HOME_BODY = """
             </div>
             <div class="accordion-item border-0 mb-3 shadow-sm rounded">
                 <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f2">Comment je reçois ma clé de licence ?</button></h2>
-                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Après validation de votre paiement (max 10 minutes), vous recevez votre clé sur WhatsApp. Ensuite, rendez-vous sur la page <strong>"Ma Licence"</strong> depuis le menu, entrez votre clé, et vous accédez immédiatement à votre script MikroTik personnalisé.</div></div>
+                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Après validation de votre paiement (max 10 minutes), vous recevez votre clé sur WhatsApp. De plus, votre numéro de commande <strong>KTR-...</strong> fonctionne également pour récupérer votre configuration sur la page <strong>Ma Licence</strong>.</div></div>
             </div>
             <div class="accordion-item border-0 mb-3 shadow-sm rounded">
                 <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f3">Est-ce compatible avec mon modèle de routeur ?</button></h2>
@@ -696,20 +689,20 @@ def my_license():
             saved_key = key
             
             if not key:
-                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Veuillez entrer une clé de licence.</div>'
-            elif not key.startswith('LIC-'):
-                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Format invalide. Une clé commence toujours par <code>LIC-</code></div>'
+                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Veuillez entrer une référence de commande ou clé de licence.</div>'
             else:
+                # Recherche intelligente : Fonctionne avec la clé de licence (LIC-) OU le numéro de commande (KTR-)
                 order_obj = Order.query.filter(
-                    db.func.upper(Order.license_key) == key
+                    (db.func.upper(Order.license_key) == key) | 
+                    (db.func.upper(Order.order_id) == key)
                 ).first()
                 
                 if order_obj:
                     return redirect(url_for('license_page', key=order_obj.license_key))
                 else:
                     error = f'''<div class="alert alert-danger mt-3">
-                        <i class="fas fa-times-circle me-2"></i><strong>Clé introuvable.</strong><br>
-                        <small>Vérifiez que vous avez bien copié la clé complète depuis WhatsApp.</small>
+                        <i class="fas fa-times-circle me-2"></i><strong>Référence ou Clé introuvable.</strong><br>
+                        <small>Vérifiez que vous avez bien copié votre clé (ex: <code>LIC-XXXX</code>) ou votre numéro de commande (ex: <code>KTR-3231065F</code>).</small>
                     </div>'''
 
         body = f"""
@@ -720,14 +713,14 @@ def my_license():
                 <i class="fas fa-key"></i>
             </div>
             <h2>Accédez à votre configuration</h2>
-            <p class="fs-6 mb-0">Entrez la clé de licence reçue sur WhatsApp<br>pour récupérer votre script MikroTik</p>
+            <p class="fs-6 mb-0">Entrez votre Clé de Licence (<code>LIC-...</code>) ou votre Référence Commande (<code>KTR-...</code>)</p>
             
             <div class="license-form-wrap">
                 <form method="POST">
                     <input type="text" 
                            name="license_key" 
                            class="form-control license-input" 
-                           placeholder="LIC-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" 
+                           placeholder="KTR-XXXXXXXX ou LIC-XXXXXXXX" 
                            value="{saved_key}"
                            required 
                            autocomplete="off">
@@ -744,12 +737,11 @@ def my_license():
                 <i class="fas fa-network-wired me-2"></i>Comment récupérer ma configuration ?
             </h5>
             <ol class="step-list-network">
-                <li><strong>Commandez</strong> un pack et payez via MVola ou Orange Money</li>
-                <li><strong>Envoyez</strong> la capture d'écran comme preuve de paiement</li>
-                <li>Notre équipe <strong>valide</strong> votre paiement (max 10 minutes)</li>
-                <li>Vous recevez votre <strong>clé de licence</strong> par WhatsApp<br><small class="text-muted">Format : <code>LIC-A1B2C3D4E5F6G7H8...</code></small></li>
-                <li><strong>Entrez</strong> cette clé dans le champ ci-dessus</li>
-                <li><strong>Copiez</strong> le script généré et collez-le dans le Terminal Winbox</li>
+                <li><strong>Commandez</strong> votre pack et payez via MVola ou Orange Money</li>
+                <li><strong>Téléversez</strong> la capture d'écran de votre paiement mobile</li>
+                <li>Notre équipe <strong>valide</strong> l'activation de votre script en moins de 10 min</li>
+                <li>Saisissez ci-dessus votre numéro de commande <strong>KTR-...</strong> ou votre clé <strong>LIC-...</strong> reçue sur WhatsApp</li>
+                <li><strong>Copiez</strong> le script généré et collez-le directement dans Winbox</li>
             </ol>
             
             <hr class="my-4">
@@ -759,8 +751,8 @@ def my_license():
                     <div class="d-flex align-items-center p-3 rounded-3" style="background:#e8f5e9">
                         <i class="fas fa-shopping-cart text-success fs-3 me-3"></i>
                         <div>
-                            <div class="fw-bold">Pas encore de clé ?</div>
-                            <a href="/order" class="text-success fw-semibold" style="text-decoration:none">Commander maintenant →</a>
+                            <div class="fw-bold">Pas encore de commande ?</div>
+                            <a href="/order" class="text-success fw-semibold" style="text-decoration:none">Faire une commande →</a>
                         </div>
                     </div>
                 </div>
@@ -964,8 +956,7 @@ def pay(order_id):
                 <h6 class="fw-bold"><i class="fas fa-clock me-2"></i>Prochaines étapes :</h6>
                 <ol class="mb-0">
                     <li>Notre équipe vérifie votre paiement (max 10 minutes)</li>
-                    <li>Vous recevez votre <strong>clé de licence</strong> par WhatsApp</li>
-                    <li>Allez sur la page <strong>"Ma Licence"</strong> pour récupérer votre script</li>
+                    <li>Saisissez votre ID de commande <strong>{order_id}</strong> pour voir le script dès validation.</li>
                 </ol>
             </div>
             <p class="mt-3"><strong>Référence de commande :</strong> <code>{order_id}</code></p>
@@ -994,7 +985,7 @@ def pay(order_id):
                 <p class="mb-0"><strong>Montant :</strong> <span class="fw-bold text-success fs-4">{price}</span></p>
             </div>
             <div class="alert alert-warning">
-                <h6 class="fw-bold mb-3"><i class="fas fa-mobile-alt me-2"></i>Envoyez <strong>{price}</strong> sur un des numéros suivants :</h6>
+                <h6 class="fw-bold mb-3"><i class="fas fa-mobile-alt me-2"></i>Envoyez <strong>{price}</strong> sur un de ces numéros :</h6>
                 <div class="p-3 mb-2 rounded" style="background:white;border-left:4px solid #28a745">
                     <strong>MVola / WhatsApp :</strong><br>
                     <span style="font-size:1.3rem;letter-spacing:2px;font-weight:700;color:#28a745">{MVOLA_NUMBER}</span>
@@ -1024,32 +1015,35 @@ def pay(order_id):
         return f"<h1>Erreur paiement</h1><pre>{e}</pre>", 500
 
 
-# ===================== LICENCE / SCRIPT =====================
+# ===================== SCRIPT & LICENCE =====================
 @app.route('/license/<key>')
 def license_page(key):
     try:
         order_obj = Order.query.filter_by(license_key=key).first()
         if not order_obj:
-            abort(404)
+            # Tente de chercher par ID de commande au cas où
+            order_obj = Order.query.filter_by(order_id=key).first()
+            if not order_obj:
+                abort(404)
 
         if safe_get(order_obj, 'status') != 'active':
+            ref = safe_get(order_obj, 'order_id')
             body = f"""
 <section class="py-5 text-center">
     <div class="container" style="max-width: 650px">
         <div class="order-form">
             <div style="font-size: 4rem; color: #ffc107;" class="mb-3"><i class="fas fa-clock"></i></div>
-            <h4 class="fw-bold">Licence en attente de validation</h4>
-            <p class="text-muted">Votre clé <code>{key}</code> existe mais votre paiement n'a pas encore été validé par notre équipe.</p>
+            <h4 class="fw-bold">Configuration en attente</h4>
+            <p class="text-muted">La commande <code>{ref}</code> n'est pas encore activée.</p>
             <div class="alert alert-info mt-4 text-start">
                 <strong>Que faire ?</strong>
                 <ul class="mb-0">
-                    <li>Patientez (validation en moins de 10 min après paiement)</li>
-                    <li>Assurez-vous d'avoir bien envoyé la capture d'écran du paiement</li>
-                    <li>Contactez notre support WhatsApp si le délai dépasse 30 minutes</li>
+                    <li>Veuillez patienter pendant la validation de votre preuve (max 10 minutes).</li>
+                    <li>Dès que l'administrateur valide, votre script apparaîtra ici instantanément.</li>
                 </ul>
             </div>
             <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="btn btn-success text-white rounded-pill px-4 mt-3">
-                <i class="fab fa-whatsapp me-2"></i>Contacter le support
+                <i class="fab fa-whatsapp me-2"></i>Contacter JEAN ERIC
             </a>
         </div>
     </div>
@@ -1067,8 +1061,8 @@ def license_page(key):
         <div class="order-form">
             <div class="text-center mb-4">
                 <div style="font-size: 3rem; color: #28a745;"><i class="fas fa-check-circle"></i></div>
-                <h4 class="fw-bold">Licence Activée</h4>
-                <span class="badge bg-success py-2 px-3">{key}</span>
+                <h4 class="fw-bold">Configuration Activée !</h4>
+                <span class="badge bg-success py-2 px-3">{safe_get(order_obj, 'license_key')}</span>
             </div>
             <div class="summary-box mb-4">
                 <p class="mb-1"><strong>Client :</strong> {safe_get(order_obj, 'client_name')}</p>
@@ -1080,17 +1074,16 @@ def license_page(key):
             <div class="script-area" id="scrText">{esc_script}</div>
             <div class="row g-3 mt-3">
                 <div class="col-6"><button class="btn btn-success w-100 text-white" id="cpBtn" onclick="cp()"><i class="fas fa-copy me-2"></i>Copier le script</button></div>
-                <div class="col-6"><a href="/download/{key}" class="btn btn-outline-primary w-100"><i class="fas fa-download me-2"></i>Télécharger (.rsc)</a></div>
+                <div class="col-6"><a href="/download/{safe_get(order_obj, 'license_key')}" class="btn btn-outline-primary w-100"><i class="fas fa-download me-2"></i>Télécharger (.rsc)</a></div>
             </div>
             <div class="alert alert-info mt-4">
                 <h6 class="fw-bold"><i class="fas fa-book me-1"></i>Procédure d'installation :</h6>
                 <ol class="mb-0">
-                    <li>Ouvrez <strong>Winbox</strong> et connectez-vous à votre routeur MikroTik</li>
+                    <li>Ouvrez <strong>Winbox</strong> et connectez-vous à votre routeur</li>
                     <li>Ouvrez le menu <strong>New Terminal</strong></li>
                     <li>Cliquez sur <strong>"Copier le script"</strong> ci-dessus</li>
-                    <li>Collez avec <strong>Ctrl+V</strong> dans le terminal</li>
-                    <li>Le routeur se configure automatiquement et redémarre en 3 secondes</li>
-                    <li>Connectez-vous au nouveau réseau WiFi "<strong>{safe_get(order_obj, 'ssid')}</strong>"</li>
+                    <li>Collez (Ctrl+V ou clic droit → Paste) dans le terminal</li>
+                    <li>Le routeur applique la configuration puis redémarre tout seul</li>
                 </ol>
             </div>
         </div>
@@ -1120,9 +1113,15 @@ function cp(){
 @app.route('/download/<key>')
 def download_script(key):
     try:
-        order_obj = Order.query.filter_by(license_key=key, status='active').first()
+        order_obj = Order.query.filter_by(license_key=key).first()
         if not order_obj:
-            abort(404)
+            order_obj = Order.query.filter_by(order_id=key).first()
+            if not order_obj:
+                abort(404)
+                
+        if safe_get(order_obj, 'status') != 'active':
+            abort(403)
+
         from warp_api import generate_script
         script = generate_script(order_obj)
         fname = f"ketrika_{key[:10]}.rsc"
@@ -1136,7 +1135,7 @@ def download_script(key):
         return str(e), 500
 
 
-# ===================== ADMIN =====================
+# ===================== SÉCURITÉ ADMIN =====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     try:
@@ -1203,7 +1202,7 @@ def admin_dashboard():
 
             rows += f"""
 <tr>
-    <td><small>{safe_get(o, 'order_id')}</small></td>
+    <td><small><strong>{safe_get(o, 'order_id')}</strong></small></td>
     <td>{safe_get(o, 'client_name')}</td>
     <td><a href="https://wa.me/{safe_get(o, 'whatsapp_number').replace(' ','')}" target="_blank">{safe_get(o, 'whatsapp_number')}</a></td>
     <td>{p_type.upper()}</td>
@@ -1234,7 +1233,7 @@ def admin_dashboard():
             <div class="table-responsive">
                 <table class="table mb-0 align-middle">
                     <thead class="table-light">
-                        <tr><th>Réf</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Clé Licence</th><th>Preuve</th><th>Statut</th><th>Action</th></tr>
+                        <tr><th>Réf (KTR-)</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Clé Licence</th><th>Preuve</th><th>Statut</th><th>Action</th></tr>
                     </thead>
                     <tbody>{rows}</tbody>
                 </table>
