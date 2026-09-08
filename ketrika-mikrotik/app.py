@@ -25,10 +25,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'ketrika2024admin')
 
-# Importation sécurisée
 from database import db, Order, MIKROTIK_MODELS, get_next_lan_subnet, get_model_info
 
-# Configuration Base de données compatible Render
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'ketrika.db'))
 if db_url.startswith('postgres://'):
     db_url = db_url.replace('postgres://', 'postgresql://', 1)
@@ -50,7 +48,7 @@ def safe_get(obj, key, default=''):
     except Exception:
         return default
 
-# ===================== STYLE ET RENDER HTML SÉCURISÉ =====================
+# ===================== STYLE =====================
 
 CSS_STYLES = """
 :root { --primary: #0d6efd; --success: #28a745; --dark: #212529; --light: #f8f9fa; }
@@ -92,6 +90,101 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fafafa; colo
 .status-rejected { background: #f8d7da; color: #721c24; }
 footer { background: var(--dark); color: #fff; padding: 45px 0; }
 footer a { color: var(--success); text-decoration: none; }
+
+/* Bouton panier flottant */
+.floating-cart {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 65px;
+    height: 65px;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.6rem;
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45);
+    z-index: 9999;
+    text-decoration: none;
+    transition: all 0.3s;
+    animation: pulse 2s infinite;
+}
+.floating-cart:hover {
+    transform: scale(1.1);
+    color: white;
+    box-shadow: 0 12px 35px rgba(40, 167, 69, 0.6);
+}
+.floating-cart .cart-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: red;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    border: 2px solid white;
+}
+@keyframes pulse {
+    0% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 0 rgba(40, 167, 69, 0.7); }
+    70% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 15px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+/* Bouton WhatsApp flottant */
+.floating-whatsapp {
+    position: fixed;
+    bottom: 110px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background: #25D366;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.7rem;
+    box-shadow: 0 8px 25px rgba(37, 211, 102, 0.45);
+    z-index: 9999;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+.floating-whatsapp:hover {
+    transform: scale(1.1);
+    color: white;
+}
+
+.license-check-box {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+}
+.license-check-box input {
+    border-radius: 50px;
+    padding: 15px 25px;
+    font-size: 1.1rem;
+    text-align: center;
+    border: none;
+}
+.license-check-box .btn {
+    border-radius: 50px;
+    padding: 15px 40px;
+    font-weight: 700;
+    background: white;
+    color: #667eea;
+    border: none;
+    margin-top: 15px;
+}
 """
 
 def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
@@ -111,10 +204,11 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
             <a class="navbar-brand" href="/"><i class="fas fa-network-wired text-success me-2"></i>KETRIKA <span class="text-success">MIKROTIK</span></a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain"><span class="navbar-toggler-icon"></span></button>
             <div class="collapse navbar-collapse" id="navMain">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-lg-center">
                     <li class="nav-item"><a class="nav-link fw-semibold" href="/#pricing">Tarifs</a></li>
                     <li class="nav-item"><a class="nav-link fw-semibold" href="/#how">Comment ça marche</a></li>
                     <li class="nav-item"><a class="nav-link fw-semibold" href="/#faq">FAQ</a></li>
+                    <li class="nav-item"><a class="nav-link fw-semibold text-primary" href="/my-license"><i class="fas fa-key me-1"></i>Ma Licence</a></li>
                     <li class="nav-item ms-lg-3"><a class="btn btn-success btn-sm px-4 rounded-pill fw-bold text-white" href="/order"><i class="fas fa-shopping-cart me-1"></i> Commander</a></li>
                 </ul>
             </div>
@@ -125,10 +219,23 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
         <div class="container text-center">
             <p class="mb-2"><i class="fas fa-network-wired me-2"></i><strong>KETRIKA MIKROTIK</strong></p>
             <p class="mb-2"><a href="https://wa.me/261340000000" target="_blank"><i class="fab fa-whatsapp me-1"></i> Support WhatsApp</a></p>
+            <p class="mb-2"><a href="/my-license" style="color:#28a745"><i class="fas fa-key me-1"></i> Récupérer ma licence</a></p>
             <p class="mb-2"><i class="fas fa-lock me-1"></i> Paiement sécurisé MVola &amp; Orange Money</p>
             <p class="mt-3 mb-0" style="color:#adb5bd;font-size:0.8rem">&copy; 2024 KETRIKA MIKROTIK - Tous droits réservés</p>
         </div>
     </footer>
+    
+    <!-- Bouton WhatsApp flottant -->
+    <a href="https://wa.me/261340000000" target="_blank" class="floating-whatsapp" title="Contactez-nous sur WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+    
+    <!-- Bouton Panier flottant -->
+    <a href="/order" class="floating-cart" title="Commander maintenant">
+        <i class="fas fa-shopping-cart"></i>
+        <span class="cart-badge">3</span>
+    </a>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     {extra_script}
 </body>
@@ -143,6 +250,7 @@ HOME_BODY = """
                 <h1 class="hero-title">Configurez votre <span>MikroTik</span> en 1 clic</h1>
                 <p class="hero-subtitle">Scripts professionnels RouterOS v7 prêts à l'emploi. VPN illimité, Hotspot WiFi Zone, protection réseau avancée.</p>
                 <a href="/order" class="btn btn-cta"><i class="fas fa-bolt me-2"></i>Commander maintenant</a>
+                <a href="/my-license" class="btn btn-outline-primary ms-2 rounded-pill px-4 py-3"><i class="fas fa-key me-2"></i>J'ai déjà une clé</a>
                 <br><span class="badge-compat"><i class="fas fa-check-circle me-1"></i> 100% Compatible RouterOS v7</span>
             </div>
             <div class="col-lg-5 d-none d-lg-block text-center">
@@ -221,21 +329,29 @@ HOME_BODY = """
     <div class="container">
         <h2 class="section-title text-center mb-5">Comment ça marche ?</h2>
         <div class="row g-4">
-            <div class="col-md-4 text-center">
+            <div class="col-md-3 text-center">
                 <div class="step-number">1</div>
-                <h5>Personnalisez</h5>
-                <p class="text-muted">Remplissez le formulaire de configuration en indiquant vos besoins.</p>
+                <h5>Commandez</h5>
+                <p class="text-muted">Choisissez un pack et personnalisez votre configuration.</p>
             </div>
-            <div class="col-md-4 text-center">
+            <div class="col-md-3 text-center">
                 <div class="step-number">2</div>
                 <h5>Payez</h5>
-                <p class="text-muted">Payez via Mobile Money (MVola/Orange) et envoyez votre capture d'écran.</p>
+                <p class="text-muted">MVola ou Orange Money, envoyez la preuve.</p>
             </div>
-            <div class="col-md-4 text-center">
+            <div class="col-md-3 text-center">
                 <div class="step-number">3</div>
-                <h5>Collez</h5>
-                <p class="text-muted">Recevez votre licence, ouvrez le Terminal de Winbox et collez le script.</p>
+                <h5>Recevez la clé</h5>
+                <p class="text-muted">Votre clé de licence arrive sur WhatsApp en moins de 10 min.</p>
             </div>
+            <div class="col-md-3 text-center">
+                <div class="step-number">4</div>
+                <h5>Récupérez le script</h5>
+                <p class="text-muted">Allez sur <strong>"Ma Licence"</strong>, entrez la clé et copiez le script dans Winbox.</p>
+            </div>
+        </div>
+        <div class="text-center mt-5">
+            <a href="/my-license" class="btn btn-outline-success btn-lg rounded-pill px-5"><i class="fas fa-key me-2"></i>J'ai une clé, récupérer mon script</a>
         </div>
     </div>
 </section>
@@ -249,8 +365,24 @@ HOME_BODY = """
                 <div id="f1" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non. Cloudflare utilise un protocole très optimisé (WireGuard) qui préserve l'intégralité de votre bande passante.</div></div>
             </div>
             <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f2">Comment fonctionne le contournement de détection de partage ?</button></h2>
-                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Les opérateurs analysent la valeur TTL. Le script fige cette valeur sur votre routeur pour masquer le partage réseau.</div></div>
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f2">Comment je reçois ma clé de licence ?</button></h2>
+                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Après validation de votre paiement (max 10 minutes), vous recevez votre clé sur WhatsApp. Ensuite, rendez-vous sur la page <strong>"Ma Licence"</strong> depuis le menu, entrez votre clé, et vous accédez immédiatement à votre script MikroTik personnalisé.</div></div>
+            </div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f3">Est-ce compatible avec mon modèle de routeur ?</button></h2>
+                <div id="f3" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Oui ! Notre système détecte automatiquement votre modèle : hAP lite, hAP ac2, hAP ac3, hAP ax2, hAP ax3, hEX, RB5009, CCR, L009, etc. Le script généré est parfaitement adapté à votre WiFi 5 ou WiFi 6.</div></div>
+            </div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f4">Puis-je utiliser une licence sur plusieurs routeurs ?</button></h2>
+                <div id="f4" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non. Chaque licence est valable pour un seul routeur MikroTik. Pour équiper plusieurs routeurs, vous devrez commander une licence par routeur.</div></div>
+            </div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f5">Quels sont les modes de paiement acceptés ?</button></h2>
+                <div id="f5" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Nous acceptons <strong>MVola</strong> et <strong>Orange Money</strong>. Envoyez le montant au nom de JEAN ERIC et joignez la capture d'écran comme preuve de paiement.</div></div>
+            </div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f6">Que faire si le script ne fonctionne pas ?</button></h2>
+                <div id="f6" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Contactez immédiatement notre support WhatsApp en cliquant sur le bouton vert en bas de la page. Notre équipe technique vous assistera pour vérifier votre RouterOS (v7 requis) et vous aider à finaliser l'installation.</div></div>
             </div>
         </div>
     </div>
@@ -260,10 +392,70 @@ HOME_BODY = """
 @app.route('/')
 def home():
     try:
-        return render_page(HOME_BODY, title="Plateforme d'automatisation")
+        return render_page(HOME_BODY, title="Accueil")
+    except HTTPException as e:
+        raise e
     except Exception as e:
         traceback.print_exc()
         return f"<h1>Erreur Serveur</h1><pre>{e}</pre>", 500
+
+
+# ===================== PAGE MA LICENCE (Nouveau) =====================
+@app.route('/my-license', methods=['GET', 'POST'])
+def my_license():
+    try:
+        error = ""
+        if request.method == 'POST':
+            key = (request.form.get('license_key') or '').strip().upper()
+            if key:
+                # Vérifier si la clé existe
+                order_obj = Order.query.filter_by(license_key=key).first()
+                if order_obj:
+                    return redirect(url_for('license_page', key=key))
+                else:
+                    error = '<div class="alert alert-danger mt-3">Clé introuvable. Vérifiez votre clé WhatsApp et réessayez.</div>'
+
+        body = f"""
+<section class="py-5">
+    <div class="container" style="max-width: 700px">
+        <div class="license-check-box mb-4">
+            <div style="font-size: 3.5rem;"><i class="fas fa-key"></i></div>
+            <h2 class="fw-bold mt-3">Récupérer votre script MikroTik</h2>
+            <p class="mb-4" style="opacity: 0.9">Entrez la clé de licence reçue sur WhatsApp pour accéder à votre script de configuration</p>
+            <form method="POST">
+                <input type="text" name="license_key" class="form-control" placeholder="LIC-XXXXXXXXXXXX..." required style="text-transform:uppercase">
+                <button type="submit" class="btn">
+                    <i class="fas fa-unlock me-2"></i>Accéder à mon script
+                </button>
+            </form>
+            {error}
+        </div>
+        
+        <div class="order-form">
+            <h5 class="fw-bold mb-3"><i class="fas fa-info-circle text-primary me-2"></i>Comment ça marche ?</h5>
+            <ol style="line-height: 2">
+                <li>Vous avez commandé un pack et effectué le paiement (MVola/Orange Money)</li>
+                <li>Notre équipe valide votre paiement en moins de 10 minutes</li>
+                <li>Vous recevez votre <strong>clé de licence</strong> par WhatsApp au format : <code>LIC-XXXXXXXXXXXXXXXX</code></li>
+                <li>Vous entrez cette clé ci-dessus et cliquez sur <strong>"Accéder à mon script"</strong></li>
+                <li>Vous copiez le script MikroTik et le collez dans le Terminal de Winbox</li>
+            </ol>
+            <hr>
+            <p class="text-center mb-0">
+                <strong>Vous n'avez pas encore de clé ?</strong><br>
+                <a href="/order" class="btn btn-success rounded-pill px-4 mt-2 text-white"><i class="fas fa-shopping-cart me-2"></i>Commander maintenant</a>
+            </p>
+        </div>
+    </div>
+</section>
+"""
+        return render_page(body, title="Ma Licence")
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        return f"<h1>Erreur</h1><pre>{e}</pre>", 500
+
 
 # ===================== COMMANDES =====================
 @app.route('/order', methods=['GET', 'POST'])
@@ -315,7 +507,6 @@ def order():
             db.session.commit()
             return redirect(url_for('pay', order_id=order_id))
 
-        # GET
         preselect = request.args.get('pack', 'standard')
         options_html = '<option value="">-- Sélectionnez votre modèle --</option>'
         for key, info in MIKROTIK_MODELS.items():
@@ -345,7 +536,7 @@ def order():
             <div class="mb-3" id="otherModelDiv" style="display:none"><label class="form-label">Indiquez la référence exacte</label><input type="text" name="other_model" class="form-control" placeholder="Ex: RB1100AHx4"></div>
             <div class="row g-3 mb-3">
                 <div class="col-md-6"><label class="form-label">SSID (Nom Wi-Fi)</label><input type="text" name="ssid" class="form-control" value="KETRIKA-WiFi"></div>
-                <div class="col-md-6"><label class="form-label">Clé de sécurité Wi-Fi (minimum 8 caractères)</label><input type="text" name="wifi_password" class="form-control" minlength="8" value="ketrika2024"></div>
+                <div class="col-md-6"><label class="form-label">Clé de sécurité Wi-Fi (min 8 car.)</label><input type="text" name="wifi_password" class="form-control" minlength="8" value="ketrika2024"></div>
             </div>
             <div class="row g-3 mb-3">
                 <div class="col-md-6"><label class="form-label">Interface WAN</label><input type="text" name="wan_interface" class="form-control" value="ether1"></div>
@@ -400,18 +591,18 @@ document.getElementById('modelSelect').addEventListener('change',function(){
 })();
 </script>
 """
-        return render_page(body, title="Configuration", extra_script=js)
+        return render_page(body, title="Commander", extra_script=js)
     except HTTPException as e:
         raise e
     except Exception as e:
         traceback.print_exc()
         return f"<h1>Erreur formulaire</h1><pre>{e}</pre>", 500
 
+
 # ===================== PAIEMENTS =====================
 @app.route('/pay/<order_id>', methods=['GET', 'POST'])
 def pay(order_id):
     try:
-        # Si la requête n'est pas un identifiant de commande, on l'ignore proprement en 404
         if len(order_id) < 5 or '.' in order_id:
             abort(404)
 
@@ -434,19 +625,31 @@ def pay(order_id):
 
             body = f"""
 <section class="py-5">
-    <div class="container text-center" style="max-width:600px">
+    <div class="container text-center" style="max-width:650px">
         <div class="order-form">
             <div class="text-success mb-3" style="font-size: 5rem;"><i class="fas fa-check-circle"></i></div>
-            <h3 class="fw-bold">Preuve reçue</h3>
-            <p class="text-muted">La validation de votre clé de licence est en cours. Vous recevrez une notification d'activation sur WhatsApp sous 10 minutes.</p>
-            <a href="/" class="btn btn-outline-success rounded-pill px-4 mt-3">Retour au site</a>
+            <h3 class="fw-bold">Preuve reçue !</h3>
+            <p class="text-muted fs-5">Votre paiement est en cours de vérification.</p>
+            <hr>
+            <div class="alert alert-info text-start">
+                <h6 class="fw-bold"><i class="fas fa-clock me-2"></i>Prochaines étapes :</h6>
+                <ol class="mb-0">
+                    <li>Notre équipe vérifie votre paiement (max 10 minutes)</li>
+                    <li>Vous recevez votre <strong>clé de licence</strong> par WhatsApp</li>
+                    <li>Allez sur la page <strong>"Ma Licence"</strong> pour récupérer votre script</li>
+                </ol>
+            </div>
+            <p class="mt-3"><strong>Référence de commande :</strong> <code>{order_id}</code></p>
+            <div class="d-grid gap-2 mt-4">
+                <a href="/my-license" class="btn btn-success text-white rounded-pill py-3"><i class="fas fa-key me-2"></i>Accéder à "Ma Licence"</a>
+                <a href="/" class="btn btn-outline-secondary rounded-pill">Retour à l'accueil</a>
+            </div>
         </div>
     </div>
 </section>
 """
             return render_page(body, title="Preuve reçue")
 
-        # GET
         plan = safe_get(order_obj, 'plan_type', 'standard')
         price_map = {'standard': ('30 000 Ar', 'Pack Essentiel'), 'warp': ('50 000 Ar', 'Pack Sécurité VPN'), 'hotspot': ('80 000 Ar', 'Pack Business')}
         price, name = price_map.get(plan, ('30 000 Ar', 'Pack Essentiel'))
@@ -462,25 +665,26 @@ def pay(order_id):
                 <p class="mb-0"><strong>Montant :</strong> <span class="fw-bold text-success">{price}</span></p>
             </div>
             <div class="alert alert-warning">
-                <h6>Envoyez le paiement de <strong>{price}</strong> sur un de ces numéros :</h6>
-                <p class="mb-1"><strong>MVola :</strong> 034 00 000 00 (Au nom de JEAN ERIC)</p>
-                <p class="mb-0"><strong>Orange Money :</strong> 032 00 000 00 (Au nom de JEAN ERIC)</p>
+                <h6>Envoyez le paiement de <strong>{price}</strong> :</h6>
+                <p class="mb-1"><strong>MVola :</strong> 034 00 000 00 (au nom de JEAN ERIC)</p>
+                <p class="mb-0"><strong>Orange Money :</strong> 032 00 000 00 (au nom de JEAN ERIC)</p>
             </div>
             <form method="POST" action="/pay/{order_id}" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label fw-bold">Capture d'écran de la preuve</label><input type="file" name="payment_proof" class="form-control" accept="image/*" required></div>
                 <div class="mb-3"><label class="form-label fw-bold">Rappel de votre numéro WhatsApp</label><input type="text" name="whatsapp_confirm" class="form-control" value="{safe_get(order_obj, 'whatsapp_number')}" required></div>
-                <button type="submit" class="btn btn-cta w-100">Transmettre la capture d'écran</button>
+                <button type="submit" class="btn btn-cta w-100">Transmettre la preuve</button>
             </form>
         </div>
     </div>
 </section>
 """
-        return render_page(body, title="Instructions")
+        return render_page(body, title="Paiement")
     except HTTPException as e:
         raise e
     except Exception as e:
         traceback.print_exc()
         return f"<h1>Erreur paiement</h1><pre>{e}</pre>", 500
+
 
 # ===================== SCRIPT & LICENCE =====================
 @app.route('/license/<key>')
@@ -493,11 +697,22 @@ def license_page(key):
         if safe_get(order_obj, 'status') != 'active':
             body = f"""
 <section class="py-5 text-center">
-    <div class="container" style="max-width: 600px">
+    <div class="container" style="max-width: 650px">
         <div class="order-form">
             <div style="font-size: 4rem; color: #ffc107;" class="mb-3"><i class="fas fa-clock"></i></div>
-            <h4 class="fw-bold">Validation en cours</h4>
-            <p class="text-muted">Cette clé de licence ({key}) n'est pas encore approuvée. Le support vérifie votre versement.</p>
+            <h4 class="fw-bold">Licence en attente de validation</h4>
+            <p class="text-muted">Votre clé <code>{key}</code> existe mais votre paiement n'a pas encore été validé par notre équipe.</p>
+            <div class="alert alert-info mt-4 text-start">
+                <strong>Que faire ?</strong>
+                <ul class="mb-0">
+                    <li>Patientez (validation en moins de 10 min après paiement)</li>
+                    <li>Assurez-vous d'avoir bien envoyé la capture d'écran du paiement</li>
+                    <li>Contactez notre support WhatsApp si le délai dépasse 30 minutes</li>
+                </ul>
+            </div>
+            <a href="https://wa.me/261340000000" target="_blank" class="btn btn-success text-white rounded-pill px-4 mt-3">
+                <i class="fab fa-whatsapp me-2"></i>Contacter le support
+            </a>
         </div>
     </div>
 </section>
@@ -513,28 +728,31 @@ def license_page(key):
     <div class="container" style="max-width: 900px">
         <div class="order-form">
             <div class="text-center mb-4">
-                <div style="font-size: 3rem; color: #28a745;"><i class="fas fa-key"></i></div>
+                <div style="font-size: 3rem; color: #28a745;"><i class="fas fa-check-circle"></i></div>
                 <h4 class="fw-bold">Licence Activée</h4>
                 <span class="badge bg-success py-2 px-3">{key}</span>
             </div>
             <div class="summary-box mb-4">
                 <p class="mb-1"><strong>Client :</strong> {safe_get(order_obj, 'client_name')}</p>
                 <p class="mb-1"><strong>Modèle :</strong> {safe_get(order_obj, 'mikrotik_model')}</p>
+                <p class="mb-1"><strong>SSID WiFi :</strong> {safe_get(order_obj, 'ssid')}</p>
                 <p class="mb-0"><strong>IP LAN :</strong> {safe_get(order_obj, 'lan_gateway')}</p>
             </div>
-            <h6 class="fw-bold">Script de Configuration RouterOS v7 :</h6>
+            <h6 class="fw-bold">Votre Script de Configuration RouterOS v7 :</h6>
             <div class="script-area" id="scrText">{esc_script}</div>
             <div class="row g-3 mt-3">
-                <div class="col-6"><button class="btn btn-success w-100 text-white" id="cpBtn" onclick="cp()"><i class="fas fa-copy me-2"></i>Copier</button></div>
+                <div class="col-6"><button class="btn btn-success w-100 text-white" id="cpBtn" onclick="cp()"><i class="fas fa-copy me-2"></i>Copier le script</button></div>
                 <div class="col-6"><a href="/download/{key}" class="btn btn-outline-primary w-100"><i class="fas fa-download me-2"></i>Télécharger (.rsc)</a></div>
             </div>
             <div class="alert alert-info mt-4">
-                <h6>Procédure d'installation :</h6>
+                <h6 class="fw-bold"><i class="fas fa-book me-1"></i>Procédure d'installation :</h6>
                 <ol class="mb-0">
-                    <li>Ouvrez votre console d'administration <strong>Winbox</strong>.</li>
-                    <li>Ouvrez le menu <strong>New Terminal</strong>.</li>
-                    <li>Collez (Ctrl+V) le code copié ci-dessus.</li>
-                    <li>Votre MikroTik s'autoconfigure et redémarre tout seul.</li>
+                    <li>Ouvrez <strong>Winbox</strong> et connectez-vous à votre routeur MikroTik</li>
+                    <li>Ouvrez le menu <strong>New Terminal</strong></li>
+                    <li>Cliquez sur <strong>"Copier le script"</strong> ci-dessus</li>
+                    <li>Collez avec <strong>Ctrl+V</strong> dans le terminal</li>
+                    <li>Le routeur se configure automatiquement et redémarre en 3 secondes</li>
+                    <li>Connectez-vous au nouveau réseau WiFi "<strong>{safe_get(order_obj, 'ssid')}</strong>"</li>
                 </ol>
             </div>
         </div>
@@ -547,18 +765,19 @@ function cp(){
     var t=document.getElementById('scrText').innerText;
     navigator.clipboard.writeText(t).then(function(){
         var b=document.getElementById('cpBtn');
-        b.innerHTML='<i class="fas fa-check"></i> Copié !';
-        setTimeout(function(){ b.innerHTML='<i class="fas fa-copy me-2"></i>Copier'; }, 2000);
+        b.innerHTML='<i class="fas fa-check me-2"></i>Script copié !';
+        setTimeout(function(){ b.innerHTML='<i class="fas fa-copy me-2"></i>Copier le script'; }, 2000);
     });
 }
 </script>
 """
-        return render_page(body, title="Ma Licence", extra_script=js)
+        return render_page(body, title="Ma Licence Active", extra_script=js)
     except HTTPException as e:
         raise e
     except Exception as e:
         traceback.print_exc()
-        return f"<h1>Erreur génération de licence</h1><pre>{e}</pre>", 500
+        return f"<h1>Erreur licence</h1><pre>{e}</pre>", 500
+
 
 @app.route('/download/<key>')
 def download_script(key):
@@ -577,6 +796,7 @@ def download_script(key):
         raise e
     except Exception as e:
         return str(e), 500
+
 
 # ===================== SÉCURITÉ ADMIN =====================
 @app.route('/admin', methods=['GET', 'POST'])
@@ -608,6 +828,7 @@ def admin_login():
         raise e
     except Exception as e:
         return str(e), 500
+
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
@@ -644,17 +865,18 @@ def admin_dashboard():
 
             rows += f"""
 <tr>
-    <td>{safe_get(o, 'order_id')}</td>
+    <td><small>{safe_get(o, 'order_id')}</small></td>
     <td>{safe_get(o, 'client_name')}</td>
     <td><a href="https://wa.me/{safe_get(o, 'whatsapp_number').replace(' ','')}" target="_blank">{safe_get(o, 'whatsapp_number')}</a></td>
     <td>{p_type.upper()}</td>
+    <td><small class="text-muted">{safe_get(o, 'license_key', '')[:20]}...</small></td>
     <td>{proof_btn}</td>
     <td>{badg}</td>
     <td>{act}</td>
 </tr>
 """
         if not rows:
-            rows = '<tr><td colspan="7" class="text-center text-muted py-4">Aucune commande</td></tr>'
+            rows = '<tr><td colspan="8" class="text-center text-muted py-4">Aucune commande</td></tr>'
 
         body = f"""
 <div class="bg-dark py-3 mb-4">
@@ -671,12 +893,14 @@ def admin_dashboard():
     </div>
     <div class="card shadow-sm border-0 rounded-4">
         <div class="card-body p-0">
-            <table class="table mb-0 align-middle">
-                <thead class="table-light">
-                    <tr><th>Référence</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Preuve</th><th>Statut</th><th>Action</th></tr>
-                </thead>
-                <tbody>{rows}</tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Réf</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Clé Licence</th><th>Preuve</th><th>Statut</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>{rows}</tbody>
+                </table>
+            </div>
         </div>
     </div>
 </section>
@@ -686,6 +910,7 @@ def admin_dashboard():
         raise e
     except Exception as e:
         return str(e), 500
+
 
 @app.route('/admin/validate/<order_id>', methods=['POST'])
 def admin_validate(order_id):
@@ -697,6 +922,7 @@ def admin_validate(order_id):
         db.session.commit()
     return redirect(url_for('admin_dashboard'))
 
+
 @app.route('/admin/reject/<order_id>', methods=['POST'])
 def admin_reject(order_id):
     if not session.get('admin_logged'):
@@ -707,6 +933,7 @@ def admin_reject(order_id):
         db.session.commit()
     return redirect(url_for('admin_dashboard'))
 
+
 @app.route('/admin/proof/<order_id>')
 def admin_proof(order_id):
     if not session.get('admin_logged'):
@@ -716,20 +943,23 @@ def admin_proof(order_id):
         abort(404)
     return send_file(os.path.join(app.config['UPLOAD_FOLDER'], o.payment_proof))
 
+
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged', None)
     return redirect(url_for('admin_login'))
 
+
 @app.route('/health')
 def health():
     return {"status": "healthy"}, 200
 
-# Fonction utilitaire de sécurisation des noms de fichiers
+
 def secure_filename(filename):
     for c in ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', ' ']:
         filename = filename.replace(c, '_')
     return filename
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
