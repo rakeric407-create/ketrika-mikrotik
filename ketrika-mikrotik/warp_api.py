@@ -116,7 +116,6 @@ def generate_script(order):
     info = get_model_info(model)
     wifi_type = info.get('wifi_type', 'none')
     wifi_iface = info.get('wifi_iface', None)
-    has_5ghz = info.get('has_5ghz', False)
 
     # Générer MAC et nom si nécessaire
     if not router_name:
@@ -249,7 +248,7 @@ def generate_script(order):
     if plan in ['warp', 'hotspot']:
         p.append("")
         p.append("# ============================================================")
-        p.append("# --- TUNNEL VPN WIREGUARD CLOUDFLARE WARP ---")
+        p.append("# --- TUNNEL VPN WIREGUARD SELECTIONNE ---")
         p.append("# ============================================================")
         p.append('/interface wireguard add name=wg-secure mtu=1280 listen-port=0 \\')
         p.append('  private-key="' + keys['private_key'] + '" comment="WARP-KETRIKA"')
@@ -397,16 +396,15 @@ def generate_script(order):
 
 def generate_secret_guide(order):
     """
-    Génère le contenu du guide secret anti-Starlink pour les packs 50K et 80K.
-    Retourne une chaîne de texte formatée.
+    Génère le contenu du guide secret pour les packs 50K et 80K.
     """
     lic = safe_get(order, 'license_key', 'DEMO')
     client = safe_get(order, 'client_name', 'Client')
 
     guide = """
 ================================================================================
-         KETRIKA MIKROTIK - GUIDE SECRET : OPTIMISATION RESEAU AVANCEE
-                    Contournement des restrictions FAI / Starlink
+         KETRIKA MIKROTIK - GUIDE TECHNIQUE : OPTIMISATION RESEAU AVANCEE
+               Contournement des restrictions FAI et Partage Réseau
 ================================================================================
 
 Client  : """ + client + """
@@ -414,126 +412,117 @@ Licence : """ + lic + """
 Date    : """ + time.strftime('%d/%m/%Y', time.gmtime()) + """
 
 ================================================================================
-  CHAPITRE 1 : COMMENT STARLINK ET LES FAI DETECTENT LE PARTAGE DE CONNEXION
+  CHAPITRE 1 : COMMENT LES OPERATEURS DETECTENT LE PARTAGE DE CONNEXION
 ================================================================================
 
-Quand vous partagez votre connexion internet (Starlink, 4G, 5G, fibre) via un
-routeur MikroTik, votre fournisseur d'acces utilise 3 methodes principales pour
-detecter que plusieurs appareils sont connectes derriere un seul abonnement :
+Lorsque vous partagez votre connexion internet (routeur, modem 4G/5G, réseau satellite)
+via un routeur MikroTik, les opérateurs FAI analysent trois facteurs principaux
+pour identifier le partage non autorisé :
 
   1. ANALYSE DU TTL (Time To Live)
      --------------------------------
-     Chaque paquet reseau contient une valeur TTL qui diminue de 1 a chaque
-     passage par un routeur. Votre telephone envoie un TTL de 64. Quand ce
-     paquet traverse votre MikroTik, le TTL devient 63. L'operateur voit :
-       - Appareil 1 : TTL = 64 (direct)
-       - Appareil 2 : TTL = 63 (derriere un routeur)
-       - Appareil 3 : TTL = 63 (derriere un routeur)
-     Conclusion de l'operateur : "Il y a un routeur, on coupe !"
+     Le TTL est un compteur présent dans chaque paquet de données qui diminue de 1
+     à chaque fois qu'il traverse un routeur. 
+     Un ordinateur ou smartphone connecté directement envoie des paquets avec un TTL de 64. 
+     S'ils passent par votre MikroTik, l'opérateur reçoit un TTL de 63.
+     Si le FAI détecte des valeurs de TTL variables (ex: 64 et 63), il applique
+     immédiatement une restriction ou coupe le partage.
 
   2. INSPECTION DPI (Deep Packet Inspection)
      -----------------------------------------
-     L'operateur analyse le contenu des paquets pour identifier :
-       - Les differents systemes d'exploitation (Windows, Android, iOS)
-       - Les differents navigateurs (Chrome, Safari, Firefox)
-       - Les signatures uniques de chaque appareil
-     Si 5 appareils differents utilisent la meme IP publique = partage detecte.
+     L'opérateur analyse les en-têtes et le type des paquets pour identifier la
+     diversité des systèmes d'exploitation (Windows, Android, iOS) connectés
+     derrière votre point d'accès. 
+     La présence de signatures multiples sur une seule adresse IP publique
+     révèle un partage réseau.
 
-  3. ANALYSE DES CONNEXIONS SIMULTANEES
+  3. ANALYSE DES SESSIONS SIMULTANEES
      ------------------------------------
-     Starlink et les FAI 4G/5G surveillent le nombre de connexions TCP/UDP
-     simultanees. Un seul telephone fait ~50 connexions. Si l'operateur voit
-     500 connexions simultanees sur une seule IP, il sait qu'il y a partage.
+     Les opérateurs haut débit surveillent le nombre de connexions TCP/UDP actives.
+     Un appareil individuel consomme peu de sessions réseau, tandis qu'un réseau
+     partagé génère des centaines de connexions simultanées, alertant les pare-feux
+     du fournisseur d'accès.
 
 ================================================================================
-  CHAPITRE 2 : COMMENT NOTRE SOLUTION RESOUT CHAQUE PROBLEME
+  CHAPITRE 2 : FONCTIONNEMENT ET ARCHITECTURE DE LA SOLUTION KETRIKA
 ================================================================================
 
-  PROBLEME 1 : Detection TTL
+  PROBLEME 1 : Détection et blocage du TTL
   SOLUTION   : Masquage TTL uniforme
-     Notre script force TOUS les paquets sortants a avoir exactement le meme
-     TTL (64). L'operateur ne peut plus distinguer les appareils :
+     Notre script fige la valeur TTL de tous les paquets sortants à une valeur
+     identique (64). Ainsi, pour l'opérateur, tout le trafic semble provenir
+     d'un seul et unique équipement terminal :
        /ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:64
 
-  PROBLEME 2 : Inspection DPI
-  SOLUTION   : Tunnel chiffre Cloudflare WARP (WireGuard)
-     Tout votre trafic passe par un tunnel chiffre de bout en bout. L'operateur
-     ne voit qu'un seul flux de donnees chiffrees vers les serveurs Cloudflare.
-     Il est IMPOSSIBLE pour lui de voir ce qu'il y a a l'interieur :
-       /interface wireguard -> Cloudflare WARP -> Internet
+  PROBLEME 2 : Analyse DPI & Limitation de Protocoles
+  SOLUTION   : Tunnel WireGuard ultra-rapide
+     Le script encapsule et chiffre l'intégralité du trafic de vos clients dans
+     un tunnel privé vers l'infrastructure Cloudflare. L'opérateur ne voit
+     qu'un seul flux sécurisé, rendant l'inspection DPI totalement inefficace :
+       /interface wireguard -> Cloudflare WARP -> Internet sécurisé
 
-  PROBLEME 3 : Connexions simultanees
-  SOLUTION   : MSS Clamping + NAT unique
-     Le MSS Clamping ajuste la taille des paquets TCP pour eviter la
-     fragmentation dans le tunnel. Le NAT masquerade fait apparaitre tous
-     vos appareils comme une seule source :
+  PROBLEME 3 : Instabilité de connexion & Limitation MTU
+  SOLUTION   : MSS Clamping automatique
+     L'ajustement de la taille maximale des segments TCP (MSS) à 1280 octets
+     évite la fragmentation des paquets au sein du tunnel chiffré, éliminant
+     les pertes de paquets et assurant une fluidité maximale :
        /ip firewall mangle add chain=forward out-interface=wg-secure \\
          protocol=tcp tcp-flags=syn action=change-mss new-mss=1280
 
 ================================================================================
-  CHAPITRE 3 : CONSEILS D'UTILISATION AVANCES
+  CHAPITRE 3 : OPTIMISATION & CONFIGURATIONS PRATIQUES
 ================================================================================
 
-  [!] REGLE D'OR : Ne modifiez JAMAIS les regles Firewall Mangle apres
-      l'installation. Elles sont la cle de voute de la protection.
+  [!] REGLE MAJEURE : Ne modifiez pas les règles Firewall Mangle générées par
+      notre moteur. Ces paramètres assurent l'invisibilité du partage.
 
-  [*] STARLINK :
-      - Branchez le cable Ethernet Starlink directement sur le Port 1 (ether1)
-        de votre MikroTik.
-      - Desactivez le routeur Starlink (mode "bypass" dans l'application
-        Starlink) pour eviter le double NAT.
-      - Si vous utilisez le routeur Starlink, branchez-le sur ether1 et
-        configurez-le en mode "bridge".
+  [*] OPTIMISATION DE LA SOURCE INTERNET :
+      - Branchez le câble du modem/antenne haut débit directement sur le Port 1 (ether1).
+      - Si votre modem source possède un mode "Pont" ou "Bridge" (Bypass), activez-le
+        pour éviter le double NAT et maximiser les performances de routage.
 
-  [*] 4G / 5G (Telma, Orange, Airtel) :
-      - Si vous utilisez un modem 4G USB, branchez-le sur le port USB du
-        MikroTik et configurez l'interface LTE.
-      - Si vous utilisez un modem 4G Ethernet, branchez-le sur ether1.
+  [*] LIMITATION DU DEBIT DES CLIENTS :
+      - Si vous avez activé la limitation par appareil lors de la commande, chaque
+        client Wi-Fi se voit attribuer une limite dynamique et équitable.
+      - Pour ajuster cette vitesse : Winbox -> Queues -> Simple -> QoS-PerClient.
 
-  [*] LIMITATION DE DEBIT PAR CLIENT :
-      - Si vous avez choisi la limitation par client, chaque appareil connecte
-        au WiFi sera limite individuellement.
-      - Pour modifier la limite : Winbox > Queues > Simple > QoS-PerClient
+  [*] CHANGEMENT D'ADRESSE MAC :
+      - L'adresse MAC de votre port WAN (ether1) est automatiquement usurpée (spoofing)
+        avec un préfixe de carte réseau grand public standard.
+      - Cela empêche le FAI d'identifier la marque ou la nature de votre routeur.
 
-  [*] MODE VEILLE NOCTURNE :
-      - Le WiFi se desactive automatiquement pendant les heures de veille.
-      - Cela economise de l'energie et reduit les risques de detection
-        pendant la nuit quand personne n'utilise la connexion.
-
-  [*] CHANGEMENT MAC :
-      - L'adresse MAC de votre interface WAN a ete modifiee pour ressembler
-        a un appareil classique (telephone, ordinateur).
-      - Cela empeche l'operateur d'identifier votre routeur MikroTik.
+  [*] MODE VEILLE NOCTURNE AUTOMATIQUE :
+      - Si configuré, les émetteurs Wi-Fi s'éteignent et se rallument automatiquement
+        aux heures creuses. Cela sécurise votre réseau et évite l'utilisation nocturne.
 
 ================================================================================
-  CHAPITRE 4 : EN CAS DE PROBLEME
+  CHAPITRE 4 : RESOLUTION DES INCIDENTS (TROUBLESHOOTING)
 ================================================================================
 
-  1. Le VPN ne se connecte pas :
-     -> Redemarrez le routeur (System > Reboot dans Winbox)
-     -> Attendez 2 minutes que le tunnel WireGuard se retablisse
+  1. Absence de connexion internet après injection :
+     -> Allez dans Winbox -> System -> Reboot.
+     -> Vérifiez que votre câble source est branché sur le Port 1 (ether1).
+     -> Vérifiez que votre modem fournit bien une adresse IP (IP -> DHCP Client).
 
-  2. Le debit est lent :
-     -> Verifiez que le MSS Clamping est actif (IP > Firewall > Mangle)
-     -> Verifiez que le MTU du WireGuard est bien 1280
+  2. Ralentissement constaté du débit :
+     -> Vérifiez que le MSS Clamping est bien actif (IP -> Firewall -> Mangle).
+     -> Assurez-vous que le MTU de l'interface wg-secure est configuré à 1280.
 
-  3. L'operateur a coupe la connexion :
-     -> Changez la valeur TTL (essayez 65 ou 128 au lieu de 64)
-     -> Activez le changement MAC si ce n'est pas deja fait
-     -> Contactez notre support WhatsApp
+  3. Détection persistante du partage :
+     -> Accédez à IP -> Firewall -> Mangle et essayez de modifier le TTL à 65 ou 128.
+     -> Assurez-vous que l'option de changement MAC WAN est bien active.
 
-  4. Le WiFi ne fonctionne pas apres installation :
-     -> Verifiez dans Winbox : Interfaces > wifi1 (ou wlan1) > Enabled
-     -> Verifiez que l'interface est bien dans le bridge1
+  4. Le Wi-Fi ne s'allume pas :
+     -> Ouvrez Winbox -> Interfaces -> Wi-Fi (ou Wireless) et vérifiez que les
+        interfaces physiques ne sont pas désactivées (icône grise).
 
 ================================================================================
-  SUPPORT TECHNIQUE KETRIKA MIKROTIK
+  ASSISTANCE ET SUPPORT TECHNIQUE
   WhatsApp : +261 38 28 171 00
-  Horaires : 7h - 22h (heure de Madagascar)
+  Horaires d'ouverture : 7h00 - 22h00
 ================================================================================
 
-Ce document est confidentiel et destine uniquement a l'usage du client.
-Toute reproduction ou distribution est interdite.
-(c) 2026 KETRIKA MIKROTIK - Tous droits reserves.
+Ce document contient des informations confidentielles destinées à l'administrateur du réseau.
+(c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
