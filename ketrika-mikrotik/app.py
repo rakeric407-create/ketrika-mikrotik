@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Serveur Flask Principal (Version Complète 2026 avec Tutoriel)
+KETRIKA MIKROTIK - Serveur Flask Principal (Version Complète Cyber-Réseau 2026 + WhatsApp Direct)
 """
 
 import os
@@ -8,6 +8,7 @@ import io
 import uuid
 import secrets
 import traceback
+import urllib.parse
 from datetime import datetime
 from flask import (
     Flask, request, redirect, url_for,
@@ -26,9 +27,11 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'ketrika2024admin')
 
+# Coordonnées officielles de paiement
 MVOLA_NUMBER = "038 28 171 00"
 ORANGE_NUMBER = "037 39 755 72"
 WHATSAPP_NUMBER = "0382817100"
+WHATSAPP_INT = "261382817100"  # Format international pour lien direct
 WHATSAPP_DISPLAY = "+261 38 28 171 00"
 PAYMENT_NAME = "JEAN ERIC"
 
@@ -64,6 +67,18 @@ def secure_filename(filename):
     return filename
 
 
+def format_whatsapp_number(raw_num):
+    """Nettoie et formate le numéro client pour WhatsApp international"""
+    num = str(raw_num).replace(' ', '').replace('+', '').replace('-', '').replace('.', '')
+    if num.startswith('0'):
+        num = '261' + num[1:]
+    elif not num.startswith('261') and len(num) == 9:
+        num = '261' + num
+    return num
+
+
+# ===================== STYLE CSS CYBER-RÉSEAU PRO =====================
+
 CSS_STYLES = """
 :root {
     --dark-bg: #001e3c;
@@ -74,9 +89,11 @@ CSS_STYLES = """
     --accent-orange: #ff6b1a;
     --border-glow: rgba(0, 212, 255, 0.25);
 }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f5f7fb; color: #1a2332; line-height: 1.6; }
 
+/* NAVBAR */
 .navbar-pro { background: linear-gradient(135deg, #001e3c 0%, #0a1929 100%); padding: 15px 0; border-bottom: 1px solid var(--border-glow); box-shadow: 0 4px 20px rgba(0,30,60,0.15); }
 .navbar-pro .navbar-brand { font-weight: 900; font-size: 1.4rem; color: white !important; letter-spacing: 1px; }
 .navbar-pro .brand-glow { background: linear-gradient(135deg, var(--cyber-cyan), var(--cyber-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
@@ -85,12 +102,14 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 .navbar-pro .btn-cta-nav { background: linear-gradient(135deg, var(--cyber-green), #00cc6a); color: #001e3c !important; padding: 10px 24px; border-radius: 50px; font-weight: 800; border: none; text-decoration: none; box-shadow: 0 4px 15px rgba(0,255,136,0.3); transition: 0.3s; }
 .navbar-pro .btn-cta-nav:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,255,136,0.5); }
 
+/* HERO CYBER */
 .hero-cyber { background: linear-gradient(135deg, #001e3c 0%, #0a1929 50%, #001428 100%); color: white; padding: 90px 0 80px; position: relative; overflow: hidden; }
 .hero-cyber::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px); background-size: 40px 40px; }
 .hero-title { font-size: 3.2rem; font-weight: 900; line-height: 1.15; margin-bottom: 20px; }
 .hero-title .highlight { background: linear-gradient(135deg, var(--cyber-cyan), var(--cyber-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .hero-subtitle { font-size: 1.15rem; color: rgba(255,255,255,0.85); margin-bottom: 30px; max-width: 580px; }
 .hero-tag { background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.35); padding: 6px 16px; border-radius: 50px; font-size: 0.85rem; color: var(--cyber-cyan); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 25px; }
+
 .btn-hero-primary { background: linear-gradient(135deg, var(--cyber-green), #00cc6a); color: #001e3c; padding: 16px 38px; border-radius: 50px; font-weight: 800; font-size: 1.05rem; box-shadow: 0 8px 25px rgba(0,255,136,0.4); text-decoration: none; display: inline-block; transition: 0.3s; }
 .btn-hero-primary:hover { transform: translateY(-2px); color: #001e3c; box-shadow: 0 12px 30px rgba(0,255,136,0.6); }
 .btn-hero-secondary { background: transparent; color: white; padding: 15px 30px; border: 2px solid var(--cyber-cyan); border-radius: 50px; font-weight: 700; text-decoration: none; display: inline-block; margin-left: 12px; transition: 0.3s; }
@@ -106,14 +125,17 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 .led.orange { background: var(--accent-orange); color: var(--accent-orange); animation-delay: 0.6s; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
+/* SECTION HEADERS */
 .section-badge { display: inline-block; background: rgba(0,102,255,0.08); color: var(--neon-blue); padding: 6px 18px; border-radius: 50px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
 .section-title { font-size: 2.4rem; font-weight: 900; color: #001e3c; margin-bottom: 12px; text-align: center; }
 .section-subtitle { color: #607d8b; font-size: 1.05rem; text-align: center; margin-bottom: 45px; }
 
+/* FEATURES */
 .feature-card { background: white; border-radius: 20px; padding: 35px 25px; text-align: center; box-shadow: 0 4px 20px rgba(0,30,60,0.05); border: 1px solid #e2e8f0; height: 100%; transition: 0.3s; }
 .feature-card:hover { transform: translateY(-8px); box-shadow: 0 15px 35px rgba(0,102,255,0.12); }
 .feature-icon { width: 65px; height: 65px; background: linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,255,136,0.12)); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 1.8rem; color: var(--neon-blue); }
 
+/* PRICING */
 .pricing-card { background: white; border-radius: 22px; padding: 40px 30px; box-shadow: 0 4px 20px rgba(0,30,60,0.05); border: 2px solid transparent; height: 100%; display: flex; flex-direction: column; position: relative; transition: 0.3s; }
 .pricing-card:hover { transform: translateY(-6px); box-shadow: 0 15px 40px rgba(0,30,60,0.1); }
 .pricing-card.popular { border-color: var(--cyber-green); box-shadow: 0 8px 30px rgba(0,255,136,0.2); }
@@ -143,6 +165,7 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 .step-card { text-align: center; padding: 20px; }
 .step-number { width: 55px; height: 55px; background: linear-gradient(135deg, var(--cyber-cyan), var(--neon-blue)); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; font-size: 1.4rem; font-weight: 900; box-shadow: 0 8px 20px rgba(0,212,255,0.3); }
 
+/* FORMS */
 .form-card { background: white; border-radius: 24px; padding: 40px 35px; box-shadow: 0 8px 30px rgba(0,30,60,0.06); border: 1px solid #e2e8f0; }
 .form-label { font-weight: 700; color: #001e3c; margin-bottom: 7px; font-size: 0.9rem; }
 .form-control, .form-select { border-radius: 12px; padding: 12px 16px; border: 1.5px solid #cbd5e1; font-size: 0.95rem; }
@@ -253,7 +276,7 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
                         Plateforme d'ingénierie réseau pour routeurs MikroTik RouterOS v7. 
                         Scripts d'automatisation, VPN Cloudflare WARP illimité, Hotspot WiFi Zone et contournement anti-détection de partage FAI.
                     </p>
-                    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" style="background:#25D366;color:white!important;padding:10px 22px;border-radius:50px;font-weight:700;margin-top:15px;display:inline-block;text-decoration:none">
+                    <a href="https://wa.me/{WHATSAPP_INT}" target="_blank" style="background:#25D366;color:white!important;padding:10px 22px;border-radius:50px;font-weight:700;margin-top:15px;display:inline-block;text-decoration:none">
                         <i class="fab fa-whatsapp me-2"></i>Assistance Technique
                     </a>
                 </div>
@@ -299,7 +322,7 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
             </div>
         </div>
     </footer>
-    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="floating-whatsapp" title="WhatsApp Support"><i class="fab fa-whatsapp"></i></a>
+    <a href="https://wa.me/{WHATSAPP_INT}" target="_blank" class="floating-whatsapp" title="WhatsApp Support"><i class="fab fa-whatsapp"></i></a>
     <a href="/order" class="floating-cart" title="Commander"><i class="fas fa-shopping-cart"></i><span class="cart-badge">3</span></a>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     {extra_script}
@@ -642,6 +665,11 @@ def pay(order_id):
                 order_obj.whatsapp_number = wa_confirm
             db.session.commit()
 
+            # Message pré-rempli pour le WhatsApp de Jean Eric
+            client_msg = f"Bonjour Jean Eric, je viens d'envoyer ma preuve de paiement pour la commande *{order_id}* ({safe_get(order_obj, 'plan_type').upper()}). Mon numéro WhatsApp est : {safe_get(order_obj, 'whatsapp_number')}."
+            encoded_msg = urllib.parse.quote(client_msg)
+            wa_direct_url = f"https://wa.me/{WHATSAPP_INT}?text={encoded_msg}"
+
             body = f"""
 <section class="py-5">
     <div class="container text-center" style="max-width:650px">
@@ -651,11 +679,15 @@ def pay(order_id):
             <p class="text-muted fs-5">Votre paiement est en cours de validation par notre équipe.</p>
             <hr>
             <div class="alert alert-info text-start">
-                <h6 class="fw-bold"><i class="fas fa-info-circle me-1"></i>Comment récupérer votre script ?</h6>
-                <p class="mb-0 small">Dès validation (~10 minutes), rendez-vous dans <strong>"Ma Licence"</strong> et saisissez : <strong>{order_id}</strong>.</p>
+                <h6 class="fw-bold"><i class="fas fa-info-circle me-1"></i>Accélérez la validation :</h6>
+                <p class="mb-0 small">Pour une activation instantanée, cliquez ci-dessous pour avertir Jean Eric directement sur WhatsApp avec votre référence.</p>
             </div>
+            
             <div class="d-grid gap-2 mt-4">
-                <a href="/my-license" class="btn btn-hero-primary"><i class="fas fa-key me-2"></i>Accéder à "Ma Licence"</a>
+                <a href="{wa_direct_url}" target="_blank" class="btn btn-success py-3 rounded-pill fw-bold" style="background:#25D366;border:none">
+                    <i class="fab fa-whatsapp me-2 fs-5"></i>Notifier Jean Eric sur WhatsApp
+                </a>
+                <a href="/my-license" class="btn btn-hero-primary mt-2"><i class="fas fa-key me-2"></i>Accéder à "Ma Licence"</a>
                 <a href="/" class="btn btn-outline-secondary rounded-pill">Retour à l'accueil</a>
             </div>
         </div>
@@ -778,7 +810,7 @@ def license_page(key):
             <div class="alert alert-info mt-4 text-start small">
                 <strong>Délai moyen :</strong> moins de 10 minutes après envoi de la capture de paiement.
             </div>
-            <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="btn btn-success rounded-pill px-4 mt-2">
+            <a href="https://wa.me/{WHATSAPP_INT}" target="_blank" class="btn btn-success rounded-pill px-4 mt-2">
                 <i class="fab fa-whatsapp me-2"></i>Contacter le support
             </a>
         </div>
@@ -885,12 +917,8 @@ def license_page(key):
                     <div class="tuto-step-num">5</div>
                     <div class="tuto-step-body">
                         <h6>Patientez pendant l'exécution</h6>
-                        <p>Attendez 5 à 10 secondes. Le routeur <strong>redémarrera automatiquement</strong>. Reconnectez-vous après le reboot.</p>
+                        <p>Attendez 5 secondes jusqu'à l'affichage de la bannière finale de succès.</p>
                     </div>
-                </div>
-                <div class="tuto-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Important :</strong> Ne fermez pas Winbox pendant l'exécution. Le collage ne coupe pas la connexion.
                 </div>
             </div>
 
@@ -903,7 +931,7 @@ def license_page(key):
                     <div class="tuto-step-num">1</div>
                     <div class="tuto-step-body">
                         <h6>Téléchargez le fichier .RSC</h6>
-                        <p>Cliquez sur le bouton bleu <strong>"Télécharger (.rsc)"</strong>. Un fichier <code>{short_name}</code> sera sauvegardé sur votre ordinateur.</p>
+                        <p>Cliquez sur le bouton bleu <strong>"Télécharger (.rsc)"</strong>. Un fichier <code>{short_name}</code> sera sauvegardé sur votre PC.</p>
                     </div>
                 </div>
                 <div class="tuto-step">
@@ -917,7 +945,7 @@ def license_page(key):
                     <div class="tuto-step-num">3</div>
                     <div class="tuto-step-body">
                         <h6>Glissez-déposez le fichier .RSC</h6>
-                        <p>Depuis votre PC, <strong>glissez le fichier</strong> <code>{short_name}</code> et déposez-le dans la fenêtre <strong>Files</strong>. Upload en 1 seconde.</p>
+                        <p>Depuis votre PC, <strong>glissez le fichier</strong> <code>{short_name}</code> et déposez-le dans la fenêtre <strong>Files</strong>.</p>
                     </div>
                 </div>
                 <div class="tuto-step">
@@ -927,17 +955,6 @@ def license_page(key):
                         <p>Cliquez sur <strong>New Terminal</strong>. Tapez cette commande puis appuyez sur <span class="kbd">Entrée</span> :</p>
                         <div style="margin-top:10px"><code>/import {short_name}</code></div>
                     </div>
-                </div>
-                <div class="tuto-step">
-                    <div class="tuto-step-num">5</div>
-                    <div class="tuto-step-body">
-                        <h6>Le routeur applique et redémarre</h6>
-                        <p>Le RouterOS exécute le script en 5 secondes puis <strong>redémarre automatiquement</strong>. Votre configuration est active.</p>
-                    </div>
-                </div>
-                <div class="tuto-info-badge" style="background:linear-gradient(135deg,rgba(255,107,26,0.1),rgba(255,165,0,0.1));border-color:rgba(255,107,26,0.3);color:#8b4513">
-                    <i class="fas fa-lightbulb" style="color:var(--accent-orange)"></i>
-                    <div><strong>Astuce Pro :</strong> Sauvegardez le fichier <code>{short_name}</code> pour restaurer votre config en cas de reset d'usine.</div>
                 </div>
             </div>
 
@@ -1017,6 +1034,7 @@ def download_guide(key):
         return str(e), 500
 
 
+# ===================== ADMIN DASHBOARD ENRICHI =====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     try:
@@ -1057,9 +1075,27 @@ def admin_dashboard():
         pending = sum(1 for o in orders if safe_get(o, 'status') == 'pending')
         active = sum(1 for o in orders if safe_get(o, 'status') == 'active')
         rows = ""
+        
+        host_url = request.host_url.rstrip('/')
+
         for o in orders:
             stat = safe_get(o, 'status')
             p_type = safe_get(o, 'plan_type')
+            clean_phone = format_whatsapp_number(safe_get(o, 'whatsapp_number'))
+
+            # Message WhatsApp pré-rempli pour envoyer la licence au client
+            msg_client = (
+                f"Bonjour {safe_get(o, 'client_name')},\n\n"
+                f"Votre paiement pour la commande *{safe_get(o, 'order_id')}* ({p_type.upper()}) a bien été validé !\n\n"
+                f"Votre Clé de Licence : *{safe_get(o, 'license_key')}*\n\n"
+                f"Vous pouvez récupérer votre script MikroTik et votre guide technique directement sur ce lien :\n"
+                f"{host_url}/license/{safe_get(o, 'license_key')}\n\n"
+                f"Merci de votre confiance,\n"
+                f"KETRIKA MIKROTIK (Jean Eric)"
+            )
+            encoded_msg_client = urllib.parse.quote(msg_client)
+            wa_client_url = f"https://wa.me/{clean_phone}?text={encoded_msg_client}"
+
             if stat == 'pending':
                 badg = '<span class="status-badge status-pending">En attente</span>'
                 act = f"""
@@ -1068,19 +1104,28 @@ def admin_dashboard():
                 """
             elif stat == 'active':
                 badg = '<span class="status-badge status-active">Validé</span>'
-                act = f'<a href="/license/{o.license_key}" target="_blank" class="btn btn-sm btn-outline-success"><i class="fas fa-eye"></i></a>'
+                act = f"""
+                <a href="/license/{o.license_key}" target="_blank" class="btn btn-sm btn-outline-success" title="Voir la configuration"><i class="fas fa-eye"></i></a>
+                <a href="{wa_client_url}" target="_blank" class="btn btn-sm btn-success text-white" title="Envoyer la clé sur WhatsApp"><i class="fab fa-whatsapp"></i> Envoyer</a>
+                """
             else:
                 badg = '<span class="status-badge status-rejected">Refusé</span>'
                 act = ""
+
             proof_btn = "-"
             if safe_get(o, 'payment_proof'):
-                proof_btn = f'<a href="/admin/proof/{o.order_id}" target="_blank" class="btn btn-sm btn-light"><i class="fas fa-image"></i></a>'
+                proof_btn = f'''
+                <button type="button" class="btn btn-sm btn-light border" onclick="showProofModal('{url_for('admin_proof', order_id=o.order_id)}', '{o.order_id}', '{safe_get(o, 'client_name')}')">
+                    <i class="fas fa-image text-primary"></i> Voir Preuve
+                </button>
+                '''
+
             rows += f"""
 <tr>
     <td><strong>{safe_get(o, 'order_id')}</strong></td>
     <td>{safe_get(o, 'client_name')}</td>
-    <td><a href="https://wa.me/{safe_get(o, 'whatsapp_number').replace(' ','').replace('+','')}" target="_blank">{safe_get(o, 'whatsapp_number')}</a></td>
-    <td>{p_type.upper()}</td>
+    <td><a href="https://wa.me/{clean_phone}" target="_blank" class="fw-bold text-success"><i class="fab fa-whatsapp me-1"></i>{safe_get(o, 'whatsapp_number')}</a></td>
+    <td><span class="badge bg-secondary">{p_type.upper()}</span></td>
     <td><small class="text-muted">{safe_get(o, 'license_key', '')[:16]}...</small></td>
     <td>{proof_btn}</td>
     <td>{badg}</td>
@@ -1089,6 +1134,7 @@ def admin_dashboard():
 """
         if not rows:
             rows = '<tr><td colspan="8" class="text-center text-muted py-4">Aucune commande enregistrée</td></tr>'
+
         body = f"""
 <div class="bg-dark py-3 mb-4">
     <div class="container d-flex justify-content-between align-items-center">
@@ -1107,7 +1153,7 @@ def admin_dashboard():
             <div class="table-responsive">
                 <table class="table mb-0 align-middle">
                     <thead class="table-light">
-                        <tr><th>Réf (KTR-)</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Clé Licence</th><th>Preuve</th><th>Statut</th><th>Action</th></tr>
+                        <tr><th>Réf (KTR-)</th><th>Client</th><th>WhatsApp</th><th>Pack</th><th>Clé Licence</th><th>Preuve Paiement</th><th>Statut</th><th>Actions Rapides</th></tr>
                     </thead>
                     <tbody>{rows}</tbody>
                 </table>
@@ -1115,8 +1161,38 @@ def admin_dashboard():
         </div>
     </div>
 </section>
+
+<!-- MODAL VISUALISATION PREUVE DE PAIEMENT SANS QUITTER LA PAGE -->
+<div class="modal fade" id="proofModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title" id="proofModalTitle"><i class="fas fa-receipt me-2 text-success"></i>Preuve de Paiement</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center p-3 bg-light">
+        <img id="proofImage" src="" class="img-fluid rounded-3 shadow-sm border" style="max-height: 70vh; object-fit: contain;">
+      </div>
+      <div class="modal-footer justify-content-between">
+        <a id="proofFullLink" href="" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill"><i class="fas fa-external-link-alt me-1"></i>Ouvrir en grand</a>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
 """
-        return render_page(body, title="Console Admin")
+        js = """
+<script>
+function showProofModal(imgUrl, orderId, clientName) {
+    document.getElementById('proofImage').src = imgUrl;
+    document.getElementById('proofFullLink').href = imgUrl;
+    document.getElementById('proofModalTitle').innerHTML = '<i class="fas fa-receipt me-2 text-success"></i>Preuve ' + orderId + ' (' + clientName + ')';
+    var myModal = new bootstrap.Modal(document.getElementById('proofModal'));
+    myModal.show();
+}
+</script>
+"""
+        return render_page(body, title="Console Admin", extra_script=js)
     except HTTPException as e:
         raise e
     except Exception as e:
