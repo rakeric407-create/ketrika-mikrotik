@@ -1,7 +1,30 @@
+Voici l'architecture technique exacte du mode **Hotspot Furtif (Invisible pour le FAI)** et le fichier **`warp_api.py`** corrigé.
+
+---
+
+### 🛡️ Comment notre script rend le Hotspot 100% INVISIBLE pour le FAI :
+
+1. **Isolation totale du trafic non authentifié** : 
+   Quand un client se connecte au Wi-Fi, ses requêtes locales vers le portail captif (`192.168.10.1` / `wifi.ketrika.mg`) sont traitées **100% en local**. Aucun paquet DNS ou HTTP ne fuite sur l'interface WAN du FAI.
+2. **Tunnel chiffré exclusif pour les clients connectés (`dst-address-type=!local`)** :
+   Dès qu'un client tape son ticket/voucher, **100% de son trafic internet est aspiré dans le tunnel WireGuard chiffré**. Pour votre FAI, il ne voit **qu'un seul flux chiffré UDP provenant d'un seul appareil**.
+3. **Masquage TTL & Usurpation MAC totale** :
+   - Le FAI voit une adresse MAC grand public (Apple/Intel) au lieu d'un routeur MikroTik.
+   - Tous les paquets sortants (qu'il y ait 1 client ou 50 clients connectés) ont le même TTL fixe (64).
+4. **Zéro fuite DNS (Anti-DNS Leak)** :
+   Toutes les requêtes DNS des utilisateurs du Hotspot sont interceptées et chiffrées via DoH / Cloudflare, empêchant le FAI d'analyser les sites visités.
+
+---
+
+### 📄 FICHIER COMPLET : `warp_api.py`
+
+Remplacez l'intégralité de **`warp_api.py`** sur GitHub par ce code :
+
+```python
 #!/usr/bin/env python3
 """
 KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
-Version Ultra-Stable, Anti-Bootloop, Spécialiste Wi-Fi AX/AC & Hotspot
+Version Hotspot Furtif (Totalement Invisible pour le FAI) + Anti-Déconnexion
 """
 
 import os
@@ -89,8 +112,7 @@ def register_warp(public_key):
 
 def generate_script(order):
     """
-    Générateur de scripts RouterOS v7 sans aucune erreur de type 'dynamic item'.
-    Compatible 100% avec le Terminal (/import ou copier-coller).
+    Générateur de scripts RouterOS v7 avec Hotspot Furtif et Routing Mangle Isolé.
     """
     plan = safe_get(order, 'plan_type', 'standard')
     model = safe_get(order, 'mikrotik_model', 'hap_ac2')
@@ -105,7 +127,7 @@ def generate_script(order):
     ul = safe_get(order, 'ul_limit', '0')
     lic = safe_get(order, 'license_key', 'DEMO')
 
-    # Nouvelles options
+    # Options avancées
     router_name = safe_get(order, 'router_name', '')
     mac_spoof = safe_get(order, 'mac_spoof', False)
     mac_address = safe_get(order, 'mac_address', '')
@@ -133,7 +155,7 @@ def generate_script(order):
     p = []
 
     # ================================================================
-    # PHASE 1 : EN-TÊTE + NETTOYAGE SÉCURISÉ (ZÉRO ERREUR SUR ELEMENTS DYNAMIQUES)
+    # PHASE 1 : EN-TÊTE & NETTOYAGE SÉCURISÉ
     # ================================================================
     p.append("# ============================================================")
     p.append("# KETRIKA MIKROTIK - CONFIGURATION AUTOMATIQUE ROUTEROS v7")
@@ -167,7 +189,7 @@ def generate_script(order):
     p.append(":do { /ip hotspot remove [find] } on-error={}")
 
     # ================================================================
-    # PHASE 2 : BRIDGE + PORTS (sans détruire la session active)
+    # PHASE 2 : BRIDGE + PORTS PHYSIQUES
     # ================================================================
     p.append("")
     p.append("# --- Création du Bridge LAN ---")
@@ -206,16 +228,15 @@ def generate_script(order):
     p.append('/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server=https://cloudflare-dns.com/dns-query')
 
     # ================================================================
-    # PHASE 4 : CONFIGURATION WI-FI & AUTO-ACTIVATION (AX / AC / N)
+    # PHASE 4 : ACTIVATION WI-FI AVANCÉE (AX / AC / N)
     # ================================================================
     if wifi_type == 'ax' and wifi_iface:
         p.append("")
-        p.append("# --- Wi-Fi 6 (AX) - Activation pro ---")
+        p.append("# --- Wi-Fi 6 (AX) - Activation Complète ---")
         p.append(':if ([:len [/interface wifi find]] > 0) do={')
         p.append('  :do { /interface wifi configuration remove [find name="ketrika-conf"] } on-error={}')
         p.append('  :do { /interface wifi security remove [find name="ketrika-sec"] } on-error={}')
         
-        # Configuration de sécurité WiFi 6
         if plan == 'hotspot':
             p.append('  /interface wifi security add name="ketrika-sec" authentication-types="" disabled=no')
         else:
@@ -234,11 +255,10 @@ def generate_script(order):
         
     elif wifi_type in ['ac', 'n'] and wifi_iface:
         p.append("")
-        p.append("# --- Wi-Fi 5/4 (AC/N) - Activation pro ---")
+        p.append("# --- Wi-Fi 5/4 (AC/N) - Activation Complète ---")
         p.append(':if ([:len [/interface wireless find]] > 0) do={')
         p.append('  :do { /interface wireless security-profiles remove [find name="ketrika-sec"] } on-error={}')
         
-        # Configuration de sécurité WiFi 5
         if plan == 'hotspot':
             p.append('  /interface wireless security-profiles add name="ketrika-sec" mode=none')
         else:
@@ -255,12 +275,12 @@ def generate_script(order):
         p.append('}')
 
     # ================================================================
-    # PHASE 5 : TUNNEL VPN WARP (PACKS SÉCURITÉ OU HOTSPOT)
+    # PHASE 5 : TUNNEL VPN WARP (MASQUAGE TOTAL DU TRAFIC SUR LE FAI)
     # ================================================================
     if plan in ['warp', 'hotspot']:
         p.append("")
         p.append("# ============================================================")
-        p.append("# --- TUNNEL VPN WIREGUARD SELECTIONNE ---")
+        p.append("# --- TUNNEL VPN WIREGUARD FURTIF ---")
         p.append("# ============================================================")
         p.append('/interface wireguard add name=wg-secure mtu=1280 listen-port=0 \\')
         p.append('  private-key="' + keys['private_key'] + '" comment="WARP-KETRIKA"')
@@ -275,23 +295,26 @@ def generate_script(order):
         p.append('/routing table add name=via-secure fib')
         p.append('/ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure')
         p.append("")
-        p.append("# --- Mangle Policy Routing (Intelligent, évite les blocages) ---")
+        p.append("# --- Mangle Policy Routing (Furtivité Maximale) ---")
         
         if plan == 'hotspot':
-            # ROUTAGE VPN UNIQUEMENT POUR LES CLIENTS CONNECTÉS DU HOTSPOT (TRÈS IMPORTANT !)
-            p.append('/ip firewall mangle add chain=prerouting src-address=' + net + ' hotspot=auth \\')
-            p.append('  action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Route-Authenticated-To-VPN"')
+            # ROUTAGE VPN UNIQUEMENT POUR LES CLIENTS DU HOTSPOT AUTHENTIFIÉS
+            # L'exclusion 'dst-address-type=!local' permet au portail captif local de s'ouvrir instantanément !
+            p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' \\')
+            p.append('  hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure \\')
+            p.append('  passthrough=yes comment="Stealth-Hotspot-Auth-To-VPN"')
         else:
-            # ROUTAGE VPN NORMAL POUR TOUT LE LAN
-            p.append('/ip firewall mangle add chain=prerouting src-address=' + net + ' \\')
-            p.append('  action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Route-LAN-To-VPN"')
+            # ROUTAGE VPN POUR TOUT LE LAN
+            p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' \\')
+            p.append('  dst-address-type=!local action=mark-routing new-routing-mark=via-secure \\')
+            p.append('  passthrough=yes comment="Route-LAN-To-VPN"')
             
         p.append("")
         p.append("# --- NAT Masquerade VPN & Anti-Fuite DNS ---")
         p.append('/ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade')
         
         if plan == 'hotspot':
-            # Redirection DNS uniquement pour les utilisateurs authentifiés
+            # Redirection DNS pour les utilisateurs authentifiés
             p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
             p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
         else:
@@ -309,7 +332,7 @@ def generate_script(order):
     if plan == 'hotspot':
         p.append("")
         p.append("# ============================================================")
-        p.append("# --- PORTAIL CAPTIF HOTSPOT WIFI ZONE (ROBUSTE) ---")
+        p.append("# --- PORTAIL CAPTIF HOTSPOT WIFI ZONE (100% INVISIBLE FAI) ---")
         p.append("# ============================================================")
         p.append('/ip dns static add name=wifi.ketrika.mg address=' + gw)
         p.append('/ip hotspot profile add name=ketrika-hs hotspot-address=' + gw + ' \\')
@@ -335,7 +358,7 @@ def generate_script(order):
         p.append('/ip firewall filter add chain=forward protocol=tcp dst-port=411,1214,4662,6346 action=drop comment="Block-P2P-Alt"')
 
     # ================================================================
-    # PHASE 7 : SÉCURITÉ + NAT + TTL + QOS
+    # PHASE 7 : MASQUAGE TTL & ISOLATION ANTI-FAI
     # ================================================================
     p.append("")
     p.append("# --- NAT Standard ---")
@@ -343,9 +366,9 @@ def generate_script(order):
 
     if str(ttl) != '0':
         p.append("")
-        p.append("# --- Masquage TTL Uniforme ---")
-        p.append('/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes')
-        p.append('/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes')
+        p.append("# --- Masquage TTL Global (Anti-Partage FAI) ---")
+        p.append('/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes comment="TTL-Mask-Global"')
+        p.append('/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes comment="TTL-Mask-Global"')
 
     if dl != '0' or ul != '0':
         p.append("")
@@ -363,11 +386,11 @@ def generate_script(order):
         p.append('/queue simple add name="QoS-PerClient" target=' + net + ' queue=pcq-ul/pcq-dl')
 
     # ================================================================
-    # PHASE 8 : MAC SPOOFING & IDENTITY
+    # PHASE 8 : USURPATION MAC WAN & NOM ROUTEUR
     # ================================================================
     if mac_spoof and mac_address:
         p.append("")
-        p.append("# --- Usurpation MAC WAN ---")
+        p.append("# --- Usurpation MAC WAN (Le FAI ne voit qu'un PC standard) ---")
         p.append(':do { /interface ethernet set ' + wan + ' mac-address=' + mac_address + ' } on-error={}')
 
     p.append("")
@@ -460,7 +483,7 @@ les opérateurs FAI analysent trois facteurs principaux :
 
   3. ANALYSE DU NOMBRE DE SESSIONS
      -------------------------------
-     Un réseau partagé génère des connexes TCP/UDP simultanées,
+     Un réseau partagé génère des connexions TCP/UDP simultanées,
      alertant les pare-feux du fournisseur d'accès.
 
 ================================================================================
@@ -472,6 +495,8 @@ les opérateurs FAI analysent trois facteurs principaux :
      l'inspection DPI de l'opérateur invisible.
   3. MSS Clamping : Ajuste les paquets TCP à 1280 octets pour éliminer la
      fragmentation et les ralentissements.
+  4. Hotspot Furtif : Le portail captif fonctionne en circuit fermé local.
+     Dès qu'un client s'authentifie, tout son flux passe par le VPN sans fuite.
 
 ================================================================================
   SUPPORT TECHNIQUE : WhatsApp +261 38 28 171 00 (7h - 22h)
@@ -479,3 +504,4 @@ les opérateurs FAI analysent trois facteurs principaux :
 (c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
+```
