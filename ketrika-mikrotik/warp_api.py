@@ -1,7 +1,27 @@
+Voici l'analyse d'ingénierie système de ce problème et le fichier correctif **`warp_api.py`** à remplacer.
+
+### 🔍 Pourquoi le Wi-Fi ne s'activait pas et le Hotspot ne s'affichait pas ?
+
+1. **Le Conflit du VPN et du Hotspot (Routage Mangle)** : 
+   Dans ton ancien script, la règle de routage forçait tout le trafic du sous-réseau `192.168.10.0/24` à utiliser la table VPN `via-secure`. 
+   * **Le problème** : Lorsqu'un utilisateur non connecté (non authentifié) tentait d'accéder à internet, son trafic local vers le portail captif (`192.168.10.1`) était envoyé de force dans le tunnel VPN Cloudflare. Le routeur n'interceptait donc pas la requête pour afficher le portail, ce qui bloquait l'affichage de la page de connexion.
+   * **La solution** : Nous avons supprimé les `/routing rule` statiques. À la place, nous utilisons des **marques de routage dynamiques (Firewall Mangle)**. Le trafic est envoyé vers le VPN **uniquement** si l'utilisateur est authentifié (`hotspot=auth`). S'il n'est pas connecté, il reste sur la table locale (`main`) et la page de connexion s'affiche instantanément !
+
+2. **L'activation Wi-Fi automatique sur RouterOS v7 (AX/WiFi6)** :
+   Sur les nouveaux modèles AX (comme le `hap_ax2`), RouterOS v7 n'active pas le Wi-Fi si aucun profil de sécurité n'est explicitement créé et assigné. De plus, pour le pack Hotspot, le Wi-Fi doit être **totalement ouvert (sans mot de passe)** pour que les téléphones puissent se connecter et voir la page de connexion.
+   * **La solution** : Le script crée désormais un profil de sécurité ouvert dédié pour le Hotspot, un profil sécurisé WPA2/WPA3 pour les autres packs, active toutes les cartes Wi-Fi physiques et les force à intégrer le bridge.
+
+---
+
+### 📄 FICHIER COMPLET À REMPLACER : `warp_api.py`
+
+Ouvre ton fichier **`warp_api.py`** sur GitHub, efface tout et colle ce code propre :
+
+```python
 #!/usr/bin/env python3
 """
 KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
-Version 100% Compatible RouterOS v7 & Import .RSC
+Version Ultra-Stable, Anti-Bootloop, Spécialiste Wi-Fi AX/AC & Hotspot
 """
 
 import os
@@ -206,16 +226,24 @@ def generate_script(order):
     p.append('/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server=https://cloudflare-dns.com/dns-query')
 
     # ================================================================
-    # PHASE 4 : CONFIGURATION WI-FI AUTO (MULTI-MODÈLES)
+    # PHASE 4 : CONFIGURATION WI-FI & AUTO-ACTIVATION (AX / AC / N)
     # ================================================================
     if wifi_type == 'ax' and wifi_iface:
         p.append("")
-        p.append("# --- Wi-Fi 6 (AX) ---")
+        p.append("# --- Wi-Fi 6 (AX) - Activation pro ---")
         p.append(':if ([:len [/interface wifi find]] > 0) do={')
-        p.append('  :do {')
-        p.append('    /interface wifi set [find] configuration.ssid="' + ssid + '" configuration.country=madagascar \\')
-        p.append('      security.authentication-types=wpa2-psk,wpa3-psk security.passphrase="' + wifi_pass + '" disabled=no')
-        p.append('  } on-error={}')
+        p.append('  :do { /interface wifi configuration remove [find name="ketrika-conf"] } on-error={}')
+        p.append('  :do { /interface wifi security remove [find name="ketrika-sec"] } on-error={}')
+        
+        # Configuration de sécurité WiFi 6
+        if plan == 'hotspot':
+            p.append('  /interface wifi security add name="ketrika-sec" authentication-types="" disabled=no')
+        else:
+            p.append('  /interface wifi security add name="ketrika-sec" authentication-types=wpa2-psk,wpa3-psk security.passphrase="' + wifi_pass + '" disabled=no')
+            
+        p.append('  /interface wifi configuration add name="ketrika-conf" ssid="' + ssid + '" country=madagascar security="ketrika-sec" disabled=no')
+        p.append('  /interface wifi set [find] configuration="ketrika-conf" disabled=no')
+        p.append('  /interface wifi enable [find]')
         p.append('  :foreach wif in=[/interface wifi find] do={')
         p.append('    :local wname [/interface wifi get $wif name]')
         p.append('    :if ([:len [/interface bridge port find interface=$wname]] = 0) do={')
@@ -223,16 +251,21 @@ def generate_script(order):
         p.append('    }')
         p.append('  }')
         p.append('}')
+        
     elif wifi_type in ['ac', 'n'] and wifi_iface:
         p.append("")
-        p.append("# --- Wi-Fi 5/4 (AC/N) ---")
+        p.append("# --- Wi-Fi 5/4 (AC/N) - Activation pro ---")
         p.append(':if ([:len [/interface wireless find]] > 0) do={')
-        p.append('  :do {')
-        p.append('    /interface wireless security-profiles set [find default=yes] mode=dynamic-keys \\')
-        p.append('      authentication-types=wpa2-psk wpa2-pre-shared-key="' + wifi_pass + '"')
-        p.append('    /interface wireless set [find] mode=ap-bridge ssid="' + ssid + '" \\')
-        p.append('      frequency=auto security-profile=default disabled=no')
-        p.append('  } on-error={}')
+        p.append('  :do { /interface wireless security-profiles remove [find name="ketrika-sec"] } on-error={}')
+        
+        # Configuration de sécurité WiFi 5
+        if plan == 'hotspot':
+            p.append('  /interface wireless security-profiles add name="ketrika-sec" mode=none')
+        else:
+            p.append('  /interface wireless security-profiles add name="ketrika-sec" mode=dynamic-keys authentication-types=wpa2-psk unicast-ciphers=aes-ccm group-ciphers=aes-ccm wpa2-pre-shared-key="' + wifi_pass + '"')
+            
+        p.append('  /interface wireless set [find] mode=ap-bridge ssid="' + ssid + '" frequency=auto security-profile="ketrika-sec" disabled=no')
+        p.append('  /interface wireless enable [find]')
         p.append('  :foreach wif in=[/interface wireless find] do={')
         p.append('    :local wname [/interface wireless get $wif name]')
         p.append('    :if ([:len [/interface bridge port find interface=$wname]] = 0) do={')
@@ -242,7 +275,7 @@ def generate_script(order):
         p.append('}')
 
     # ================================================================
-    # PHASE 5 : TUNNEL VPN WARP (PACKS 50K ET 80K)
+    # PHASE 5 : TUNNEL VPN WARP (PACKS SÉCURITÉ OU HOTSPOT)
     # ================================================================
     if plan in ['warp', 'hotspot']:
         p.append("")
@@ -260,14 +293,31 @@ def generate_script(order):
         p.append("")
         p.append("# --- Table de Routage Dédiée v7 ---")
         p.append('/routing table add name=via-secure fib')
-        p.append('/routing rule add src-address=' + net + ' action=lookup table=via-secure')
-        p.append('/routing rule add dst-address=' + net + ' action=lookup-only-in-table table=main')
         p.append('/ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure')
+        p.append("")
+        p.append("# --- Mangle Policy Routing (Intelligent, évite les blocages) ---")
+        
+        if plan == 'hotspot':
+            # ROUTAGE VPN UNIQUEMENT POUR LES CLIENTS CONNECTÉS DU HOTSPOT (TRÈS IMPORTANT !)
+            p.append('/ip firewall mangle add chain=prerouting src-address=' + net + ' hotspot=auth \\')
+            p.append('  action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Route-Authenticated-To-VPN"')
+        else:
+            # ROUTAGE VPN NORMAL POUR TOUT LE LAN
+            p.append('/ip firewall mangle add chain=prerouting src-address=' + net + ' \\')
+            p.append('  action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Route-LAN-To-VPN"')
+            
         p.append("")
         p.append("# --- NAT Masquerade VPN & Anti-Fuite DNS ---")
         p.append('/ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade')
-        p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 action=redirect')
-        p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 action=redirect')
+        
+        if plan == 'hotspot':
+            # Redirection DNS uniquement pour les utilisateurs authentifiés
+            p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
+            p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
+        else:
+            p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 action=redirect')
+            p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 action=redirect')
+            
         p.append("")
         p.append("# --- MSS Clamping Anti-DPI ---")
         p.append('/ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn \\')
@@ -279,12 +329,12 @@ def generate_script(order):
     if plan == 'hotspot':
         p.append("")
         p.append("# ============================================================")
-        p.append("# --- PORTAIL CAPTIF HOTSPOT WIFI ZONE ---")
+        p.append("# --- PORTAIL CAPTIF HOTSPOT WIFI ZONE (ROBUSTE) ---")
         p.append("# ============================================================")
         p.append('/ip dns static add name=wifi.ketrika.mg address=' + gw)
         p.append('/ip hotspot profile add name=ketrika-hs hotspot-address=' + gw + ' \\')
         p.append('  dns-name=wifi.ketrika.mg login-by=http-pap,cookie \\')
-        p.append('  http-cookie-lifetime=1d use-radius=no')
+        p.append('  http-cookie-lifetime=1d use-radius=no html-directory=hotspot')
         p.append('/ip hotspot add name=hotspot-ketrika interface=bridge1 \\')
         p.append('  profile=ketrika-hs address-pool=pool-lan disabled=no')
         p.append("")
@@ -430,7 +480,7 @@ les opérateurs FAI analysent trois facteurs principaux :
 
   3. ANALYSE DU NOMBRE DE SESSIONS
      -------------------------------
-     Un réseau partagé génère des centaines de connexions TCP/UDP simultanées,
+     Un réseau partagé génère des connexes TCP/UDP simultanées,
      alertant les pare-feux du fournisseur d'accès.
 
 ================================================================================
@@ -439,7 +489,7 @@ les opérateurs FAI analysent trois facteurs principaux :
 
   1. Masquage TTL : Le script fige le TTL sortant à 64 pour tout le réseau.
   2. Tunnel WireGuard : Chiffre l'intégralité du trafic vers Cloudflare, rendant
-     l'inspection DPI de l'opérateur aveugle.
+     l'inspection DPI de l'opérateur invisible.
   3. MSS Clamping : Ajuste les paquets TCP à 1280 octets pour éliminer la
      fragmentation et les ralentissements.
 
@@ -449,3 +499,4 @@ les opérateurs FAI analysent trois facteurs principaux :
 (c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
+```
