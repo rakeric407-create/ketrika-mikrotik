@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
-Version Anti-Déconnexion + Multi-Modèles + Options Avancées
+Version 100% Compatible RouterOS v7 & Import .RSC
 """
 
 import os
@@ -89,8 +89,8 @@ def register_warp(public_key):
 
 def generate_script(order):
     """
-    Générateur principal de scripts RouterOS v7.
-    GARANTIE : Ne coupe JAMAIS la connexion Winbox pendant l'exécution.
+    Générateur de scripts RouterOS v7 sans aucune erreur de type 'dynamic item'.
+    Compatible 100% avec le Terminal (/import ou copier-coller).
     """
     plan = safe_get(order, 'plan_type', 'standard')
     model = safe_get(order, 'mikrotik_model', 'hap_ac2')
@@ -117,13 +117,11 @@ def generate_script(order):
     wifi_type = info.get('wifi_type', 'none')
     wifi_iface = info.get('wifi_iface', None)
 
-    # Générer MAC et nom si nécessaire
     if not router_name:
         router_name = generate_router_name(lic)
     if mac_spoof and not mac_address:
         mac_address = generate_random_mac()
 
-    # Clés WARP
     keys = generate_wireguard_keys()
     warp_reg = register_warp(keys['public_key'])
     warp_ip = warp_reg['ipv4']
@@ -135,7 +133,7 @@ def generate_script(order):
     p = []
 
     # ================================================================
-    # PHASE 1 : EN-TÊTE + NETTOYAGE SÉCURISÉ (ne touche PAS aux IP/bridge)
+    # PHASE 1 : EN-TÊTE + NETTOYAGE SÉCURISÉ (ZÉRO ERREUR SUR ELEMENTS DYNAMIQUES)
     # ================================================================
     p.append("# ============================================================")
     p.append("# KETRIKA MIKROTIK - CONFIGURATION AUTOMATIQUE ROUTEROS v7")
@@ -143,107 +141,108 @@ def generate_script(order):
     p.append("# MODELE  : " + model)
     p.append("# DATE    : " + time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()))
     p.append("# ============================================================")
-    p.append("# IMPORTANT : Ce script ne coupe PAS votre connexion Winbox.")
-    p.append("# Le routeur redémarrera automatiquement à la fin.")
-    p.append("# ============================================================")
     p.append("")
-    p.append("# --- Nettoyage des anciens schedulers KETRIKA ---")
-    p.append('/system scheduler remove [find name~"ketrika"]')
-    p.append('/system scheduler remove [find name~"br-"]')
-    p.append('/system scheduler remove [find name~"reboot"]')
-    p.append('/system scheduler remove [find name~"sleep"]')
+    p.append("# --- Nettoyage des schedulers temporaires ---")
+    p.append(':do { /system scheduler remove [find name~"ketrika"] } on-error={}')
+    p.append(':do { /system scheduler remove [find name~"br-"] } on-error={}')
+    p.append(':do { /system scheduler remove [find name~"reboot"] } on-error={}')
+    p.append(':do { /system scheduler remove [find name~"sleep"] } on-error={}')
     p.append("")
-    p.append("# --- Nettoyage sécurisé (ne supprime PAS les IP ni le bridge) ---")
-    p.append("/ip firewall filter remove [find]")
-    p.append("/ip firewall nat remove [find]")
-    p.append("/ip firewall mangle remove [find]")
-    p.append("/queue simple remove [find]")
-    p.append("/ip dhcp-server remove [find]")
-    p.append("/ip dhcp-server network remove [find]")
-    p.append("/ip pool remove [find]")
-    p.append("/ip route remove [find where dst-address=0.0.0.0/0]")
-    p.append('/ip dns set servers=""')
-    p.append("/interface wireguard remove [find]")
-    p.append("/routing table remove [find]")
-    p.append("/routing rule remove [find]")
-    p.append("/ip hotspot remove [find]")
-    p.append("/ip hotspot profile remove [find]")
-    p.append("/ip hotspot user remove [find]")
-    p.append("/ip hotspot user profile remove [find]")
+    p.append("# --- Nettoyage sécurisé sans toucher aux éléments système fixes ---")
+    p.append(":do { /ip firewall filter remove [find] } on-error={}")
+    p.append(":do { /ip firewall nat remove [find] } on-error={}")
+    p.append(":do { /ip firewall mangle remove [find] } on-error={}")
+    p.append(":do { /queue simple remove [find] } on-error={}")
+    p.append(":do { /ip dhcp-server remove [find] } on-error={}")
+    p.append(":do { /ip dhcp-server network remove [find] } on-error={}")
+    p.append(":do { /ip pool remove [find] } on-error={}")
+    p.append(":do { /ip route remove [find dynamic=no] } on-error={}")
+    p.append(':do { /ip dns set servers="" } on-error={}')
+    p.append(":do { /interface wireguard remove [find] } on-error={}")
+    p.append(':do { /routing table remove [find name!="main"] } on-error={}')
+    p.append(":do { /routing rule remove [find] } on-error={}")
+    p.append(":do { /ip hotspot user remove [find] } on-error={}")
+    p.append(':do { /ip hotspot user profile remove [find name!="default"] } on-error={}')
+    p.append(':do { /ip hotspot profile remove [find name!="default"] } on-error={}')
+    p.append(":do { /ip hotspot remove [find] } on-error={}")
 
     # ================================================================
-    # PHASE 2 : BRIDGE + PORTS (sans destruction)
+    # PHASE 2 : BRIDGE + PORTS (sans détruire la session active)
     # ================================================================
     p.append("")
-    p.append("# --- Bridge LAN (créé uniquement s'il n'existe pas) ---")
+    p.append("# --- Création du Bridge LAN ---")
     p.append(':if ([:len [/interface bridge find name=bridge1]] = 0) do={')
     p.append('  /interface bridge add name=bridge1 comment="LAN-KETRIKA"')
     p.append('}')
     p.append("")
-    p.append("# --- Attribution des ports Ethernet au bridge ---")
+    p.append("# --- Rattachement des ports Ethernet ---")
     p.append(':foreach iface in=[/interface ethernet find] do={')
     p.append('  :local ifname [/interface ethernet get $iface name]')
     p.append('  :if ($ifname != "' + wan + '") do={')
     p.append('    :if ([:len [/interface bridge port find interface=$ifname]] = 0) do={')
-    p.append('      /interface bridge port add bridge=bridge1 interface=$ifname')
+    p.append('      :do { /interface bridge port add bridge=bridge1 interface=$ifname } on-error={}')
     p.append('    }')
     p.append('  }')
     p.append('}')
 
     # ================================================================
-    # PHASE 3 : IP + DHCP + DNS
+    # PHASE 3 : IP + DHCP + DNS DOH
     # ================================================================
     p.append("")
-    p.append("# --- Client DHCP WAN ---")
-    p.append('/ip dhcp-client add interface=' + wan + ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN-KETRIKA"')
+    p.append("# --- Client DHCP sur le port WAN ---")
+    p.append(':do { /ip dhcp-client add interface=' + wan + ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN-Internet" } on-error={}')
     p.append("")
-    p.append("# --- IP Passerelle LAN (ajoutée si inexistante) ---")
-    p.append(':if ([:len [/ip address find address~"' + gw.split('.')[0] + '.' + gw.split('.')[1] + '"]] = 0) do={')
-    p.append('  /ip address add address=' + gw + '/24 interface=bridge1 comment="LAN-KETRIKA"')
+    p.append("# --- Adresse Passerelle LAN ---")
+    p.append(':if ([:len [/ip address find interface=bridge1 address="' + gw + '/24"]] = 0) do={')
+    p.append('  /ip address add address=' + gw + '/24 interface=bridge1 comment="Passerelle-LAN"')
     p.append('}')
     p.append("")
-    p.append("# --- Serveur DHCP LAN ---")
+    p.append("# --- Pool & Serveur DHCP Local ---")
     p.append('/ip pool add name=pool-lan ranges=' + pool)
     p.append('/ip dhcp-server add name=dhcp-lan interface=bridge1 address-pool=pool-lan lease-time=1d disabled=no')
     p.append('/ip dhcp-server network add address=' + net + ' gateway=' + gw + ' dns-server=' + gw)
     p.append("")
-    p.append("# --- DNS Chiffré Cloudflare DoH ---")
+    p.append("# --- DNS Cloudflare DoH Sécurisé ---")
     p.append('/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server=https://cloudflare-dns.com/dns-query')
 
     # ================================================================
-    # PHASE 4 : WI-FI AUTO-ACTIVATION (multi-modèles)
+    # PHASE 4 : CONFIGURATION WI-FI AUTO (MULTI-MODÈLES)
     # ================================================================
     if wifi_type == 'ax' and wifi_iface:
         p.append("")
-        p.append("# --- Wi-Fi 6 (AX) - Activation automatique ---")
+        p.append("# --- Wi-Fi 6 (AX) ---")
         p.append(':if ([:len [/interface wifi find]] > 0) do={')
-        p.append('  /interface wifi set [find] configuration.ssid="' + ssid + '" configuration.country=madagascar \\')
-        p.append('    security.authentication-types=wpa2-psk,wpa3-psk security.passphrase="' + wifi_pass + '" disabled=no')
+        p.append('  :do {')
+        p.append('    /interface wifi set [find] configuration.ssid="' + ssid + '" configuration.country=madagascar \\')
+        p.append('      security.authentication-types=wpa2-psk,wpa3-psk security.passphrase="' + wifi_pass + '" disabled=no')
+        p.append('  } on-error={}')
         p.append('  :foreach wif in=[/interface wifi find] do={')
         p.append('    :local wname [/interface wifi get $wif name]')
         p.append('    :if ([:len [/interface bridge port find interface=$wname]] = 0) do={')
-        p.append('      /interface bridge port add bridge=bridge1 interface=$wname')
+        p.append('      :do { /interface bridge port add bridge=bridge1 interface=$wname } on-error={}')
         p.append('    }')
         p.append('  }')
         p.append('}')
     elif wifi_type in ['ac', 'n'] and wifi_iface:
         p.append("")
-        p.append("# --- Wi-Fi 5/4 (AC/N) - Activation automatique ---")
+        p.append("# --- Wi-Fi 5/4 (AC/N) ---")
         p.append(':if ([:len [/interface wireless find]] > 0) do={')
-        p.append('  /interface wireless security-profiles set [find default=yes] mode=dynamic-keys \\')
-        p.append('    authentication-types=wpa2-psk wpa2-pre-shared-key="' + wifi_pass + '"')
-        p.append('  /interface wireless set [find] mode=ap-bridge ssid="' + ssid + '" \\')
-        p.append('    frequency=auto security-profile=default disabled=no')
+        p.append('  :do {')
+        p.append('    /interface wireless security-profiles set [find default=yes] mode=dynamic-keys \\')
+        p.append('      authentication-types=wpa2-psk wpa2-pre-shared-key="' + wifi_pass + '"')
+        p.append('    /interface wireless set [find] mode=ap-bridge ssid="' + ssid + '" \\')
+        p.append('      frequency=auto security-profile=default disabled=no')
+        p.append('  } on-error={}')
         p.append('  :foreach wif in=[/interface wireless find] do={')
         p.append('    :local wname [/interface wireless get $wif name]')
         p.append('    :if ([:len [/interface bridge port find interface=$wname]] = 0) do={')
-        p.append('      /interface bridge port add bridge=bridge1 interface=$wname')
+        p.append('      :do { /interface bridge port add bridge=bridge1 interface=$wname } on-error={}')
         p.append('    }')
         p.append('  }')
         p.append('}')
 
     # ================================================================
-    # PHASE 5 : VPN WARP (Packs 50K et 80K)
+    # PHASE 5 : TUNNEL VPN WARP (PACKS 50K ET 80K)
     # ================================================================
     if plan in ['warp', 'hotspot']:
         p.append("")
@@ -259,13 +258,13 @@ def generate_script(order):
         p.append('  endpoint-port=' + str(endpoint_port) + ' \\')
         p.append('  allowed-address=0.0.0.0/0 persistent-keepalive=25')
         p.append("")
-        p.append("# --- Routage Avancé v7 ---")
+        p.append("# --- Table de Routage Dédiée v7 ---")
         p.append('/routing table add name=via-secure fib')
         p.append('/routing rule add src-address=' + net + ' action=lookup table=via-secure')
         p.append('/routing rule add dst-address=' + net + ' action=lookup-only-in-table table=main')
         p.append('/ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure')
         p.append("")
-        p.append("# --- NAT VPN + Anti-Fuite DNS ---")
+        p.append("# --- NAT Masquerade VPN & Anti-Fuite DNS ---")
         p.append('/ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade')
         p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 action=redirect')
         p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 action=redirect')
@@ -275,7 +274,7 @@ def generate_script(order):
         p.append('  action=change-mss new-mss=1280 passthrough=yes')
 
     # ================================================================
-    # PHASE 6 : HOTSPOT CAPTIF (Pack 80K uniquement)
+    # PHASE 6 : HOTSPOT PORTAIL CAPTIF (PACK 80K)
     # ================================================================
     if plan == 'hotspot':
         p.append("")
@@ -289,32 +288,32 @@ def generate_script(order):
         p.append('/ip hotspot add name=hotspot-ketrika interface=bridge1 \\')
         p.append('  profile=ketrika-hs address-pool=pool-lan disabled=no')
         p.append("")
-        p.append("# --- Profils de vitesse ---")
+        p.append("# --- Profils Utilisateurs ---")
         p.append('/ip hotspot user profile add name="1heure" rate-limit="2M/5M" session-timeout=1h shared-users=1')
         p.append('/ip hotspot user profile add name="1jour" rate-limit="5M/10M" session-timeout=1d shared-users=2')
         p.append('/ip hotspot user profile add name="1semaine" rate-limit="5M/10M" session-timeout=7d shared-users=2')
         p.append('/ip hotspot user profile add name="1mois" rate-limit="10M/20M" session-timeout=30d shared-users=3')
         p.append("")
-        p.append("# --- 10 Vouchers automatiques ---")
+        p.append("# --- 10 Vouchers de test générés ---")
         for _ in range(10):
             vc = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
             p.append('/ip hotspot user add name="' + vc + '" password="' + vc + '" profile="1jour" comment="Ticket-KETRIKA"')
         p.append("")
-        p.append("# --- Pare-feu Anti-Torrent ---")
+        p.append("# --- Pare-feu Anti-Torrent P2P ---")
         p.append('/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6999 action=drop comment="Block-P2P"')
         p.append('/ip firewall filter add chain=forward protocol=udp dst-port=6881-6999 action=drop comment="Block-P2P"')
         p.append('/ip firewall filter add chain=forward protocol=tcp dst-port=411,1214,4662,6346 action=drop comment="Block-P2P-Alt"')
 
     # ================================================================
-    # PHASE 7 : SÉCURITÉ + NAT + TTL + QoS
+    # PHASE 7 : SÉCURITÉ + NAT + TTL + QOS
     # ================================================================
     p.append("")
-    p.append("# --- NAT Internet Standard ---")
+    p.append("# --- NAT Standard ---")
     p.append('/ip firewall nat add chain=srcnat out-interface=' + wan + ' action=masquerade')
 
     if str(ttl) != '0':
         p.append("")
-        p.append("# --- Masquage TTL Anti-Partage ---")
+        p.append("# --- Masquage TTL Uniforme ---")
         p.append('/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes')
         p.append('/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes')
 
@@ -327,19 +326,19 @@ def generate_script(order):
 
     if client_limit != '0':
         p.append("")
-        p.append("# --- Limitation par client individuel ---")
+        p.append("# --- QoS par Appareil (PCQ) ---")
         cl = client_limit if 'M' in str(client_limit) else str(client_limit) + 'M'
         p.append('/queue type add name=pcq-dl kind=pcq pcq-rate=' + cl + ' pcq-classifier=dst-address')
         p.append('/queue type add name=pcq-ul kind=pcq pcq-rate=' + cl + ' pcq-classifier=src-address')
         p.append('/queue simple add name="QoS-PerClient" target=' + net + ' queue=pcq-ul/pcq-dl')
 
     # ================================================================
-    # PHASE 8 : MAC SPOOFING + NOM DU ROUTEUR
+    # PHASE 8 : MAC SPOOFING & IDENTITY
     # ================================================================
     if mac_spoof and mac_address:
         p.append("")
-        p.append("# --- Changement MAC WAN (Anti-détection FAI) ---")
-        p.append('/interface ethernet set ' + wan + ' mac-address=' + mac_address)
+        p.append("# --- Usurpation MAC WAN ---")
+        p.append(':do { /interface ethernet set ' + wan + ' mac-address=' + mac_address + ' } on-error={}')
 
     p.append("")
     p.append("# --- Nom du routeur ---")
@@ -350,7 +349,7 @@ def generate_script(order):
     # ================================================================
     if sleep_mode != 'off':
         p.append("")
-        p.append("# --- Mode Veille Nocturne Wi-Fi ---")
+        p.append("# --- Mode Veille Wi-Fi ---")
         sleep_ranges = {
             '00-06': ('00:00:00', '06:00:00'),
             '01-05': ('01:00:00', '05:00:00'),
@@ -371,10 +370,10 @@ def generate_script(order):
             p.append('  interval=1d on-event="/interface wireless set [find] disabled=no"')
 
     # ================================================================
-    # PHASE 10 : FIREWALL DE BASE + REBOOT SÉCURISÉ
+    # PHASE 10 : FIREWALL & REDÉMARRAGE AUTOMATIQUE
     # ================================================================
     p.append("")
-    p.append("# --- Firewall de base ---")
+    p.append("# --- Pare-feu de protection ---")
     p.append('/ip firewall filter add chain=input connection-state=established,related action=accept')
     p.append('/ip firewall filter add chain=input connection-state=invalid action=drop')
     p.append('/ip firewall filter add chain=input protocol=icmp action=accept')
@@ -382,7 +381,7 @@ def generate_script(order):
     p.append('/ip firewall filter add chain=input in-interface=' + wan + ' action=drop')
     p.append("")
     p.append("# ============================================================")
-    p.append("# --- REBOOT SÉCURISÉ (Exécution UNIQUE, sans boucle) ---")
+    p.append("# --- REDÉMARRAGE AUTOMATIQUE PROPRE ---")
     p.append("# ============================================================")
     p.append('/system scheduler add name="ketrika-reboot-once" interval=0s \\')
     p.append('  on-event=":delay 2s; /system scheduler remove [find name=ketrika-reboot-once]; /system reboot"')
@@ -395,9 +394,7 @@ def generate_script(order):
 
 
 def generate_secret_guide(order):
-    """
-    Génère le contenu du guide secret pour les packs 50K et 80K.
-    """
+    """Génère le dossier technique secret d'optimisation."""
     lic = safe_get(order, 'license_key', 'DEMO')
     client = safe_get(order, 'client_name', 'Client')
 
@@ -415,114 +412,40 @@ Date    : """ + time.strftime('%d/%m/%Y', time.gmtime()) + """
   CHAPITRE 1 : COMMENT LES OPERATEURS DETECTENT LE PARTAGE DE CONNEXION
 ================================================================================
 
-Lorsque vous partagez votre connexion internet (routeur, modem 4G/5G, réseau satellite)
-via un routeur MikroTik, les opérateurs FAI analysent trois facteurs principaux
-pour identifier le partage non autorisé :
+Lorsque vous partagez votre connexion internet via un routeur MikroTik,
+les opérateurs FAI analysent trois facteurs principaux :
 
   1. ANALYSE DU TTL (Time To Live)
      --------------------------------
-     Le TTL est un compteur présent dans chaque paquet de données qui diminue de 1
-     à chaque fois qu'il traverse un routeur. 
-     Un ordinateur ou smartphone connecté directement envoie des paquets avec un TTL de 64. 
-     S'ils passent par votre MikroTik, l'opérateur reçoit un TTL de 63.
-     Si le FAI détecte des valeurs de TTL variables (ex: 64 et 63), il applique
-     immédiatement une restriction ou coupe le partage.
+     Le TTL diminue de 1 à chaque saut de routeur. 
+     Un appareil connecté directement a un TTL de 64. 
+     Derrière votre MikroTik, l'opérateur reçoit 63. 
+     Si le FAI voit des valeurs variables, il bloque ou restreint le partage.
 
   2. INSPECTION DPI (Deep Packet Inspection)
      -----------------------------------------
-     L'opérateur analyse les en-têtes et le type des paquets pour identifier la
-     diversité des systèmes d'exploitation (Windows, Android, iOS) connectés
-     derrière votre point d'accès. 
-     La présence de signatures multiples sur une seule adresse IP publique
-     révèle un partage réseau.
+     L'opérateur analyse les signatures de vos paquets pour identifier la
+     diversité des systèmes d'exploitation (Windows, Android, iOS) connectés. 
+     Des signatures multiples sur une seule IP révèlent un partage.
 
-  3. ANALYSE DES SESSIONS SIMULTANEES
-     ------------------------------------
-     Les opérateurs haut débit surveillent le nombre de connexions TCP/UDP actives.
-     Un appareil individuel consomme peu de sessions réseau, tandis qu'un réseau
-     partagé génère des centaines de connexions simultanées, alertant les pare-feux
-     du fournisseur d'accès.
+  3. ANALYSE DU NOMBRE DE SESSIONS
+     -------------------------------
+     Un réseau partagé génère des centaines de connexions TCP/UDP simultanées,
+     alertant les pare-feux du fournisseur d'accès.
 
 ================================================================================
-  CHAPITRE 2 : FONCTIONNEMENT ET ARCHITECTURE DE LA SOLUTION KETRIKA
+  CHAPITRE 2 : FONCTIONNEMENT DE LA SOLUTION KETRIKA
 ================================================================================
 
-  PROBLEME 1 : Détection et blocage du TTL
-  SOLUTION   : Masquage TTL uniforme
-     Notre script fige la valeur TTL de tous les paquets sortants à une valeur
-     identique (64). Ainsi, pour l'opérateur, tout le trafic semble provenir
-     d'un seul et unique équipement terminal :
-       /ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:64
-
-  PROBLEME 2 : Analyse DPI & Limitation de Protocoles
-  SOLUTION   : Tunnel WireGuard ultra-rapide
-     Le script encapsule et chiffre l'intégralité du trafic de vos clients dans
-     un tunnel privé vers l'infrastructure Cloudflare. L'opérateur ne voit
-     qu'un seul flux sécurisé, rendant l'inspection DPI totalement inefficace :
-       /interface wireguard -> Cloudflare WARP -> Internet sécurisé
-
-  PROBLEME 3 : Instabilité de connexion & Limitation MTU
-  SOLUTION   : MSS Clamping automatique
-     L'ajustement de la taille maximale des segments TCP (MSS) à 1280 octets
-     évite la fragmentation des paquets au sein du tunnel chiffré, éliminant
-     les pertes de paquets et assurant une fluidité maximale :
-       /ip firewall mangle add chain=forward out-interface=wg-secure \\
-         protocol=tcp tcp-flags=syn action=change-mss new-mss=1280
+  1. Masquage TTL : Le script fige le TTL sortant à 64 pour tout le réseau.
+  2. Tunnel WireGuard : Chiffre l'intégralité du trafic vers Cloudflare, rendant
+     l'inspection DPI de l'opérateur aveugle.
+  3. MSS Clamping : Ajuste les paquets TCP à 1280 octets pour éliminer la
+     fragmentation et les ralentissements.
 
 ================================================================================
-  CHAPITRE 3 : OPTIMISATION & CONFIGURATIONS PRATIQUES
+  SUPPORT TECHNIQUE : WhatsApp +261 38 28 171 00 (7h - 22h)
 ================================================================================
-
-  [!] REGLE MAJEURE : Ne modifiez pas les règles Firewall Mangle générées par
-      notre moteur. Ces paramètres assurent l'invisibilité du partage.
-
-  [*] OPTIMISATION DE LA SOURCE INTERNET :
-      - Branchez le câble du modem/antenne haut débit directement sur le Port 1 (ether1).
-      - Si votre modem source possède un mode "Pont" ou "Bridge" (Bypass), activez-le
-        pour éviter le double NAT et maximiser les performances de routage.
-
-  [*] LIMITATION DU DEBIT DES CLIENTS :
-      - Si vous avez activé la limitation par appareil lors de la commande, chaque
-        client Wi-Fi se voit attribuer une limite dynamique et équitable.
-      - Pour ajuster cette vitesse : Winbox -> Queues -> Simple -> QoS-PerClient.
-
-  [*] CHANGEMENT D'ADRESSE MAC :
-      - L'adresse MAC de votre port WAN (ether1) est automatiquement usurpée (spoofing)
-        avec un préfixe de carte réseau grand public standard.
-      - Cela empêche le FAI d'identifier la marque ou la nature de votre routeur.
-
-  [*] MODE VEILLE NOCTURNE AUTOMATIQUE :
-      - Si configuré, les émetteurs Wi-Fi s'éteignent et se rallument automatiquement
-        aux heures creuses. Cela sécurise votre réseau et évite l'utilisation nocturne.
-
-================================================================================
-  CHAPITRE 4 : RESOLUTION DES INCIDENTS (TROUBLESHOOTING)
-================================================================================
-
-  1. Absence de connexion internet après injection :
-     -> Allez dans Winbox -> System -> Reboot.
-     -> Vérifiez que votre câble source est branché sur le Port 1 (ether1).
-     -> Vérifiez que votre modem fournit bien une adresse IP (IP -> DHCP Client).
-
-  2. Ralentissement constaté du débit :
-     -> Vérifiez que le MSS Clamping est bien actif (IP -> Firewall -> Mangle).
-     -> Assurez-vous que le MTU de l'interface wg-secure est configuré à 1280.
-
-  3. Détection persistante du partage :
-     -> Accédez à IP -> Firewall -> Mangle et essayez de modifier le TTL à 65 ou 128.
-     -> Assurez-vous que l'option de changement MAC WAN est bien active.
-
-  4. Le Wi-Fi ne s'allume pas :
-     -> Ouvrez Winbox -> Interfaces -> Wi-Fi (ou Wireless) et vérifiez que les
-        interfaces physiques ne sont pas désactivées (icône grise).
-
-================================================================================
-  ASSISTANCE ET SUPPORT TECHNIQUE
-  WhatsApp : +261 38 28 171 00
-  Horaires d'ouverture : 7h00 - 22h00
-================================================================================
-
-Ce document contient des informations confidentielles destinées à l'administrateur du réseau.
 (c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
