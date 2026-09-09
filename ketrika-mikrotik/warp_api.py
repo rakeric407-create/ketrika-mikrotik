@@ -1,17 +1,7 @@
-Voici la version complète de **`warp_api.py`** avec l'ajout d'une bannière de confirmation claire et dynamique dans la console MikroTik.
-
-Dès que le collage (Méthode 1) ou l'importation (Méthode 2) se termine, une grande bannière d'ingénieur réseau s'affiche en vert/bleu dans le terminal pour avertir l'utilisateur que l'injection est réussie et qu'il doit patienter pendant le redémarrage.
-
-### 📄 FICHIER COMPLET À REMPLACER : `warp_api.py`
-
-Efface tout le contenu de ton fichier **`warp_api.py`** sur GitHub et colle ce bloc unique :
-
-```python
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
-Version Hotspot Furtif & Multi-Modèles sans coupure Winbox
-Avec bannière de notification de fin de script.
+KETRIKA MIKROTIK - API Cloudflare WARP et Générateur de Scripts RouterOS v7
+Version de Production Ultra-Stable (Zéro erreur de syntaxe ou d'importation sur Render)
 """
 
 import os
@@ -34,38 +24,73 @@ def safe_get(obj, key, default=''):
 
 
 def curve25519_scalarmult(scalar):
+    """Calcul de clé publique Curve25519 pure-Python (Zéro dépendance)"""
     P = 2**255 - 19
-    def dec(s): return int.from_bytes(s, 'little')
-    def enc(u): return (u % P).to_bytes(32, 'little')
-    def inv(x): return pow(x, P - 2, P)
+    
+    def dec(s):
+        return int.from_bytes(s, 'little')
+        
+    def enc(u):
+        return (u % P).to_bytes(32, 'little')
+        
+    def inv(x):
+        return pow(x, P - 2, P)
+
     k = bytearray(scalar)
     k[0] &= 248
     k[31] &= 127
     k[31] |= 64
+
     u = 9
-    x_1, x_2, z_2, x_3, z_3, swap = u, 1, 0, u, 1, 0
+    x_1 = u
+    x_2 = 1
+    z_2 = 0
+    x_3 = u
+    z_3 = 1
+    swap = 0
     k_int = dec(k)
+
     for t in range(254, -1, -1):
         k_t = (k_int >> t) & 1
         swap ^= k_t
-        d = swap * (x_2 ^ x_3); x_2 ^= d; x_3 ^= d
-        d = swap * (z_2 ^ z_3); z_2 ^= d; z_3 ^= d
+        
+        dummy = swap * (x_2 ^ x_3)
+        x_2 ^= dummy
+        x_3 ^= dummy
+        
+        dummy = swap * (z_2 ^ z_3)
+        z_2 ^= dummy
+        z_3 ^= dummy
+        
         swap = k_t
-        A = (x_2 + z_2) % P; AA = (A * A) % P
-        B = (x_2 - z_2) % P; BB = (B * B) % P
+        
+        A = (x_2 + z_2) % P
+        AA = (A * A) % P
+        B = (x_2 - z_2) % P
+        BB = (B * B) % P
         E = (AA - BB) % P
-        C = (x_3 + z_3) % P; D = (x_3 - z_3) % P
-        DA = (D * A) % P; CB = (C * B) % P
+        C = (x_3 + z_3) % P
+        D = (x_3 - z_3) % P
+        DA = (D * A) % P
+        CB = (C * B) % P
         x_3 = pow(DA + CB, 2, P)
         z_3 = (x_1 * pow(DA - CB, 2, P)) % P
         x_2 = (AA * BB) % P
         z_2 = (E * (AA + 121665 * E)) % P
-    d = swap * (x_2 ^ x_3); x_2 ^= d; x_3 ^= d
-    d = swap * (z_2 ^ z_3); z_2 ^= d; z_3 ^= d
+
+    dummy = swap * (x_2 ^ x_3)
+    x_2 ^= dummy
+    x_3 ^= dummy
+    
+    dummy = swap * (z_2 ^ z_3)
+    z_2 ^= dummy
+    z_3 ^= dummy
+
     return enc((x_2 * inv(z_2)) % P)
 
 
 def generate_wireguard_keys():
+    """Génère un couple de clés WireGuard valide"""
     priv = os.urandom(32)
     pub = curve25519_scalarmult(priv)
     return {
@@ -75,11 +100,14 @@ def generate_wireguard_keys():
 
 
 def register_warp(public_key):
+    """Enregistre le client auprès de l'API Cloudflare WARP"""
     try:
         url = "https://api.cloudflareclient.com/v0a2158/reg"
         headers = {"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1"}
         payload = {
-            "key": public_key, "install_id": "", "fcm_token": "",
+            "key": public_key,
+            "install_id": "",
+            "fcm_token": "",
             "tos": time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
             "model": "MikroTik",
             "serial_number": hashlib.md5(public_key.encode()).hexdigest()[:16],
@@ -98,10 +126,7 @@ def register_warp(public_key):
 
 
 def generate_script(order):
-    """
-    Générateur de scripts RouterOS v7.
-    Conçu pour s'injecter sans déconnexion et s'exécuter de façon asynchrone.
-    """
+    """Générateur de scripts RouterOS v7 sans coupure ni bootloop"""
     plan = safe_get(order, 'plan_type', 'standard')
     model = safe_get(order, 'mikrotik_model', 'hap_ac2')
     ssid = safe_get(order, 'ssid', 'KETRIKA-WiFi')
@@ -122,7 +147,9 @@ def generate_script(order):
     sleep_mode = safe_get(order, 'sleep_mode', 'off')
     client_limit = safe_get(order, 'client_limit', '0')
 
+    # Import au runtime pour éviter l'ImportError
     from database import get_model_info, generate_random_mac, generate_router_name
+    
     info = get_model_info(model)
     wifi_type = info.get('wifi_type', 'none')
     wifi_iface = info.get('wifi_iface', None)
@@ -363,36 +390,41 @@ def generate_script(order):
     
     # RECOUVREMENT ASYNCHRONE SÉCURISÉ (Méthode 1 & 2) : 
     # Pour éviter de couper la session Winbox pendant le collage ou l'import,
-    # le script asynchrone s'exécute en arrière-plan après 3 secondes.
-    p.append('/system scheduler add name="ketrika-async-init" interval=0s on-event="\\')
-    p.append('  :delay 3s; \\')
-    p.append('  :log info \\"KETRIKA: Association des ports Ethernet au Bridge...\\"; \\')
-    p.append('  :foreach iface in=[/interface ethernet find] do={{ \\')
-    p.append('    :local ifname [/interface ethernet get \$iface name]; \\')
-    p.append('    :if (\$ifname != \\"' + wan + '\\") do={{ \\')
-    p.append('      :if ([:len [/interface bridge port find interface=\$ifname]] = 0) do={{ \\')
-    p.append('        :do {{ /interface bridge port add bridge=bridge1 interface=\$ifname }} on-error={}; \\')
-    p.append('      }} \\')
-    p.append('    }} \\')
-    p.append('  }}; \\')
-    p.append('  :log info \\"KETRIKA: Association des interfaces Wi-Fi...\\"; \\')
-    p.append('  :foreach wif in=[/interface wireless find] do={{ \\')
-    p.append('    :local wname [/interface wireless get \$wif name]; \\')
-    p.append('    :if ([:len [/interface bridge port find interface=\$wname]] = 0) do={{ \\')
-    p.append('      :do {{ /interface bridge port add bridge=bridge1 interface=\$wname }} on-error={}; \\')
-    p.append('    }} \\')
-    p.append('  }}; \\')
-    p.append('  :foreach wif in=[/interface wifi find] do={{ \\')
-    p.append('    :local wname [/interface wifi get \$wif name]; \\')
-    p.append('    :if ([:len [/interface bridge port find interface=\$wname]] = 0) do={{ \\')
-    p.append('      :do {{ /interface bridge port add bridge=bridge1 interface=\$wname }} on-error={}; \\')
-    p.append('    }} \\')
-    p.append('  }}; \\')
-    p.append('  :log info \\"KETRIKA: Nettoyage et finalisation...\\"; \\')
-    p.append('  /system scheduler remove [find name=ketrika-async-init]; \\')
-    p.append('  :delay 1s; \\')
-    p.append('  /system reboot; \\')
-    p.append('"')
+    # nous utilisons un remplacement de chaîne de caractères Python (.replace) ultra-stable
+    # pour générer le scheduler d'init asynchrone sans aucun échappement complexe.
+    async_cmd = (
+        '/system scheduler add name="ketrika-async-init" interval=0s on-event="'
+        ':delay 3s; '
+        ':log info \\"KETRIKA: Association des ports Ethernet au Bridge...\\"; '
+        ':foreach iface in=[/interface ethernet find] do={ '
+        '  :local ifname [/interface ethernet get $iface name]; '
+        '  :if ($ifname != \\"__WAN_IFACE__\\") do={ '
+        '    :if ([:len [/interface bridge port find interface=$ifname]] = 0) do={ '
+        '      :do { /interface bridge port add bridge=bridge1 interface=$ifname } on-error={}; '
+        '    } '
+        '  } '
+        '}; '
+        ':log info \\"KETRIKA: Association des interfaces Wi-Fi...\\"; '
+        ':foreach wif in=[/interface wireless find] do={ '
+        '  :local wname [/interface wireless get $wif name]; '
+        '  :if ([:len [/interface bridge port find interface=$wname]] = 0) do={ '
+        '    :do { /interface bridge port add bridge=bridge1 interface=$wname } on-error={}; '
+        '  } '
+        '}; '
+        ':foreach wif in=[/interface wifi find] do={ '
+        '  :local wname [/interface wifi get $wif name]; '
+        '  :if ([:len [/interface bridge port find interface=$wname]] = 0) do={ '
+        '    :do { /interface bridge port add bridge=bridge1 interface=$wname } on-error={}; '
+        '  } '
+        '}; '
+        ':log info \\"KETRIKA: Nettoyage et finalisation...\\"; '
+        '/system scheduler remove [find name=ketrika-async-init]; '
+        ':delay 1s; '
+        '/system reboot; '
+        '"'
+    )
+    async_cmd = async_cmd.replace('__WAN_IFACE__', wan)
+    p.append(async_cmd)
     
     p.append(':delay 1s')
     p.append('/system scheduler set [find name=ketrika-async-init] start-time=[/system clock get time]')
@@ -480,4 +512,3 @@ les opérateurs FAI analysent trois facteurs principaux :
 (c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
-```
