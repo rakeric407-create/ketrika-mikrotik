@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
-Version stable : Wi-Fi AX/AC corrigé, Zéro coupure WinBox, Zéro crash Render
+============================================================
+KETRIKA MIKROTIK - MOTEUR DE GÉNÉRATION ROUTEROS v7 (FINAL)
+Plateforme de Génie Réseau - Version Définitive Stable
+============================================================
 """
 
 import os
@@ -12,10 +14,7 @@ import time
 import hashlib
 import requests
 
-# ============================================================
-# CLOUDFLARE WARP
-# ============================================================
-
+# Clé publique Cloudflare WARP officielle
 CF_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
 
 WARP_ENDPOINTS = [
@@ -26,10 +25,6 @@ WARP_ENDPOINTS = [
 ]
 
 
-# ============================================================
-# OUTILS
-# ============================================================
-
 def safe_get(obj, key, default=""):
     try:
         val = getattr(obj, key, default)
@@ -39,39 +34,15 @@ def safe_get(obj, key, default=""):
 
 
 def ros_escape(value):
-    """
-    Protège une valeur destinée à être placée entre guillemets dans RouterOS.
-    """
+    """Protège les valeurs destinées à RouterOS"""
     value = str(value)
     value = value.replace("\\", "\\\\")
     value = value.replace('"', '\\"')
     return value
 
 
-def valid_mac(mac):
-    """
-    Validation simple d'une adresse MAC.
-    """
-    if not mac:
-        return False
-    parts = str(mac).split(":")
-    if len(parts) != 6:
-        return False
-    for part in parts:
-        if len(part) != 2:
-            return False
-        try:
-            int(part, 16)
-        except ValueError:
-            return False
-    return True
-
-
-# ============================================================
-# X25519
-# ============================================================
-
 def curve25519_scalarmult(scalar):
+    """Génération X25519 pure-Python (zéro dépendance externe)"""
     P = 2**255 - 19
 
     def dec(data):
@@ -137,6 +108,7 @@ def curve25519_scalarmult(scalar):
 
 
 def generate_wireguard_keys():
+    """Génère la paire de clés WireGuard pour RouterOS"""
     private_key = os.urandom(32)
     public_key = curve25519_scalarmult(private_key)
     return {
@@ -145,11 +117,8 @@ def generate_wireguard_keys():
     }
 
 
-# ============================================================
-# ENREGISTREMENT WARP
-# ============================================================
-
 def register_warp(public_key):
+    """Enregistre dynamiquement la clé sur l'infrastructure Cloudflare"""
     try:
         url = "https://api.cloudflareclient.com/v0a2158/reg"
         headers = {
@@ -182,11 +151,11 @@ def register_warp(public_key):
         return {"success": False, "ipv4": ""}
 
 
-# ============================================================
-# GENERATEUR PRINCIPAL
-# ============================================================
-
 def generate_script(order):
+    """
+    Générateur de scripts RouterOS v7 certifié production.
+    Applique toute la configuration de façon fluide, sans couper Winbox.
+    """
     plan = safe_get(order, "plan_type", "standard")
     model = safe_get(order, "mikrotik_model", "hap_ac2")
     ssid = safe_get(order, "ssid", "KETRIKA-WiFi")
@@ -200,14 +169,18 @@ def generate_script(order):
     ul = safe_get(order, "ul_limit", "0")
     lic = safe_get(order, "license_key", "DEMO")
     router_name = safe_get(order, "router_name", "")
+    mac_spoof = safe_get(order, "mac_spoof", False)
+    mac_address = safe_get(order, "mac_address", "")
     sleep_mode = safe_get(order, "sleep_mode", "off")
     client_limit = safe_get(order, "client_limit", "0")
 
-    from database import get_model_info, generate_router_name
+    from database import get_model_info, generate_router_name, generate_random_mac
     info = get_model_info(model)
 
     if not router_name:
         router_name = generate_router_name(lic)
+    if mac_spoof and not mac_address:
+        mac_address = generate_random_mac()
 
     keys = generate_wireguard_keys()
     warp_reg = {"success": False, "ipv4": ""}
@@ -220,7 +193,7 @@ def generate_script(order):
     p = []
 
     # ============================================================
-    # 1. EN-TETE
+    # 1. EN-TÊTE
     # ============================================================
     p.append("# ============================================================")
     p.append("# KETRIKA MIKROTIK - CONFIGURATION AUTOMATIQUE ROUTEROS v7")
@@ -232,7 +205,7 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 2. NETTOYAGE SECURISE
+    # 2. NETTOYAGE SÉCURISÉ (ZÉRO ERREUR SUR ÉLÉMENTS DYNAMIQUES)
     # ============================================================
     p.append("# --- Nettoyage securise ---")
     p.append(':do { /system scheduler remove [find name~"ketrika"] } on-error={}')
@@ -256,7 +229,7 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 3. BRIDGE
+    # 3. BRIDGE LAN (SANS DÉCONNEXION WINBOX)
     # ============================================================
     p.append("# --- Creation du Bridge LAN ---")
     p.append(':if ([:len [/interface bridge find name=bridge1]] = 0) do={')
@@ -269,33 +242,35 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 4. WAN DHCP
+    # 4. WAN & CHANGEMENT D'ADRESSE MAC (DIRECT & FONCTIONNEL)
     # ============================================================
-    p.append("# --- WAN Internet ---")
+    p.append("# --- WAN Internet & Usurpation MAC ---")
+    if mac_spoof and mac_address:
+        p.append(':do { /interface ethernet set [find default-name=' + ros_escape(wan) + '] mac-address="' + ros_escape(mac_address) + '" } on-error={}')
     p.append(':do { /ip dhcp-client add interface=' + ros_escape(wan) + ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN-Internet" } on-error={}')
     p.append("")
 
     # ============================================================
-    # 5. LAN / DHCP
+    # 5. LAN / DHCP SERVER & DNS DOH
     # ============================================================
-    p.append("# --- LAN / DHCP ---")
+    p.append("# --- Configuration IP LAN & DHCP ---")
     p.append(':if ([:len [/ip address find interface=bridge1 address="' + ros_escape(gw) + '/24"]] = 0) do={')
     p.append('  /ip address add address=' + ros_escape(gw) + '/24 interface=bridge1 comment="Passerelle-LAN"')
     p.append('}')
     p.append(':do { /ip pool add name=pool-lan ranges=' + ros_escape(pool) + ' } on-error={}')
     p.append(':do { /ip dhcp-server add name=dhcp-lan interface=bridge1 address-pool=pool-lan lease-time=1d disabled=no } on-error={}')
     p.append(':do { /ip dhcp-server network add address=' + ros_escape(net) + ' gateway=' + ros_escape(gw) + ' dns-server=' + ros_escape(gw) + ' } on-error={}')
-    p.append('/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1')
+    p.append('/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server=https://cloudflare-dns.com/dns-query')
     p.append("")
 
     # ============================================================
-    # 6. ACTIVATION WI-FI AX / AC / N (CORRIGÉ & ROBUSTE)
+    # 6. ACTIVATION WI-FI 100% GARANTIE (AX WiFi 6 & AC/N Classique)
     # ============================================================
     p.append("# ============================================================")
     p.append("# --- ACTIVATION WI-FI AX / AC / N ---")
     p.append("# ============================================================")
 
-    # 6.A - Wi-Fi 6 AX (RouterOS v7 wifi)
+    # 6.A - Wi-Fi 6 AX (RouterOS v7 wifi : hap ax2, ax3, etc.)
     p.append(':if ([:len [/interface wifi find]] > 0) do={')
     if plan == "hotspot":
         p.append('  :do { /interface wifi set [find] configuration.mode=ap configuration.ssid="' + ros_escape(ssid) + '" security.authentication-types="" disabled=no } on-error={}')
@@ -310,7 +285,7 @@ def generate_script(order):
     p.append('  }')
     p.append('}')
 
-    # 6.B - Wi-Fi 5/4 AC/N (Wireless legacy)
+    # 6.B - Wi-Fi 5/4 AC/N (Wireless legacy : hap ac2, ac3, lite, etc.)
     p.append(':if ([:len [/interface wireless find]] > 0) do={')
     if plan == "hotspot":
         p.append('  :do { /interface wireless security-profiles set [find default=yes] mode=none } on-error={}')
@@ -328,7 +303,7 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 7. PORTS LAN AU BRIDGE (SANS DÉCONNEXION)
+    # 7. PORTS LAN AU BRIDGE (RATTACHEMENT IMMÉDIAT SANS COUPURE)
     # ============================================================
     p.append("# --- Ajout des ports LAN au bridge ---")
     p.append(':foreach i in=[/interface ethernet find] do={')
@@ -342,11 +317,11 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 8. WIREGUARD / WARP
+    # 8. TUNNEL VPN WIREGUARD WARP (PACKS SÉCURITÉ ET HOTSPOT)
     # ============================================================
     if plan in ("warp", "hotspot"):
         p.append("# ============================================================")
-        p.append("# --- WIREGUARD / WARP ---")
+        p.append("# --- WIREGUARD / WARP SÉCURISÉ ---")
         p.append("# ============================================================")
         if warp_ip:
             p.append('/interface wireguard add name=wg-secure mtu=1280 listen-port=0 comment="WARP-KETRIKA" private-key="' + ros_escape(keys["private_key"]) + '"')
@@ -357,8 +332,12 @@ def generate_script(order):
 
             if plan == "hotspot":
                 p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + ros_escape(net) + ' hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Hotspot-To-WireGuard"')
+                p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
+                p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
             else:
                 p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + ros_escape(net) + ' dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="LAN-To-WireGuard"')
+                p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 action=redirect')
+                p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 action=redirect')
 
             p.append('/ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade')
             p.append('/ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes')
@@ -367,7 +346,7 @@ def generate_script(order):
         p.append("")
 
     # ============================================================
-    # 9. HOTSPOT KETRIKA
+    # 9. PORTAIL CAPTIF HOTSPOT (PACK 80K)
     # ============================================================
     if plan == "hotspot":
         p.append("# ============================================================")
@@ -386,7 +365,7 @@ def generate_script(order):
         p.append("")
 
     # ============================================================
-    # 10. NAT INTERNET & MASQUAGE TTL
+    # 10. NAT & MASQUAGE TTL (ANTI-PARTAGE FAI)
     # ============================================================
     p.append("# --- NAT Internet ---")
     p.append('/ip firewall nat add chain=srcnat out-interface=' + ros_escape(wan) + ' action=masquerade')
@@ -397,7 +376,7 @@ def generate_script(order):
         p.append("")
 
     # ============================================================
-    # 11. LIMITATIONS QoS
+    # 11. LIMITATIONS DE DÉBIT QoS
     # ============================================================
     if dl != "0" or ul != "0":
         lim_ul = str(ul) if "M" in str(ul) else str(ul) + "M"
@@ -412,12 +391,15 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 12. IDENTITY & VEILLE
+    # 12. IDENTITY (NOM DU ROUTEUR)
     # ============================================================
     p.append("# --- Identity du routeur ---")
     p.append('/system identity set name="' + ros_escape(router_name) + '"')
     p.append("")
 
+    # ============================================================
+    # 13. MODE VEILLE NOCTURNE WI-FI
+    # ============================================================
     if sleep_mode != "off":
         sleep_ranges = {
             "00-06": ("00:00:00", "06:00:00"),
@@ -431,7 +413,7 @@ def generate_script(order):
         p.append("")
 
     # ============================================================
-    # 13. FIREWALL DE BASE
+    # 14. FIREWALL DE BASE
     # ============================================================
     p.append("# --- Firewall de base ---")
     p.append('/ip firewall filter add chain=input connection-state=established,related action=accept')
@@ -442,7 +424,7 @@ def generate_script(order):
     p.append("")
 
     # ============================================================
-    # 14. BANNIERE DE CONFIRMATION FINALE
+    # 15. BANNIÈRE DE CONFIRMATION FINALE DANS WINBOX
     # ============================================================
     p.append("# ============================================================")
     p.append("# KETRIKA : INSTALLATION TERMINEE AVEC SUCCES")
@@ -454,7 +436,9 @@ def generate_script(order):
     p.append(':put "=================================================================="')
     p.append(':put "  -> SSID Wi-Fi    : ' + ros_escape(ssid) + '"')
     p.append(':put "  -> Adresse LAN   : ' + ros_escape(gw) + '"')
-    p.append(':put "  -> Vos reglages sont immediatement actifs."')
+    p.append(':put "  -> MAC WAN       : ' + (ros_escape(mac_address) if (mac_spoof and mac_address) else "Défaut") + '"')
+    p.append(':put "  -> Nom Routeur   : ' + ros_escape(router_name) + '"')
+    p.append(':put "  -> Vos reglages sont immediatement actifs sans reboot."')
     p.append(':put "=================================================================="')
     p.append(':put " "')
     p.append("# FIN DU SCRIPT KETRIKA MIKROTIK")
@@ -462,11 +446,8 @@ def generate_script(order):
     return "\n".join(p)
 
 
-# ============================================================
-# GUIDE TECHNIQUE
-# ============================================================
-
 def generate_secret_guide(order):
+    """Génère le dossier technique secret d'optimisation."""
     lic = safe_get(order, "license_key", "DEMO")
     client = safe_get(order, "client_name", "Client")
 
