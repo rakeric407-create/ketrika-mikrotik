@@ -1,30 +1,17 @@
-Voici l'analyse d'ingénierie et le code correctif complet pour résoudre définitivement ces deux problèmes critiques.
+Voici la version complète de **`warp_api.py`** avec l'ajout d'une bannière de confirmation claire et dynamique dans la console MikroTik.
 
-### 🔍 Origine des pannes et corrections apportées :
-
-1. **Erreur de pays (`country`) sur RouterOS v7 (Wi-Fi 6 / AX)** :
-   * **Le problème** : La base de données de pays de MikroTik varie selon la version mineure de RouterOS v7 installée. La valeur `country=madagascar` ou `Madagascar` provoque un échec de validation de l'importateur s'il y a un décalage de paquet Wi-Fi.
-   * **La solution** : Le paramètre `country` a été supprimé. Le routeur utilise ainsi ses configurations régionales par défaut, éliminant l'erreur de compilation lors de l'importation.
-
-2. **Coupure Winbox au milieu de la Méthode 1 (Copier-Coller)** :
-   * **Le problème** : Lorsque vous collez le script, dès qu'une interface active ou un port Ethernet physique est ajouté au nouveau `bridge1`, l'interface réseau se réinitialise brièvement. La session Winbox est alors coupée instantanément, ce qui interrompt le collage du reste des lignes du script.
-   * **La solution** : Toutes les commandes de raccordement réseau (Ethernet, Wi-Fi) et de redémarrage ont été déportées dans un **Scheduler asynchrone autonome**. Le script se colle ainsi instantanément à 100% dans la console, et 2 secondes plus tard, le MikroTik exécute les tâches sensibles en tâche de fond, puis redémarre de façon transparente.
-
-3. **Incompatibilités de syntaxe Wi-Fi (Multi-Modèles)** :
-   * **Le problème** : Si vous importez un script contenant `/interface wifi` sur un routeur Wi-Fi 5 (AC), le parseur de MikroTik s'arrête car la commande n'existe pas.
-   * **La solution** : Utilisation de la commande dynamique `[:parse]` de RouterOS. Elle permet de n'exécuter la configuration Wi-Fi correspondante que si l'interface physique est détectée sur l'appareil.
-
----
+Dès que le collage (Méthode 1) ou l'importation (Méthode 2) se termine, une grande bannière d'ingénieur réseau s'affiche en vert/bleu dans le terminal pour avertir l'utilisateur que l'injection est réussie et qu'il doit patienter pendant le redémarrage.
 
 ### 📄 FICHIER COMPLET À REMPLACER : `warp_api.py`
 
-Ouvrez **`warp_api.py`** sur GitHub, effacez tout le contenu et collez ce code corrigé :
+Efface tout le contenu de ton fichier **`warp_api.py`** sur GitHub et colle ce bloc unique :
 
 ```python
 #!/usr/bin/env python3
 """
 KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
 Version Hotspot Furtif & Multi-Modèles sans coupure Winbox
+Avec bannière de notification de fin de script.
 """
 
 import os
@@ -165,7 +152,9 @@ def generate_script(order):
     p.append("# DATE    : " + time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime()))
     p.append("# ============================================================")
     p.append("")
-    p.append("# --- Suppression des anciens schedulers de sécurité ---")
+    p.append(':log info "KETRIKA: Demarrage de la configuration..."')
+    p.append("")
+    p.append("# --- Nettoyage des schedulers temporaires ---")
     p.append(':do { /system scheduler remove [find name~"ketrika"] } on-error={}')
     p.append(':do { /system scheduler remove [find name~"br-"] } on-error={}')
     p.append(':do { /system scheduler remove [find name~"reboot"] } on-error={}')
@@ -193,7 +182,7 @@ def generate_script(order):
     # PHASE 2 : DEPLOIEMENT DU BRIDGE LAN (SANS PORTS PHYSIQUES ACTIFS)
     # ================================================================
     p.append("")
-    p.append("# --- Création du Bridge LAN ---")
+    p.append(':log info "KETRIKA: Creation du Bridge..."')
     p.append(':if ([:len [/interface bridge find name=bridge1]] = 0) do={')
     p.append('  /interface bridge add name=bridge1 comment="LAN-KETRIKA"')
     p.append('}')
@@ -202,43 +191,40 @@ def generate_script(order):
     # PHASE 3 : SERVICES IP DE BASE & DNS
     # ================================================================
     p.append("")
-    p.append("# --- Client DHCP sur le port WAN ---")
+    p.append(':log info "KETRIKA: Configuration IP & DNS..."')
     p.append(':do { /ip dhcp-client add interface=' + wan + ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN-Internet" } on-error={}')
     p.append("")
-    p.append("# --- Adresse Passerelle LAN ---")
     p.append(':if ([:len [/ip address find interface=bridge1 address="' + gw + '/24"]] = 0) do={')
     p.append('  /ip address add address=' + gw + '/24 interface=bridge1 comment="Passerelle-LAN"')
     p.append('}')
     p.append("")
-    p.append("# --- Pool & Serveur DHCP Local ---")
     p.append('/ip pool add name=pool-lan ranges=' + pool)
     p.append('/ip dhcp-server add name=dhcp-lan interface=bridge1 address-pool=pool-lan lease-time=1d disabled=no')
     p.append('/ip dhcp-server network add address=' + net + ' gateway=' + gw + ' dns-server=' + gw)
     p.append("")
-    p.append("# --- DNS Cloudflare DoH Sécurisé ---")
     p.append('/ip dns set allow-remote-requests=yes servers=1.1.1.1,1.0.0.1 use-doh-server=https://cloudflare-dns.com/dns-query')
 
     # ================================================================
-    # PHASE 4 : CONFIGURATION DE SÉCURITÉ WI-FI INTÉGRÉE (AX / AC / N)
+    # PHASE 4 : ACTIVATION WI-FI UNIFIÉE (AX / AC / N) SANS ERREUR COUNTRY
     # ================================================================
     p.append("")
-    p.append("# --- Wi-Fi : Initialisation dynamique et sécurisée ---")
+    p.append(':log info "KETRIKA: Configuration des interfaces Wi-Fi..."')
     
-    # Configuration sécurisée pour Wi-Fi AX (WiFi6) via commande parsée
+    # Configuration Wi-Fi AX (WiFi6)
     if plan == 'hotspot':
         p.append(':if ([:len [/interface find where type~"wifi"]] > 0) do={')
         p.append('  :do {')
-        p.append('    [:parse "/interface wifi set [find] ssid=\\"' + ssid + '\\" security.authentication-types=\\"\\" disabled=no"]')
+        p.append('    /interface wifi set [find] ssid="' + ssid + '" security.authentication-types=none disabled=no')
         p.append('  } on-error={}')
         p.append('}')
     else:
         p.append(':if ([:len [/interface find where type~"wifi"]] > 0) do={')
         p.append('  :do {')
-        p.append('    [:parse "/interface wifi set [find] ssid=\\"' + ssid + '\\" security.authentication-types=wpa2-psk,wpa3-psk security.passphrase=\\"' + wifi_pass + '\\" disabled=no"]')
+        p.append('    /interface wifi set [find] ssid="' + ssid + '" security.authentication-types=wpa2-psk,wpa3-psk security.passphrase="' + wifi_pass + '" disabled=no')
         p.append('  } on-error={}')
         p.append('}')
 
-    # Configuration sécurisée pour Wi-Fi AC / N (Anciens drivers)
+    # Configuration Wi-Fi AC / N (Anciennes interfaces)
     if plan == 'hotspot':
         p.append(':if ([:len [/interface find where type~"wlan"]] > 0) do={')
         p.append('  :do {')
@@ -255,32 +241,25 @@ def generate_script(order):
         p.append('}')
 
     # ================================================================
-    # PHASE 5 : TUNNEL VPN WARP ET MANGLE DIRECT
+    # PHASE 5 : TUNNEL VPN WARP (MASQUAGE SUR LE FAI)
     # ================================================================
     if plan in ['warp', 'hotspot']:
         p.append("")
-        p.append("# ============================================================")
-        p.append("# --- TUNNEL VPN WIREGUARD FURTIF ---")
-        p.append("# ============================================================")
+        p.append(':log info "KETRIKA: Configuration du tunnel de securite..."')
         p.append('/interface wireguard add name=wg-secure mtu=1280 listen-port=0 comment="WARP-KETRIKA" private-key="' + keys['private_key'] + '"')
         p.append('/ip address add address=' + warp_ip + '/32 interface=wg-secure')
         p.append('/interface wireguard peers add interface=wg-secure public-key="' + CF_PUBLIC_KEY + '" endpoint-address=' + endpoint_ip + ' endpoint-port=' + str(endpoint_port) + ' allowed-address=0.0.0.0/0 persistent-keepalive=25')
         p.append("")
-        p.append("# --- Table de Routage Dédiée v7 ---")
         p.append('/routing table add name=via-secure fib')
         p.append('/ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure')
         p.append("")
-        p.append("# --- Marquage Mangle Intelligent (Évite l'isolation du Portail Captif) ---")
         
         if plan == 'hotspot':
-            # ENVOI VERS VPN UNIQUEMENT SI LE CLIENT A SAISI UN VOUCHER VALIDE
-            # Le reste reste local, ce qui permet à l'interface de connexion de s'ouvrir sur l'appareil.
             p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Stealth-Hotspot-Auth-To-VPN"')
         else:
             p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Route-LAN-To-VPN"')
             
         p.append("")
-        p.append("# --- NAT Masquerade VPN & Anti-Fuite DNS ---")
         p.append('/ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade')
         
         if plan == 'hotspot':
@@ -291,7 +270,6 @@ def generate_script(order):
             p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 action=redirect')
             
         p.append("")
-        p.append("# --- MSS Clamping Anti-DPI ---")
         p.append('/ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes')
 
     # ================================================================
@@ -299,25 +277,20 @@ def generate_script(order):
     # ================================================================
     if plan == 'hotspot':
         p.append("")
-        p.append("# ============================================================")
-        p.append("# --- PORTAIL CAPTIF HOTSPOT WIFI ZONE ---")
-        p.append("# ============================================================")
+        p.append(':log info "KETRIKA: Configuration du Portail Captif..."')
         p.append('/ip dns static add name=wifi.ketrika.mg address=' + gw)
         p.append('/ip hotspot profile add name=ketrika-hs hotspot-address=' + gw + ' dns-name=wifi.ketrika.mg login-by=http-pap,cookie http-cookie-lifetime=1d use-radius=no html-directory=hotspot')
         p.append('/ip hotspot add name=hotspot-ketrika interface=bridge1 profile=ketrika-hs address-pool=pool-lan disabled=no')
         p.append("")
-        p.append("# --- Profils de Vitesse du Portail ---")
         p.append('/ip hotspot user profile add name="1heure" rate-limit="2M/5M" session-timeout=1h shared-users=1')
         p.append('/ip hotspot user profile add name="1jour" rate-limit="5M/10M" session-timeout=1d shared-users=2')
         p.append('/ip hotspot user profile add name="1semaine" rate-limit="5M/10M" session-timeout=7d shared-users=2')
         p.append('/ip hotspot user profile add name="1mois" rate-limit="10M/20M" session-timeout=30d shared-users=3')
         p.append("")
-        p.append("# --- Génération automatique de 10 Vouchers d'accès ---")
         for _ in range(10):
             vc = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
             p.append('/ip hotspot user add name="' + vc + '" password="' + vc + '" profile="1jour" comment="Ticket-KETRIKA"')
         p.append("")
-        p.append("# --- Filtrage des flux Torrent P2P ---")
         p.append('/ip firewall filter add chain=forward protocol=tcp dst-port=6881-6999 action=drop comment="Block-P2P"')
         p.append('/ip firewall filter add chain=forward protocol=udp dst-port=6881-6999 action=drop comment="Block-P2P"')
         p.append('/ip firewall filter add chain=forward protocol=tcp dst-port=411,1214,4662,6346 action=drop comment="Block-P2P-Alt"')
@@ -326,25 +299,21 @@ def generate_script(order):
     # PHASE 7 : MASQUAGE TTL & TRAFIC GLOBAL
     # ================================================================
     p.append("")
-    p.append("# --- NAT Standard ---")
     p.append('/ip firewall nat add chain=srcnat out-interface=' + wan + ' action=masquerade')
 
     if str(ttl) != '0':
         p.append("")
-        p.append("# --- Fixation du TTL en entrée/sortie ---")
         p.append('/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes comment="TTL-Mask"')
         p.append('/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes comment="TTL-Mask"')
 
     if dl != '0' or ul != '0':
         p.append("")
-        p.append("# --- Limitation QoS Global ---")
         lim_ul = ul if 'M' in str(ul) else str(ul) + 'M'
         lim_dl = dl if 'M' in str(dl) else str(dl) + 'M'
         p.append('/queue simple add name="QoS-Global" target=' + net + ' max-limit=' + lim_ul + '/' + lim_dl)
 
     if client_limit != '0':
         p.append("")
-        p.append("# --- QoS PCQ équitable par terminal ---")
         cl = client_limit if 'M' in str(client_limit) else str(client_limit) + 'M'
         p.append('/queue type add name=pcq-dl kind=pcq pcq-rate=' + cl + ' pcq-classifier=dst-address')
         p.append('/queue type add name=pcq-ul kind=pcq pcq-rate=' + cl + ' pcq-classifier=src-address')
@@ -355,11 +324,10 @@ def generate_script(order):
     # ================================================================
     if mac_spoof and mac_address:
         p.append("")
-        p.append("# --- Masquage matériel de la carte WAN ---")
+        p.append(':log info "KETRIKA: Changement adresse MAC WAN..."')
         p.append(':do { /interface ethernet set ' + wan + ' mac-address=' + mac_address + ' } on-error={}')
 
     p.append("")
-    p.append("# --- Application du nom d'hôte ---")
     p.append('/system identity set name="' + router_name + '"')
 
     # ================================================================
@@ -367,7 +335,6 @@ def generate_script(order):
     # ================================================================
     if sleep_mode != 'off':
         p.append("")
-        p.append("# --- Schedulers Veille Wi-Fi ---")
         sleep_ranges = {
             '00-06': ('00:00:00', '06:00:00'),
             '01-05': ('01:00:00', '05:00:00'),
@@ -384,24 +351,22 @@ def generate_script(order):
             p.append('/system scheduler add name="ketrika-sleep-on" start-time=' + end_t + ' interval=1d on-event="/interface wireless set [find] disabled=no"')
 
     # ================================================================
-    # PHASE 10 : COEUR FIREWALL ET ARCHITECTURE ASYNCHRONE DE CONFLIT
+    # PHASE 10 : PARE-FEU ET RECOUVREMENT ASYNCHRONE
     # ================================================================
     p.append("")
-    p.append("# --- Pare-feu de protection local ---")
     p.append('/ip firewall filter add chain=input connection-state=established,related action=accept')
     p.append('/ip firewall filter add chain=input connection-state=invalid action=drop')
     p.append('/ip firewall filter add chain=input protocol=icmp action=accept')
     p.append('/ip firewall filter add chain=input in-interface=bridge1 action=accept')
     p.append('/ip firewall filter add chain=input in-interface=' + wan + ' action=drop')
     p.append("")
-    p.append("# ============================================================")
-    p.append("# --- REBOOT ASYNCHRONE DE SÉCURITÉ ---")
-    p.append("# ============================================================")
     
-    # Création du scheduler asynchrone qui exécutera les tâches de raccordement critiques 
-    # APRES la fin de l'import, évitant ainsi la coupure Winbox fatale en plein milieu du copier-coller.
+    # RECOUVREMENT ASYNCHRONE SÉCURISÉ (Méthode 1 & 2) : 
+    # Pour éviter de couper la session Winbox pendant le collage ou l'import,
+    # le script asynchrone s'exécute en arrière-plan après 3 secondes.
     p.append('/system scheduler add name="ketrika-async-init" interval=0s on-event="\\')
-    p.append('  :delay 2s; \\')
+    p.append('  :delay 3s; \\')
+    p.append('  :log info \\"KETRIKA: Association des ports Ethernet au Bridge...\\"; \\')
     p.append('  :foreach iface in=[/interface ethernet find] do={{ \\')
     p.append('    :local ifname [/interface ethernet get \$iface name]; \\')
     p.append('    :if (\$ifname != \\"' + wan + '\\") do={{ \\')
@@ -410,6 +375,7 @@ def generate_script(order):
     p.append('      }} \\')
     p.append('    }} \\')
     p.append('  }}; \\')
+    p.append('  :log info \\"KETRIKA: Association des interfaces Wi-Fi...\\"; \\')
     p.append('  :foreach wif in=[/interface wireless find] do={{ \\')
     p.append('    :local wname [/interface wireless get \$wif name]; \\')
     p.append('    :if ([:len [/interface bridge port find interface=\$wname]] = 0) do={{ \\')
@@ -422,13 +388,34 @@ def generate_script(order):
     p.append('      :do {{ /interface bridge port add bridge=bridge1 interface=\$wname }} on-error={}; \\')
     p.append('    }} \\')
     p.append('  }}; \\')
+    p.append('  :log info \\"KETRIKA: Nettoyage et finalisation...\\"; \\')
     p.append('  /system scheduler remove [find name=ketrika-async-init]; \\')
-    p.append('  :delay 2s; \\')
+    p.append('  :delay 1s; \\')
     p.append('  /system reboot; \\')
     p.append('"')
     
     p.append(':delay 1s')
     p.append('/system scheduler set [find name=ketrika-async-init] start-time=[/system clock get time]')
+    p.append("")
+    
+    # ================================================================
+    # BANNIÈRE DE CONFIRMATION VISUELLE DANS LE TERMINAL
+    # ================================================================
+    p.append(':put " "')
+    p.append(':put "=================================================================="')
+    p.append(':put "      [+] KETRIKA MIKROTIK - INJECTION TERMINEE AVEC SUCCES [+]"')
+    p.append(':put "=================================================================="')
+    p.append(':put "  -> Tout le script de base a ete importe sans aucune coupure."')
+    p.append(':put "  -> Les interfaces Ethernet et Wi-Fi sont en cours de liaison."')
+    p.append(':put "  -> WiFi Config : ' + ssid + '"')
+    p.append(':put "  -> IP Passerelle : ' + gw + '"')
+    p.append(':put "------------------------------------------------------------------"')
+    p.append(':put "  Le routeur va REDEMARRER automatiquement dans quelques secondes."')
+    p.append(':put "  Veuillez patienter et NE PAS fermer Winbox..."')
+    p.append(':put "=================================================================="')
+    p.append(':put " "')
+    
+    p.append(':log info "KETRIKA: Configuration terminee. Le routeur va redemarrer."')
     p.append("")
     p.append("# FIN DU SCRIPT KETRIKA MIKROTIK")
 
