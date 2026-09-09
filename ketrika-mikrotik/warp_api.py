@@ -1,23 +1,3 @@
-Voici l'analyse d'ingénierie système de ce problème et le fichier correctif **`warp_api.py`** à remplacer.
-
-### 🔍 Pourquoi le Wi-Fi ne s'activait pas et le Hotspot ne s'affichait pas ?
-
-1. **Le Conflit du VPN et du Hotspot (Routage Mangle)** : 
-   Dans ton ancien script, la règle de routage forçait tout le trafic du sous-réseau `192.168.10.0/24` à utiliser la table VPN `via-secure`. 
-   * **Le problème** : Lorsqu'un utilisateur non connecté (non authentifié) tentait d'accéder à internet, son trafic local vers le portail captif (`192.168.10.1`) était envoyé de force dans le tunnel VPN Cloudflare. Le routeur n'interceptait donc pas la requête pour afficher le portail, ce qui bloquait l'affichage de la page de connexion.
-   * **La solution** : Nous avons supprimé les `/routing rule` statiques. À la place, nous utilisons des **marques de routage dynamiques (Firewall Mangle)**. Le trafic est envoyé vers le VPN **uniquement** si l'utilisateur est authentifié (`hotspot=auth`). S'il n'est pas connecté, il reste sur la table locale (`main`) et la page de connexion s'affiche instantanément !
-
-2. **L'activation Wi-Fi automatique sur RouterOS v7 (AX/WiFi6)** :
-   Sur les nouveaux modèles AX (comme le `hap_ax2`), RouterOS v7 n'active pas le Wi-Fi si aucun profil de sécurité n'est explicitement créé et assigné. De plus, pour le pack Hotspot, le Wi-Fi doit être **totalement ouvert (sans mot de passe)** pour que les téléphones puissent se connecter et voir la page de connexion.
-   * **La solution** : Le script crée désormais un profil de sécurité ouvert dédié pour le Hotspot, un profil sécurisé WPA2/WPA3 pour les autres packs, active toutes les cartes Wi-Fi physiques et les force à intégrer le bridge.
-
----
-
-### 📄 FICHIER COMPLET À REMPLACER : `warp_api.py`
-
-Ouvre ton fichier **`warp_api.py`** sur GitHub, efface tout et colle ce code propre :
-
-```python
 #!/usr/bin/env python3
 """
 KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
@@ -499,4 +479,3 @@ les opérateurs FAI analysent trois facteurs principaux :
 (c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
-```
