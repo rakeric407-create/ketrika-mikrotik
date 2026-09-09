@@ -1,3 +1,12 @@
+Voici le fichier **`app.py` COMPLET et NETTOYÉ**. 
+
+Le mot **"Starlink"** a été **100% supprimé et éradiqué** de toutes les pages (Accueil, Tarifs, Formulaire de commande, Page de Licence, Guide, etc.) et remplacé par des termes professionnels et discrets comme **"FAI / Opérateurs Haut Débit"**, **"Modem Source"**, ou **"Réseau Satellite/4G"**.
+
+---
+
+### 📄 FICHIER COMPLET À COLLER DANS `app.py` :
+
+```python
 #!/usr/bin/env python3
 """
 KETRIKA MIKROTIK - Serveur Flask Principal (Version Complète Cyber-Réseau 2026)
@@ -310,7 +319,7 @@ HOME_BODY = """
             <div class="col-lg-7">
                 <div class="hero-tag"><i class="fas fa-microchip"></i> Ingénierie Réseau Avancée MikroTik</div>
                 <h1 class="hero-title">Configurez votre <span class="highlight">MikroTik</span> en 1 clic</h1>
-                <p class="hero-subtitle">Scripts automatisés de niveau ingénieur pour RouterOS v7. Tunnels VPN Cloudflare WARP, Hotspot Zone et masquage anti-coupure FAI/Starlink.</p>
+                <p class="hero-subtitle">Scripts automatisés de niveau ingénieur pour RouterOS v7. Tunnels VPN Cloudflare WARP, Hotspot Zone et masquage anti-coupure FAI / Haut Débit.</p>
                 <div>
                     <a href="/order" class="btn-hero-primary"><i class="fas fa-bolt me-2"></i>Générer ma configuration</a>
                     <a href="/my-license" class="btn-hero-secondary"><i class="fas fa-key me-2"></i>J'ai déjà une référence</a>
@@ -341,7 +350,7 @@ HOME_BODY = """
         <div class="row g-4">
             <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h5 class="fw-bold">Configuration Zéro Erreur</h5><p class="text-muted small">Aucune coupure Winbox lors du collage du script. Détection automatique du matériel.</p></div></div>
             <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-shield-alt"></i></div><h5 class="fw-bold">VPN Cloudflare WARP</h5><p class="text-muted small">Tunnels chiffrés WireGuard haute vitesse sans aucune perte de débit internet.</p></div></div>
-            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-satellite-dish"></i></div><h5 class="fw-bold">Anti-Détection Starlink/FAI</h5><p class="text-muted small">Masquage TTL uniforme et MSS Clamping pour un partage réseau invisible.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-satellite-dish"></i></div><h5 class="fw-bold">Anti-Détection &amp; Masquage FAI</h5><p class="text-muted small">Masquage TTL uniforme et MSS Clamping pour un partage réseau invisible.</p></div></div>
             <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fab fa-whatsapp"></i></div><h5 class="fw-bold">Assistance Directe</h5><p class="text-muted small">Support technique réactif et livraison de vos accès via WhatsApp sous 10 min.</p></div></div>
         </div>
     </div>
@@ -378,9 +387,9 @@ HOME_BODY = """
                     <ul class="pricing-features">
                         <li><i class="fas fa-check"></i> Tout le Pack Essentiel +</li>
                         <li><i class="fas fa-check"></i> <strong>VPN Cloudflare WARP illimité</strong></li>
-                        <li><i class="fas fa-check"></i> Contournement DPI &amp; FAI/Starlink</li>
+                        <li><i class="fas fa-check"></i> Contournement DPI &amp; Restrictions FAI</li>
                         <li><i class="fas fa-check"></i> MSS Clamping TCP automatique</li>
-                        <li><i class="fas fa-gift" style="color:var(--accent-orange)"></i> <strong>Guide Secret Anti-Starlink (PDF)</strong> <span class="secret-badge">INCLUS</span></li>
+                        <li><i class="fas fa-gift" style="color:var(--accent-orange)"></i> <strong>Guide Secret Optimisation Réseau (PDF)</strong> <span class="secret-badge">INCLUS</span></li>
                     </ul>
                     <a href="/order?pack=warp" class="btn-pricing btn-pricing-primary">Commander Sécurité VPN</a>
                 </div>
@@ -592,13 +601,13 @@ def order():
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label">Interface WAN (Câble FAI / Starlink)</label>
+                        <label class="form-label">Interface WAN (Câble FAI / Modem Source)</label>
                         <input type="text" name="wan_interface" class="form-control" value="ether1">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Masquage TTL (Anti-Partage FAI)</label>
                         <select name="ttl_value" class="form-select">
-                            <option value="64" selected>64 (Recommandé standard / Starlink)</option>
+                            <option value="64" selected>64 (Recommandé standard / Haut Débit)</option>
                             <option value="65">65 (Opérateurs 4G spécifiques)</option>
                             <option value="128">128 (Windows direct)</option>
                             <option value="0">Désactivé</option>
@@ -880,7 +889,7 @@ def license_page(key):
         if plan in ['warp', 'hotspot']:
             secret_guide_btn = f"""
             <div class="guide-secret-box text-start mt-4">
-                <h5><i class="fas fa-user-secret me-2"></i>Guide Exclusif : Contournement Starlink &amp; FAI</h5>
+                <h5><i class="fas fa-user-secret me-2"></i>Guide Exclusif : Contournement Restrictions FAI</h5>
                 <p class="small text-white-50 mb-3">Téléchargez le dossier technique expliquant le fonctionnement du masquage TTL, du MSS Clamping et les réglages optimaux.</p>
                 <a href="/download-guide/{safe_get(order_obj, 'license_key')}" class="btn-download-secret">
                     <i class="fas fa-file-download me-2"></i>Télécharger le Guide Secret (.txt)
@@ -988,7 +997,7 @@ def download_guide(key):
             abort(403)
 
         guide_txt = generate_secret_guide(order_obj)
-        fname = f"GUIDE_SECRET_KETRIKA_{key[:8]}.txt"
+        fname = f"GUIDE_TECHNIQUE_KETRIKA_{key[:8]}.txt"
         
         return Response(
             guide_txt,
@@ -1161,3 +1170,4 @@ def health():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+```
