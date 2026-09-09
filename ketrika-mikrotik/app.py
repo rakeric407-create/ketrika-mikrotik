@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Serveur d'Application Flask Principal (Version Finale Corrigée 2026)
+KETRIKA MIKROTIK - Serveur Flask Principal (Version Complète Cyber-Réseau 2026)
 """
 
 import os
+import io
 import uuid
 import secrets
 import traceback
 from datetime import datetime
 from flask import (
     Flask, request, redirect, url_for,
-    send_file, session, abort
+    send_file, session, abort, Response
 )
 from werkzeug.exceptions import HTTPException
 
@@ -25,14 +26,15 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'ketrika2024admin')
 
-# Coordonnées de paiement
+# Coordonnées officielles de paiement
 MVOLA_NUMBER = "038 28 171 00"
 ORANGE_NUMBER = "037 39 755 72"
-WHATSAPP_NUMBER = "0382817100"  # sans indicatif pour lien wa.me
+WHATSAPP_NUMBER = "0382817100"
 WHATSAPP_DISPLAY = "+261 38 28 171 00"
 PAYMENT_NAME = "JEAN ERIC"
 
-from database import db, Order, MIKROTIK_MODELS, get_next_lan_subnet, get_model_info
+from database import db, Order, MIKROTIK_MODELS, get_next_lan_subnet, get_model_info, generate_random_mac, generate_router_name
+from warp_api import generate_script, generate_secret_guide
 
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'ketrika.db'))
 if db_url.startswith('postgres://'):
@@ -48,6 +50,7 @@ with app.app_context():
     except Exception as e:
         print(f"[DB INIT ERROR] {e}")
 
+
 def safe_get(obj, key, default=''):
     try:
         val = getattr(obj, key, default)
@@ -56,348 +59,148 @@ def safe_get(obj, key, default=''):
         return default
 
 
-# ===================== STYLE =====================
+def secure_filename(filename):
+    for c in ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', ' ']:
+        filename = filename.replace(c, '_')
+    return filename
+
+
+# ===================== STYLE CSS CYBER-RÉSEAU PRO =====================
 
 CSS_STYLES = """
-:root { --primary: #0d6efd; --success: #28a745; --dark: #212529; --light: #f8f9fa; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fafafa; color: #333; }
-.navbar-brand { font-weight: 800; font-size: 1.4rem; }
-.hero-section { background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 100%); padding: 90px 0; }
-.hero-title { font-size: 3rem; font-weight: 800; }
-.hero-title span { color: var(--success); }
-.hero-subtitle { font-size: 1.15rem; color: #6c757d; margin: 20px 0 35px; line-height: 1.7; }
-.btn-cta { background: var(--success); border: none; padding: 15px 40px; font-size: 1.1rem; font-weight: 700; border-radius: 50px; color: #fff; box-shadow: 0 8px 20px rgba(40,167,69,0.3); transition: 0.3s; }
-.btn-cta:hover { background: #218838; transform: translateY(-2px); color:#fff; }
-.badge-compat { display: inline-block; background: #fff; border: 2px solid var(--success); color: var(--success); padding: 8px 20px; border-radius: 50px; font-weight: 600; margin-top: 15px; }
-.feature-card { background: #fff; border-radius: 16px; padding: 35px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eee; height: 100%; transition: 0.3s; }
-.feature-card:hover { transform: translateY(-5px); }
-.feature-icon { width: 60px; height: 60px; background: #e8f5e9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 1.6rem; color: var(--success); }
-.pricing-card { background: #fff; border-radius: 20px; padding: 40px 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 2px solid #eee; height: 100%; display: flex; flex-direction: column; position: relative; }
-.pricing-card.popular { border-color: var(--success); box-shadow: 0 8px 25px rgba(40,167,69,0.15); }
-.pricing-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 5px 25px; border-radius: 50px; font-weight: 700; font-size: 0.8rem; }
-.pricing-badge.pro { background: var(--primary); }
-.pricing-price { font-size: 2.6rem; font-weight: 800; color: var(--success); margin: 15px 0; }
-.pricing-features { list-style: none; padding: 0; margin: 20px 0; text-align: left; flex-grow: 1; }
-.pricing-features li { padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 0.93rem; }
-.pricing-features li i { color: var(--success); margin-right: 8px; }
-.btn-pricing { padding: 12px; border-radius: 50px; font-weight: 700; width: 100%; }
-.step-number { width: 50px; height: 50px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.3rem; font-weight: 800; margin: 0 auto 15px; }
-.order-form { background: #fff; border-radius: 20px; padding: 35px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eee; }
-.form-control, .form-select { border-radius: 10px; padding: 12px 15px; }
+:root {
+    --dark-bg: #001e3c;
+    --dark-card: #0a1929;
+    --cyber-cyan: #00d4ff;
+    --cyber-green: #00ff88;
+    --neon-blue: #0066ff;
+    --accent-orange: #ff6b1a;
+    --border-glow: rgba(0, 212, 255, 0.25);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f5f7fb; color: #1a2332; line-height: 1.6; }
+
+/* NAVBAR */
+.navbar-pro { background: linear-gradient(135deg, #001e3c 0%, #0a1929 100%); padding: 15px 0; border-bottom: 1px solid var(--border-glow); box-shadow: 0 4px 20px rgba(0,30,60,0.15); }
+.navbar-pro .navbar-brand { font-weight: 900; font-size: 1.4rem; color: white !important; letter-spacing: 1px; }
+.navbar-pro .brand-glow { background: linear-gradient(135deg, var(--cyber-cyan), var(--cyber-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
+.navbar-pro .nav-link { color: rgba(255,255,255,0.85) !important; font-weight: 600; padding: 8px 16px !important; transition: 0.3s; }
+.navbar-pro .nav-link:hover { color: var(--cyber-cyan) !important; }
+.navbar-pro .btn-cta-nav { background: linear-gradient(135deg, var(--cyber-green), #00cc6a); color: #001e3c !important; padding: 10px 24px; border-radius: 50px; font-weight: 800; border: none; text-decoration: none; box-shadow: 0 4px 15px rgba(0,255,136,0.3); transition: 0.3s; }
+.navbar-pro .btn-cta-nav:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,255,136,0.5); }
+
+/* HERO CYBER */
+.hero-cyber { background: linear-gradient(135deg, #001e3c 0%, #0a1929 50%, #001428 100%); color: white; padding: 90px 0 80px; position: relative; overflow: hidden; }
+.hero-cyber::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px); background-size: 40px 40px; }
+.hero-title { font-size: 3.2rem; font-weight: 900; line-height: 1.15; margin-bottom: 20px; }
+.hero-title .highlight { background: linear-gradient(135deg, var(--cyber-cyan), var(--cyber-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-subtitle { font-size: 1.15rem; color: rgba(255,255,255,0.85); margin-bottom: 30px; max-width: 580px; }
+.hero-tag { background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.35); padding: 6px 16px; border-radius: 50px; font-size: 0.85rem; color: var(--cyber-cyan); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 25px; }
+
+.btn-hero-primary { background: linear-gradient(135deg, var(--cyber-green), #00cc6a); color: #001e3c; padding: 16px 38px; border-radius: 50px; font-weight: 800; font-size: 1.05rem; box-shadow: 0 8px 25px rgba(0,255,136,0.4); text-decoration: none; display: inline-block; transition: 0.3s; }
+.btn-hero-primary:hover { transform: translateY(-2px); color: #001e3c; box-shadow: 0 12px 30px rgba(0,255,136,0.6); }
+.btn-hero-secondary { background: transparent; color: white; padding: 15px 30px; border: 2px solid var(--cyber-cyan); border-radius: 50px; font-weight: 700; text-decoration: none; display: inline-block; margin-left: 12px; transition: 0.3s; }
+.btn-hero-secondary:hover { background: var(--cyber-cyan); color: #001e3c; }
+
+.router-box { background: linear-gradient(135deg, #0a1929, #001e3c); border: 2px solid var(--cyber-cyan); border-radius: 20px; padding: 35px 25px; text-align: center; box-shadow: 0 0 50px rgba(0,212,255,0.25); animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.router-box i { font-size: 6.5rem; color: var(--cyber-cyan); }
+.led-group { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+.led { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px currentColor; animation: blink 1.2s infinite; }
+.led.green { background: var(--cyber-green); color: var(--cyber-green); }
+.led.blue { background: var(--cyber-cyan); color: var(--cyber-cyan); animation-delay: 0.3s; }
+.led.orange { background: var(--accent-orange); color: var(--accent-orange); animation-delay: 0.6s; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* SECTION HEADERS */
+.section-badge { display: inline-block; background: rgba(0,102,255,0.08); color: var(--neon-blue); padding: 6px 18px; border-radius: 50px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.section-title { font-size: 2.4rem; font-weight: 900; color: #001e3c; margin-bottom: 12px; text-align: center; }
+.section-subtitle { color: #607d8b; font-size: 1.05rem; text-align: center; margin-bottom: 45px; }
+
+/* FEATURES */
+.feature-card { background: white; border-radius: 20px; padding: 35px 25px; text-align: center; box-shadow: 0 4px 20px rgba(0,30,60,0.05); border: 1px solid #e2e8f0; height: 100%; transition: 0.3s; }
+.feature-card:hover { transform: translateY(-8px); box-shadow: 0 15px 35px rgba(0,102,255,0.12); }
+.feature-icon { width: 65px; height: 65px; background: linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,255,136,0.12)); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 1.8rem; color: var(--neon-blue); }
+
+/* PRICING */
+.pricing-card { background: white; border-radius: 22px; padding: 40px 30px; box-shadow: 0 4px 20px rgba(0,30,60,0.05); border: 2px solid transparent; height: 100%; display: flex; flex-direction: column; position: relative; transition: 0.3s; }
+.pricing-card:hover { transform: translateY(-6px); box-shadow: 0 15px 40px rgba(0,30,60,0.1); }
+.pricing-card.popular { border-color: var(--cyber-green); box-shadow: 0 8px 30px rgba(0,255,136,0.2); }
+.pricing-card.pro { background: linear-gradient(135deg, #001e3c, #0a1929); color: white; }
+.pricing-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--cyber-green), #00cc6a); color: #001e3c; padding: 5px 22px; border-radius: 50px; font-weight: 900; font-size: 0.75rem; letter-spacing: 1px; }
+.pricing-badge.pro-badge { background: linear-gradient(135deg, var(--cyber-cyan), var(--neon-blue)); color: white; }
+.pricing-name { font-size: 1.15rem; font-weight: 800; color: #001e3c; letter-spacing: 1px; margin-bottom: 8px; }
+.pricing-card.pro .pricing-name { color: var(--cyber-cyan); }
+.pricing-price { font-size: 2.7rem; font-weight: 900; color: #001e3c; margin: 12px 0; }
+.pricing-price small { font-size: 1rem; color: #607d8b; font-weight: 600; }
+.pricing-card.pro .pricing-price { color: white; }
+.pricing-card.pro .pricing-price small { color: rgba(255,255,255,0.7); }
+.pricing-features { list-style: none; padding: 0; margin: 20px 0; flex-grow: 1; }
+.pricing-features li { padding: 9px 0; color: #37474f; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; border-bottom: 1px solid #f1f5f9; }
+.pricing-card.pro .pricing-features li { color: rgba(255,255,255,0.9); border-bottom-color: rgba(255,255,255,0.06); }
+.pricing-features li i { color: #00cc6a; font-size: 0.95rem; }
+.pricing-features li .secret-badge { background: rgba(255,107,26,0.15); color: var(--accent-orange); padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; }
+
+.btn-pricing { padding: 14px 28px; border-radius: 50px; font-weight: 800; width: 100%; border: none; text-decoration: none; display: inline-block; text-align: center; transition: 0.3s; }
+.btn-pricing-outline { background: transparent; color: var(--neon-blue); border: 2px solid var(--neon-blue); }
+.btn-pricing-outline:hover { background: var(--neon-blue); color: white; }
+.btn-pricing-primary { background: linear-gradient(135deg, var(--cyber-green), #00cc6a); color: #001e3c; }
+.btn-pricing-primary:hover { box-shadow: 0 6px 20px rgba(0,255,136,0.4); color: #001e3c; }
+.btn-pricing-dark { background: linear-gradient(135deg, var(--cyber-cyan), var(--neon-blue)); color: white; }
+.btn-pricing-dark:hover { box-shadow: 0 6px 20px rgba(0,212,255,0.4); color: white; }
+
+/* STEPS */
+.step-card { text-align: center; padding: 20px; }
+.step-number { width: 55px; height: 55px; background: linear-gradient(135deg, var(--cyber-cyan), var(--neon-blue)); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; font-size: 1.4rem; font-weight: 900; box-shadow: 0 8px 20px rgba(0,212,255,0.3); }
+
+/* FORMS */
+.form-card { background: white; border-radius: 24px; padding: 40px 35px; box-shadow: 0 8px 30px rgba(0,30,60,0.06); border: 1px solid #e2e8f0; }
+.form-label { font-weight: 700; color: #001e3c; margin-bottom: 7px; font-size: 0.9rem; }
+.form-control, .form-select { border-radius: 12px; padding: 12px 16px; border: 1.5px solid #cbd5e1; font-size: 0.95rem; }
+.form-control:focus, .form-select:focus { border-color: var(--cyber-cyan); box-shadow: 0 0 0 0.2rem rgba(0,212,255,0.15); }
 .pack-radio { display: none; }
-.pack-label { display: block; border: 2px solid #dee2e6; border-radius: 14px; padding: 20px; cursor: pointer; transition: 0.3s; text-align: center; }
-.pack-radio:checked+.pack-label { border-color: var(--success); background: #e8f5e9; }
-.summary-box { background: #e8f5e9; border-radius: 16px; padding: 25px; border: 1px solid #c8e6c9; }
-.script-area { background: #1e1e1e; color: #d4d4d4; border-radius: 12px; padding: 20px; font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
-.guide-section { background: #f0f7ff; border: 1px solid #b8d4f0; border-radius: 14px; padding: 25px; margin-top: 25px; }
-.stat-card { background: #fff; border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eee; }
-.stat-card .number { font-size: 2.2rem; font-weight: 800; color: var(--success); }
-.status-badge { padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 600; }
+.pack-label { display: block; border: 2px solid #e2e8f0; border-radius: 16px; padding: 20px 12px; cursor: pointer; transition: 0.3s; text-align: center; background: white; height: 100%; }
+.pack-radio:checked + .pack-label { border-color: #00cc6a; background: rgba(0,255,136,0.05); box-shadow: 0 6px 20px rgba(0,255,136,0.15); }
+.pack-label h6 { font-weight: 800; color: #001e3c; margin-bottom: 6px; font-size: 0.95rem; }
+.pack-label .price-tag { font-size: 1.35rem; font-weight: 900; color: #00cc6a; }
+
+.advanced-box { background: linear-gradient(135deg, rgba(0,212,255,0.04), rgba(0,255,136,0.04)); border: 1px solid rgba(0,212,255,0.25); border-radius: 16px; padding: 25px; margin: 20px 0; }
+.advanced-title { color: var(--neon-blue); font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+
+/* LICENCE & GUIDE */
+.license-hero { background: linear-gradient(135deg, #001e3c 0%, #0a1929 100%); color: white; border-radius: 24px; padding: 50px 40px; text-align: center; }
+.license-hero h2 { font-weight: 900; }
+.license-input { border-radius: 50px !important; padding: 16px 25px !important; font-size: 1.05rem !important; text-align: center !important; border: 2px solid rgba(0,212,255,0.4) !important; background: rgba(255,255,255,0.1) !important; color: white !important; font-weight: 700; letter-spacing: 1px; }
+.license-input:focus { border-color: var(--cyber-cyan) !important; background: rgba(255,255,255,0.18) !important; color: white !important; }
+.script-area { background: #0d1117; color: #58a6ff; border-radius: 12px; padding: 22px; font-family: 'Courier New', monospace; font-size: 0.85rem; max-height: 480px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #30363d; }
+
+.guide-secret-box { background: linear-gradient(135deg, #001e3c, #0a1929); color: white; border-radius: 20px; padding: 35px; margin: 25px 0; border: 2px solid var(--cyber-green); box-shadow: 0 0 30px rgba(0,255,136,0.2); }
+.btn-download-secret { background: linear-gradient(135deg, var(--accent-orange), #cc5500); color: white !important; border: none; padding: 12px 28px; border-radius: 50px; font-weight: 800; text-decoration: none; display: inline-block; box-shadow: 0 6px 20px rgba(255,107,26,0.35); transition: 0.3s; }
+.btn-download-secret:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(255,107,26,0.5); }
+
+/* FOOTER */
+footer.footer-pro { background: linear-gradient(180deg, #001e3c 0%, #000a15 100%); color: white; padding: 60px 0 25px; margin-top: 80px; border-top: 2px solid rgba(0,212,255,0.2); }
+footer.footer-pro h5 { font-weight: 800; margin-bottom: 20px; font-size: 1rem; letter-spacing: 1px; text-transform: uppercase; color: var(--cyber-cyan); }
+footer.footer-pro a { color: rgba(255,255,255,0.7); text-decoration: none; transition: 0.3s; display: inline-block; padding: 4px 0; }
+footer.footer-pro a:hover { color: var(--cyber-green); transform: translateX(3px); }
+.footer-payment-box { background: rgba(0,212,255,0.05); border-radius: 12px; padding: 20px; border: 1px solid rgba(0,212,255,0.15); }
+.footer-payment-number { color: white; font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; }
+
+/* BOUTONS FLOTTANTS */
+.floating-cart { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: linear-gradient(135deg, var(--cyber-green), #00cc6a); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #001e3c; font-size: 1.6rem; box-shadow: 0 8px 25px rgba(0,255,136,0.5); z-index: 9999; text-decoration: none; animation: pulse 2s infinite; }
+.floating-cart:hover { color: #001e3c; transform: scale(1.1); }
+@keyframes pulse { 0%, 100% { box-shadow: 0 8px 25px rgba(0,255,136,0.5); } 50% { box-shadow: 0 8px 35px rgba(0,255,136,0.8); } }
+.floating-cart .cart-badge { position: absolute; top: -5px; right: -5px; background: #ff3333; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 800; border: 2px solid white; }
+.floating-whatsapp { position: fixed; bottom: 110px; right: 30px; width: 60px; height: 60px; background: #25D366; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem; box-shadow: 0 8px 25px rgba(37,211,102,0.45); z-index: 9999; text-decoration: none; transition: 0.3s; }
+.floating-whatsapp:hover { transform: scale(1.1); color: white; }
+
+.status-badge { padding: 6px 14px; border-radius: 50px; font-size: 0.75rem; font-weight: 800; }
 .status-pending { background: #fff3cd; color: #856404; }
-.status-active { background: #d4edda; color: #155724; }
-.status-rejected { background: #f8d7da; color: #721c24; }
-
-/* Footer */
-footer.main-footer {
-    background: linear-gradient(180deg, #1a2332 0%, #0f1620 100%);
-    color: #fff;
-    padding: 60px 0 25px;
-    margin-top: 60px;
-}
-footer.main-footer h5 {
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 20px;
-    font-size: 1.1rem;
-    border-bottom: 2px solid #28a745;
-    padding-bottom: 10px;
-    display: inline-block;
-}
-footer.main-footer a {
-    color: #adb5bd;
-    text-decoration: none;
-    transition: 0.3s;
-    display: inline-block;
-    padding: 3px 0;
-}
-footer.main-footer a:hover {
-    color: #28a745;
-    transform: translateX(3px);
-}
-footer.main-footer .footer-payment-box {
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
-    padding: 18px;
-    margin-top: 10px;
-    border-left: 4px solid #28a745;
-}
-footer.main-footer .payment-line {
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
-    color: #dee2e6;
-}
-footer.main-footer .payment-line i {
-    color: #28a745;
-    margin-right: 10px;
-    font-size: 1.2rem;
-    width: 24px;
-}
-footer.main-footer .payment-number {
-    font-weight: 700;
-    color: #fff;
-    font-size: 1.05rem;
-    letter-spacing: 1px;
-}
-footer.main-footer .whatsapp-btn {
-    background: #25D366;
-    color: white !important;
-    padding: 10px 20px;
-    border-radius: 50px;
-    font-weight: 600;
-    margin-top: 15px;
-    display: inline-block !important;
-}
-footer.main-footer .whatsapp-btn:hover {
-    background: #128C7E;
-    color: white !important;
-    transform: translateY(-2px);
-}
-.footer-bottom-bar {
-    border-top: 1px solid rgba(255,255,255,0.1);
-    margin-top: 40px;
-    padding-top: 20px;
-    text-align: center;
-    color: #6c757d;
-    font-size: 0.85rem;
-}
-.footer-bottom-bar .brand-badge {
-    color: #28a745;
-    font-weight: 700;
-}
-
-/* Boutons flottants */
-.floating-cart {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 65px;
-    height: 65px;
-    background: linear-gradient(135deg, #28a745, #20c997);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.6rem;
-    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45);
-    z-index: 9999;
-    text-decoration: none;
-    transition: all 0.3s;
-    animation: pulse 2s infinite;
-}
-.floating-cart:hover {
-    transform: scale(1.1);
-    color: white;
-    box-shadow: 0 12px 35px rgba(40, 167, 69, 0.6);
-}
-.floating-cart .cart-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: red;
-    color: white;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    font-size: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    border: 2px solid white;
-}
-@keyframes pulse {
-    0% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 0 rgba(40, 167, 69, 0.7); }
-    70% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 15px rgba(40, 167, 69, 0); }
-    100% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45), 0 0 0 0 rgba(40, 167, 69, 0); }
-}
-
-.floating-whatsapp {
-    position: fixed;
-    bottom: 110px;
-    right: 30px;
-    width: 60px;
-    height: 60px;
-    background: #25D366;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.7rem;
-    box-shadow: 0 8px 25px rgba(37, 211, 102, 0.45);
-    z-index: 9999;
-    text-decoration: none;
-    transition: all 0.3s;
-}
-.floating-whatsapp:hover {
-    transform: scale(1.1);
-    color: white;
-}
-
-/* ===== Page Ma Licence - Thème Réseau Pro ===== */
-.license-hero {
-    background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 50%, #e3f2fd 100%);
-    border-radius: 24px;
-    padding: 50px 40px;
-    text-align: center;
-    border: 1px solid #d0e8d5;
-    box-shadow: 0 8px 30px rgba(40, 167, 69, 0.08);
-    position: relative;
-    overflow: hidden;
-}
-.license-hero::before {
-    content: '';
-    position: absolute;
-    top: -50px;
-    right: -50px;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(40,167,69,0.1) 0%, transparent 70%);
-    border-radius: 50%;
-}
-.license-hero::after {
-    content: '';
-    position: absolute;
-    bottom: -50px;
-    left: -50px;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(13,110,253,0.08) 0%, transparent 70%);
-    border-radius: 50%;
-}
-.license-icon-wrap {
-    width: 100px;
-    height: 100px;
-    background: white;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
-    margin-bottom: 20px;
-    position: relative;
-    z-index: 2;
-}
-.license-icon-wrap i {
-    font-size: 2.8rem;
-    background: linear-gradient(135deg, #28a745, #0d6efd);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-.license-hero h2 {
-    color: #212529;
-    font-weight: 800;
-    position: relative;
-    z-index: 2;
-}
-.license-hero p {
-    color: #6c757d;
-    position: relative;
-    z-index: 2;
-}
-.license-form-wrap {
-    position: relative;
-    z-index: 2;
-    max-width: 500px;
-    margin: 25px auto 0;
-}
-.license-input {
-    border-radius: 50px !important;
-    padding: 16px 25px !important;
-    font-size: 1.05rem !important;
-    text-align: center !important;
-    border: 2px solid #d0e8d5 !important;
-    background: white !important;
-    color: #212529 !important;
-    font-weight: 600;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    transition: all 0.3s;
-}
-.license-input:focus {
-    border-color: #28a745 !important;
-    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.15) !important;
-    outline: none;
-}
-.license-input::placeholder {
-    color: #adb5bd;
-    font-weight: 400;
-    letter-spacing: 0;
-}
-.btn-license-unlock {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    border: none;
-    color: white;
-    border-radius: 50px;
-    padding: 15px 45px;
-    font-weight: 700;
-    font-size: 1.05rem;
-    margin-top: 18px;
-    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.35);
-    transition: all 0.3s;
-}
-.btn-license-unlock:hover {
-    background: linear-gradient(135deg, #218838, #17a2b8);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(40, 167, 69, 0.5);
-}
-.info-network-card {
-    background: white;
-    border-radius: 20px;
-    padding: 35px;
-    margin-top: 30px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-    border: 1px solid #e9ecef;
-    border-left: 5px solid #28a745;
-}
-.step-list-network {
-    list-style: none;
-    padding: 0;
-    margin: 20px 0;
-    counter-reset: step-counter;
-}
-.step-list-network li {
-    padding: 12px 0 12px 45px;
-    position: relative;
-    color: #495057;
-    line-height: 1.6;
-    border-bottom: 1px dashed #e9ecef;
-}
-.step-list-network li:last-child {
-    border-bottom: none;
-}
-.step-list-network li::before {
-    content: counter(step-counter);
-    counter-increment: step-counter;
-    position: absolute;
-    left: 0;
-    top: 12px;
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, #28a745, #0d6efd);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.9rem;
-}
+.status-active { background: #d1e7dd; color: #0f5132; }
+.status-rejected { background: #f8d7da; color: #842029; }
 """
+
 
 def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
     return f"""<!DOCTYPE html>
@@ -411,106 +214,87 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
     <style>{CSS_STYLES}</style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-pro sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="/"><i class="fas fa-network-wired text-success me-2"></i>KETRIKA <span class="text-success">MIKROTIK</span></a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain"><span class="navbar-toggler-icon"></span></button>
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-network-wired me-2" style="color:var(--cyber-cyan)"></i>
+                KETRIKA <span class="brand-glow">MIKROTIK</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" style="border-color: rgba(255,255,255,0.3)">
+                <span class="navbar-toggler-icon" style="filter: invert(1)"></span>
+            </button>
             <div class="collapse navbar-collapse" id="navMain">
                 <ul class="navbar-nav ms-auto align-items-lg-center">
-                    <li class="nav-item"><a class="nav-link fw-semibold" href="/#pricing">Tarifs</a></li>
-                    <li class="nav-item"><a class="nav-link fw-semibold" href="/#how">Comment ça marche</a></li>
-                    <li class="nav-item"><a class="nav-link fw-semibold" href="/#faq">FAQ</a></li>
-                    <li class="nav-item"><a class="nav-link fw-semibold text-primary" href="/my-license"><i class="fas fa-key me-1"></i>Ma Licence</a></li>
-                    <li class="nav-item ms-lg-3"><a class="btn btn-success btn-sm px-4 rounded-pill fw-bold text-white" href="/order"><i class="fas fa-shopping-cart me-1"></i> Commander</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/#pricing"><i class="fas fa-tags me-1"></i>Tarifs</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/#how"><i class="fas fa-cogs me-1"></i>Fonctionnement</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/#faq"><i class="fas fa-question-circle me-1"></i>FAQ</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/my-license"><i class="fas fa-key me-1"></i>Ma Licence</a></li>
+                    <li class="nav-item ms-lg-3"><a class="btn-cta-nav" href="/order"><i class="fas fa-shopping-cart me-1"></i>Commander</a></li>
                 </ul>
             </div>
         </div>
     </nav>
+    
     {body_html}
     
-    <!-- FOOTER RICHE -->
-    <footer class="main-footer">
+    <footer class="footer-pro">
         <div class="container">
             <div class="row g-4">
                 <div class="col-lg-4 col-md-6">
                     <h5><i class="fas fa-network-wired me-2"></i>KETRIKA MIKROTIK</h5>
-                    <p style="color:#adb5bd;line-height:1.7;margin-top:15px">
-                        Plateforme professionnelle de vente de configurations automatiques pour routeurs MikroTik RouterOS v7. 
-                        Scripts prêts à l'emploi, VPN Cloudflare WARP illimité et Hotspot WiFi Zone.
+                    <p style="color:rgba(255,255,255,0.7);line-height:1.7">
+                        Plateforme d'ingénierie réseau pour routeurs MikroTik RouterOS v7. 
+                        Scripts d'automatisation, VPN Cloudflare WARP illimité, Hotspot WiFi Zone et contournement anti-détection de partage FAI.
                     </p>
-                    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="whatsapp-btn">
-                        <i class="fab fa-whatsapp me-2"></i>Contactez-nous
+                    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" style="background:#25D366;color:white!important;padding:10px 22px;border-radius:50px;font-weight:700;margin-top:15px;display:inline-block;text-decoration:none">
+                        <i class="fab fa-whatsapp me-2"></i>Assistance Technique
                     </a>
                 </div>
-                
                 <div class="col-lg-3 col-md-6">
-                    <h5><i class="fas fa-link me-2"></i>Liens rapides</h5>
+                    <h5><i class="fas fa-link me-2"></i>Navigation</h5>
                     <div class="d-flex flex-column">
                         <a href="/"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Accueil</a>
-                        <a href="/#pricing"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Tarifs</a>
+                        <a href="/#pricing"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Nos Packs</a>
                         <a href="/#how"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Comment ça marche</a>
                         <a href="/#faq"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>FAQ</a>
                         <a href="/order"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Commander</a>
                         <a href="/my-license"><i class="fas fa-chevron-right me-2" style="font-size:0.7rem"></i>Ma Licence</a>
                     </div>
                 </div>
-                
                 <div class="col-lg-5 col-md-12">
-                    <h5><i class="fas fa-credit-card me-2"></i>Modes de paiement</h5>
+                    <h5><i class="fas fa-credit-card me-2"></i>Paiement Sécurisé</h5>
                     <div class="footer-payment-box">
-                        <div class="payment-line">
-                            <i class="fas fa-mobile-alt"></i>
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-mobile-alt me-3" style="color:var(--cyber-green);font-size:1.4rem"></i>
                             <div>
-                                <div style="font-size:0.85rem;color:#adb5bd">MVola</div>
-                                <div class="payment-number">{MVOLA_NUMBER}</div>
+                                <div style="color:rgba(255,255,255,0.6);font-size:0.85rem">MVola / WhatsApp</div>
+                                <div class="footer-payment-number">{MVOLA_NUMBER}</div>
                             </div>
                         </div>
-                        <div class="payment-line">
-                            <i class="fas fa-mobile-alt" style="color:#ff6b1a"></i>
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-mobile-alt me-3" style="color:var(--accent-orange);font-size:1.4rem"></i>
                             <div>
-                                <div style="font-size:0.85rem;color:#adb5bd">Orange Money</div>
-                                <div class="payment-number">{ORANGE_NUMBER}</div>
-                            </div>
-                        </div>
-                        <div class="payment-line">
-                            <i class="fab fa-whatsapp" style="color:#25D366"></i>
-                            <div>
-                                <div style="font-size:0.85rem;color:#adb5bd">WhatsApp Support</div>
-                                <div class="payment-number">{WHATSAPP_DISPLAY}</div>
+                                <div style="color:rgba(255,255,255,0.6);font-size:0.85rem">Orange Money</div>
+                                <div class="footer-payment-number">{ORANGE_NUMBER}</div>
                             </div>
                         </div>
                         <hr style="border-color:rgba(255,255,255,0.1);margin:12px 0">
-                        <div class="text-center" style="color:#dee2e6">
-                            <i class="fas fa-user-check text-success me-1"></i>
-                            <span>Au nom de <strong style="color:#fff">{PAYMENT_NAME}</strong></span>
+                        <div class="text-center" style="color:rgba(255,255,255,0.85)">
+                            <i class="fas fa-user-check me-1" style="color:var(--cyber-green)"></i>
+                            Bénéficiaire : <strong style="color:white">{PAYMENT_NAME}</strong>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="footer-bottom-bar">
-                <p class="mb-1">
-                    &copy; 2026 <span class="brand-badge">KETRIKA MIKROTIK</span> — Tous droits réservés
-                </p>
-                <p class="mb-0" style="font-size:0.8rem;color:#6c757d">
-                    <i class="fas fa-shield-alt me-1"></i>Plateforme sécurisée
-                    &nbsp;•&nbsp;
-                    <i class="fas fa-lock me-1"></i>Paiement mobile money
-                    &nbsp;•&nbsp;
-                    <i class="fas fa-map-marker-alt me-1"></i>Madagascar
-                </p>
+            <div class="text-center mt-5 pt-3" style="border-top:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);font-size:0.85rem">
+                <p class="mb-1">&copy; 2026 <strong style="color:var(--cyber-cyan)">KETRIKA MIKROTIK</strong> — Tous droits réservés</p>
+                <p class="mb-0"><i class="fas fa-shield-alt me-1"></i>Plateforme certifiée RouterOS v7 &bull; Madagascar</p>
             </div>
         </div>
     </footer>
     
-    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="floating-whatsapp" title="Contactez-nous sur WhatsApp">
-        <i class="fab fa-whatsapp"></i>
-    </a>
-    
-    <a href="/order" class="floating-cart" title="Commander maintenant">
-        <i class="fas fa-shopping-cart"></i>
-        <span class="cart-badge">3</span>
-    </a>
+    <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="floating-whatsapp" title="WhatsApp Support"><i class="fab fa-whatsapp"></i></a>
+    <a href="/order" class="floating-cart" title="Commander"><i class="fas fa-shopping-cart"></i><span class="cart-badge">3</span></a>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     {extra_script}
@@ -520,18 +304,29 @@ def render_page(body_html, title="KETRIKA MIKROTIK", extra_script=""):
 
 # ===================== ACCUEIL =====================
 HOME_BODY = """
-<section class="hero-section">
+<section class="hero-cyber">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-7">
-                <h1 class="hero-title">Configurez votre <span>MikroTik</span> en 1 clic</h1>
-                <p class="hero-subtitle">Scripts professionnels RouterOS v7 prêts à l'emploi. VPN illimité, Hotspot WiFi Zone, protection réseau avancée.</p>
-                <a href="/order" class="btn btn-cta"><i class="fas fa-bolt me-2"></i>Commander maintenant</a>
-                <a href="/my-license" class="btn btn-outline-primary ms-2 rounded-pill px-4 py-3"><i class="fas fa-key me-2"></i>J'ai déjà une clé/référence</a>
-                <br><span class="badge-compat"><i class="fas fa-check-circle me-1"></i> 100% Compatible RouterOS v7</span>
+                <div class="hero-tag"><i class="fas fa-microchip"></i> Ingénierie Réseau Avancée MikroTik</div>
+                <h1 class="hero-title">Configurez votre <span class="highlight">MikroTik</span> en 1 clic</h1>
+                <p class="hero-subtitle">Scripts automatisés de niveau ingénieur pour RouterOS v7. Tunnels VPN Cloudflare WARP, Hotspot Zone et masquage anti-coupure FAI/Starlink.</p>
+                <div>
+                    <a href="/order" class="btn-hero-primary"><i class="fas fa-bolt me-2"></i>Générer ma configuration</a>
+                    <a href="/my-license" class="btn-hero-secondary"><i class="fas fa-key me-2"></i>J'ai déjà une référence</a>
+                </div>
             </div>
-            <div class="col-lg-5 d-none d-lg-block text-center">
-                <div style="font-size: 10rem; color: #28a745;"><i class="fas fa-server"></i></div>
+            <div class="col-lg-5 d-none d-lg-block">
+                <div class="router-box">
+                    <i class="fas fa-server"></i>
+                    <div class="led-group">
+                        <div class="led green" title="Power OK"></div>
+                        <div class="led blue" title="WAN Internet"></div>
+                        <div class="led green" title="VPN WireGuard"></div>
+                        <div class="led orange" title="WiFi Active"></div>
+                    </div>
+                    <div class="mt-3 text-muted small" style="color:var(--cyber-cyan)!important"><i class="fas fa-check-circle me-1"></i>100% Compatible RouterOS v7</div>
+                </div>
             </div>
         </div>
     </div>
@@ -539,63 +334,72 @@ HOME_BODY = """
 
 <section class="py-5 bg-white">
     <div class="container">
-        <h2 class="section-title text-center mb-5">Pourquoi nous choisir ?</h2>
+        <div class="text-center mb-5">
+            <div class="section-badge">Performances &amp; Sécurité</div>
+            <h2 class="section-title">Pourquoi choisir notre moteur ?</h2>
+        </div>
         <div class="row g-4">
-            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h5 class="text-center">Configuration Rapide</h5><p class="text-muted text-center mb-0">Copiez-collez le script généré, configuration automatique en 30 secondes.</p></div></div>
-            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-shield-halved"></i></div><h5 class="text-center">VPN Cloudflare WARP</h5><p class="text-muted text-center mb-0">Naviguez anonymement et sans baisse de débit via les tunnels sécurisés.</p></div></div>
-            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-router"></i></div><h5 class="text-center">Tous modèles compatibles</h5><p class="text-muted text-center mb-0">Détection intelligente pour configurations WiFi 5 et WiFi 6.</p></div></div>
-            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fab fa-whatsapp"></i></div><h5 class="text-center">Assistance 24/7</h5><p class="text-muted text-center mb-0">Assistance et livraison de licence directement par WhatsApp.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h5 class="fw-bold">Configuration Zéro Erreur</h5><p class="text-muted small">Aucune coupure Winbox lors du collage du script. Détection automatique du matériel.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-shield-alt"></i></div><h5 class="fw-bold">VPN Cloudflare WARP</h5><p class="text-muted small">Tunnels chiffrés WireGuard haute vitesse sans aucune perte de débit internet.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fas fa-satellite-dish"></i></div><h5 class="fw-bold">Anti-Détection Starlink/FAI</h5><p class="text-muted small">Masquage TTL uniforme et MSS Clamping pour un partage réseau invisible.</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="feature-card"><div class="feature-icon"><i class="fab fa-whatsapp"></i></div><h5 class="fw-bold">Assistance Directe</h5><p class="text-muted small">Support technique réactif et livraison de vos accès via WhatsApp sous 10 min.</p></div></div>
         </div>
     </div>
 </section>
 
-<section class="py-5" id="pricing">
+<section class="py-5" id="pricing" style="background:#f1f5f9">
     <div class="container">
-        <h2 class="section-title text-center">Nos Tarifs</h2>
-        <p class="text-center text-muted mb-5">Sélectionnez le pack dont vous avez besoin pour votre routeur</p>
+        <div class="text-center mb-5">
+            <div class="section-badge">Formules &amp; Tarifs</div>
+            <h2 class="section-title">Choisissez votre Pack</h2>
+            <p class="section-subtitle">Chaque licence est taillée sur mesure pour votre modèle exact de routeur</p>
+        </div>
         <div class="row g-4 justify-content-center">
             <div class="col-md-6 col-lg-4">
                 <div class="pricing-card">
-                    <div class="pricing-name fw-bold">PACK ESSENTIEL</div>
-                    <div class="pricing-price">30 000 <small style="font-size:1.2rem">Ar</small></div>
+                    <div class="pricing-name">PACK ESSENTIEL</div>
+                    <div class="pricing-price">30 000 <small>Ar</small></div>
                     <ul class="pricing-features">
-                        <li><i class="fas fa-check"></i> Configuration complète du Bridge</li>
-                        <li><i class="fas fa-check"></i> Wi-Fi Sécurisé (WPA2-PSK)</li>
+                        <li><i class="fas fa-check"></i> Configuration Bridge &amp; DHCP Auto</li>
+                        <li><i class="fas fa-check"></i> Wi-Fi Sécurisé (WPA2/WPA3)</li>
                         <li><i class="fas fa-check"></i> DNS Chiffré Cloudflare DoH</li>
-                        <li><i class="fas fa-check"></i> Masquage TTL (Anti-partage)</li>
-                        <li><i class="fas fa-check"></i> Limitation QoS Simple</li>
+                        <li><i class="fas fa-check"></i> Masquage TTL (Anti-partage FAI)</li>
+                        <li><i class="fas fa-check"></i> Limitation de bande passante QoS</li>
                     </ul>
-                    <a href="/order?pack=standard" class="btn btn-outline-success btn-pricing">Commander</a>
+                    <a href="/order?pack=standard" class="btn-pricing btn-pricing-outline">Commander Essentiel</a>
                 </div>
             </div>
+            
             <div class="col-md-6 col-lg-4">
                 <div class="pricing-card popular">
-                    <div class="pricing-badge">POPULAIRE</div>
-                    <div class="pricing-name fw-bold mt-2">PACK SÉCURITÉ VPN</div>
-                    <div class="pricing-price">50 000 <small style="font-size:1.2rem">Ar</small></div>
+                    <div class="pricing-badge">LE PLUS CHOISI</div>
+                    <div class="pricing-name mt-2">PACK SÉCURITÉ VPN</div>
+                    <div class="pricing-price">50 000 <small>Ar</small></div>
                     <ul class="pricing-features">
                         <li><i class="fas fa-check"></i> Tout le Pack Essentiel +</li>
-                        <li><i class="fas fa-check"></i> VPN Cloudflare WARP illimité</li>
-                        <li><i class="fas fa-check"></i> Contournement DPI et FAI</li>
-                        <li><i class="fas fa-check"></i> MSS Clamping automatique</li>
-                        <li><i class="fas fa-check"></i> Guide Réseau Avancé (PDF)</li>
+                        <li><i class="fas fa-check"></i> <strong>VPN Cloudflare WARP illimité</strong></li>
+                        <li><i class="fas fa-check"></i> Contournement DPI &amp; FAI/Starlink</li>
+                        <li><i class="fas fa-check"></i> MSS Clamping TCP automatique</li>
+                        <li><i class="fas fa-gift" style="color:var(--accent-orange)"></i> <strong>Guide Secret Anti-Starlink (PDF)</strong> <span class="secret-badge">INCLUS</span></li>
                     </ul>
-                    <a href="/order?pack=warp" class="btn btn-success text-white btn-pricing">Commander</a>
+                    <a href="/order?pack=warp" class="btn-pricing btn-pricing-primary">Commander Sécurité VPN</a>
                 </div>
             </div>
+            
             <div class="col-md-6 col-lg-4">
-                <div class="pricing-card">
-                    <div class="pricing-badge pro">PRO</div>
-                    <div class="pricing-name fw-bold mt-2">PACK BUSINESS HOTSPOT</div>
-                    <div class="pricing-price">80 000 <small style="font-size:1.2rem">Ar</small></div>
+                <div class="pricing-card pro">
+                    <div class="pricing-badge pro-badge">BUSINESS PRO</div>
+                    <div class="pricing-name mt-2">PACK BUSINESS HOTSPOT</div>
+                    <div class="pricing-price">80 000 <small>Ar</small></div>
                     <ul class="pricing-features">
                         <li><i class="fas fa-check"></i> Tout le Pack Sécurité VPN +</li>
-                        <li><i class="fas fa-check"></i> Portail Captif WiFi Zone</li>
-                        <li><i class="fas fa-check"></i> Serveur PPPoE intégré</li>
-                        <li><i class="fas fa-check"></i> 10 Vouchers de test inclus</li>
-                        <li><i class="fas fa-check"></i> Pare-feu Anti-Torrent</li>
+                        <li><i class="fas fa-check"></i> <strong>Portail Captif WiFi Zone</strong></li>
+                        <li><i class="fas fa-check"></i> 10 Vouchers de test auto-générés</li>
+                        <li><i class="fas fa-check"></i> Profils vitesse (1h, 1j, 1sem, 1mois)</li>
+                        <li><i class="fas fa-check"></i> Pare-feu Anti-Torrent P2P</li>
+                        <li><i class="fas fa-gift" style="color:var(--accent-orange)"></i> <strong>Guide Secret Avancé (PDF)</strong></li>
                     </ul>
-                    <a href="/order?pack=hotspot" class="btn btn-primary btn-pricing">Commander</a>
+                    <a href="/order?pack=hotspot" class="btn-pricing btn-pricing-dark">Commander Hotspot Pro</a>
                 </div>
             </div>
         </div>
@@ -604,62 +408,37 @@ HOME_BODY = """
 
 <section class="py-5 bg-white" id="how">
     <div class="container">
-        <h2 class="section-title text-center mb-5">Comment ça marche ?</h2>
-        <div class="row g-4">
-            <div class="col-md-3 text-center">
-                <div class="step-number">1</div>
-                <h5>Commandez</h5>
-                <p class="text-muted">Choisissez un pack et personnalisez votre configuration.</p>
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="step-number">2</div>
-                <h5>Payez</h5>
-                <p class="text-muted">MVola ou Orange Money, envoyez la preuve.</p>
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="step-number">3</div>
-                <h5>Recevez la clé</h5>
-                <p class="text-muted">Votre clé de licence ou ID de commande est validé en moins de 10 min.</p>
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="step-number">4</div>
-                <h5>Récupérez le script</h5>
-                <p class="text-muted">Allez sur <strong>"Ma Licence"</strong>, entrez votre référence et copiez le script.</p>
-            </div>
+        <div class="text-center mb-5">
+            <div class="section-badge">Simple &amp; Efficace</div>
+            <h2 class="section-title">Comment ça marche ?</h2>
         </div>
-        <div class="text-center mt-5">
-            <a href="/my-license" class="btn btn-outline-success btn-lg rounded-pill px-5"><i class="fas fa-key me-2"></i>Récupérer mon script de configuration</a>
+        <div class="row g-4">
+            <div class="col-md-3"><div class="step-card"><div class="step-number">1</div><h5 class="fw-bold">Personnalisez</h5><p class="text-muted small">Remplissez le formulaire en sélectionnant votre modèle MikroTik et vos préférences.</p></div></div>
+            <div class="col-md-3"><div class="step-card"><div class="step-number">2</div><h5 class="fw-bold">Payez</h5><p class="text-muted small">Transférez le montant par MVola ou Orange Money et envoyez la capture d'écran.</p></div></div>
+            <div class="col-md-3"><div class="step-card"><div class="step-number">3</div><h5 class="fw-bold">Validation 10 min</h5><p class="text-muted small">Notre équipe approuve votre commande et active votre licence RouterOS.</p></div></div>
+            <div class="col-md-3"><div class="step-card"><div class="step-number">4</div><h5 class="fw-bold">Injectez</h5><p class="text-muted small">Allez sur "Ma Licence", copiez le script et collez-le dans le Terminal Winbox.</p></div></div>
         </div>
     </div>
 </section>
 
-<section class="py-5" id="faq">
-    <div class="container" style="max-width: 800px;">
-        <h2 class="section-title text-center mb-5">Foire Aux Questions (FAQ)</h2>
+<section class="py-5" id="faq" style="background:#f8fafc">
+    <div class="container" style="max-width:800px">
+        <div class="text-center mb-5">
+            <div class="section-badge">Support &amp; Réponses</div>
+            <h2 class="section-title">Foire Aux Questions</h2>
+        </div>
         <div class="accordion" id="faqAcc">
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f1">Est-ce que le VPN ralentit le débit internet ?</button></h2>
-                <div id="f1" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non. Cloudflare utilise un protocole très optimisé (WireGuard) qui préserve l'intégralité de votre bande passante.</div></div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded-4 overflow-hidden">
+                <h2 class="accordion-header"><button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#f1">Est-ce que le VPN ralentit le débit internet ?</button></h2>
+                <div id="f1" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non. Cloudflare WARP s'appuie sur le protocole WireGuard nouvelle génération avec un réseau de serveurs ultra-rapides. Vous conservez 100% de votre bande passante.</div></div>
             </div>
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f2">Comment je reçois ma clé de licence ?</button></h2>
-                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Après validation de votre paiement (max 10 minutes), vous recevez votre clé sur WhatsApp. De plus, votre numéro de commande <strong>KTR-...</strong> fonctionne également pour récupérer votre configuration sur la page <strong>Ma Licence</strong>.</div></div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded-4 overflow-hidden">
+                <h2 class="accordion-header"><button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#f2">Comment récupérer mon script une fois la commande passée ?</button></h2>
+                <div id="f2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Dès validation de votre paiement, rendez-vous sur le menu <strong>"Ma Licence"</strong> et tapez simplement votre référence de commande <strong>KTR-...</strong> pour accéder immédiatement à votre script complet et à vos guides.</div></div>
             </div>
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f3">Est-ce compatible avec mon modèle de routeur ?</button></h2>
-                <div id="f3" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Oui ! Notre système détecte automatiquement votre modèle : hAP lite, hAP ac2, hAP ac3, hAP ax2, hAP ax3, hEX, RB5009, CCR, L009, etc. Le script généré est parfaitement adapté à votre WiFi 5 ou WiFi 6.</div></div>
-            </div>
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f4">Puis-je utiliser une licence sur plusieurs routeurs ?</button></h2>
-                <div id="f4" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non. Chaque licence est valable pour un seul routeur MikroTik. Pour équiper plusieurs routeurs, vous devrez commander une licence par routeur.</div></div>
-            </div>
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f5">Quels sont les modes de paiement acceptés ?</button></h2>
-                <div id="f5" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Nous acceptons <strong>MVola</strong> et <strong>Orange Money</strong>. Envoyez le montant au nom de JEAN ERIC et joignez la capture d'écran comme preuve de paiement.</div></div>
-            </div>
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f6">Que faire si le script ne fonctionne pas ?</button></h2>
-                <div id="f6" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Contactez immédiatement notre support WhatsApp en cliquant sur le bouton vert en bas de la page. Notre équipe technique vous assistera pour vérifier votre RouterOS (v7 requis) et vous aider à finaliser l'installation.</div></div>
+            <div class="accordion-item border-0 mb-3 shadow-sm rounded-4 overflow-hidden">
+                <h2 class="accordion-header"><button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#f3">Est-ce que le collage du script coupe la session Winbox ?</button></h2>
+                <div id="f3" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body bg-white text-muted">Non ! Notre nouveau moteur applique la configuration sans détruire le Bridge existant. Le script s'exécute de A à Z sans aucune déconnexion intermédiaire.</div></div>
             </div>
         </div>
     </div>
@@ -669,7 +448,7 @@ HOME_BODY = """
 @app.route('/')
 def home():
     try:
-        return render_page(HOME_BODY, title="Accueil")
+        return render_page(HOME_BODY, title="Plateforme d'Ingénierie Réseau")
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -677,108 +456,7 @@ def home():
         return f"<h1>Erreur Serveur</h1><pre>{e}</pre>", 500
 
 
-# ===================== MA LICENCE =====================
-@app.route('/my-license', methods=['GET', 'POST'])
-def my_license():
-    try:
-        error = ""
-        saved_key = ""
-        if request.method == 'POST':
-            raw_key = request.form.get('license_key') or ''
-            key = raw_key.strip().upper().replace(' ', '').replace('\t', '').replace('\n', '')
-            saved_key = key
-            
-            if not key:
-                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Veuillez entrer une référence de commande ou clé de licence.</div>'
-            else:
-                # Recherche intelligente : Fonctionne avec la clé de licence (LIC-) OU le numéro de commande (KTR-)
-                order_obj = Order.query.filter(
-                    (db.func.upper(Order.license_key) == key) | 
-                    (db.func.upper(Order.order_id) == key)
-                ).first()
-                
-                if order_obj:
-                    return redirect(url_for('license_page', key=order_obj.license_key))
-                else:
-                    error = f'''<div class="alert alert-danger mt-3">
-                        <i class="fas fa-times-circle me-2"></i><strong>Référence ou Clé introuvable.</strong><br>
-                        <small>Vérifiez que vous avez bien copié votre clé (ex: <code>LIC-XXXX</code>) ou votre numéro de commande (ex: <code>KTR-3231065F</code>).</small>
-                    </div>'''
-
-        body = f"""
-<section class="py-5">
-    <div class="container" style="max-width: 750px">
-        <div class="license-hero">
-            <div class="license-icon-wrap">
-                <i class="fas fa-key"></i>
-            </div>
-            <h2>Accédez à votre configuration</h2>
-            <p class="fs-6 mb-0">Entrez votre Clé de Licence (<code>LIC-...</code>) ou votre Référence Commande (<code>KTR-...</code>)</p>
-            
-            <div class="license-form-wrap">
-                <form method="POST">
-                    <input type="text" 
-                           name="license_key" 
-                           class="form-control license-input" 
-                           placeholder="KTR-XXXXXXXX ou LIC-XXXXXXXX" 
-                           value="{saved_key}"
-                           required 
-                           autocomplete="off">
-                    <button type="submit" class="btn btn-license-unlock">
-                        <i class="fas fa-unlock me-2"></i>Accéder à mon script
-                    </button>
-                </form>
-                {error}
-            </div>
-        </div>
-        
-        <div class="info-network-card">
-            <h5 class="fw-bold mb-3" style="color:#0d6efd">
-                <i class="fas fa-network-wired me-2"></i>Comment récupérer ma configuration ?
-            </h5>
-            <ol class="step-list-network">
-                <li><strong>Commandez</strong> votre pack et payez via MVola ou Orange Money</li>
-                <li><strong>Téléversez</strong> la capture d'écran de votre paiement mobile</li>
-                <li>Notre équipe <strong>valide</strong> l'activation de votre script en moins de 10 min</li>
-                <li>Saisissez ci-dessus votre numéro de commande <strong>KTR-...</strong> ou votre clé <strong>LIC-...</strong> reçue sur WhatsApp</li>
-                <li><strong>Copiez</strong> le script généré et collez-le directement dans Winbox</li>
-            </ol>
-            
-            <hr class="my-4">
-            
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center p-3 rounded-3" style="background:#e8f5e9">
-                        <i class="fas fa-shopping-cart text-success fs-3 me-3"></i>
-                        <div>
-                            <div class="fw-bold">Pas encore de commande ?</div>
-                            <a href="/order" class="text-success fw-semibold" style="text-decoration:none">Faire une commande →</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center p-3 rounded-3" style="background:#e3f2fd">
-                        <i class="fab fa-whatsapp text-success fs-3 me-3"></i>
-                        <div>
-                            <div class="fw-bold">Besoin d'aide ?</div>
-                            <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="text-primary fw-semibold" style="text-decoration:none">Support WhatsApp →</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-"""
-        return render_page(body, title="Ma Licence")
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        traceback.print_exc()
-        return f"<h1>Erreur</h1><pre>{e}</pre>", 500
-
-
-# ===================== COMMANDES =====================
+# ===================== COMMANDE =====================
 @app.route('/order', methods=['GET', 'POST'])
 def order():
     try:
@@ -799,9 +477,21 @@ def order():
             pppoe_enabled = request.form.get('pppoe_enabled') == '1'
             voucher_enabled = request.form.get('voucher_enabled') == '1'
 
+            # Nouvelles options pro
+            router_name = (request.form.get('router_name') or '').strip()
+            mac_spoof = request.form.get('mac_spoof') == '1'
+            mac_address = (request.form.get('mac_address') or '').strip()
+            sleep_mode = request.form.get('sleep_mode') or 'off'
+            client_limit = request.form.get('client_limit') or '0'
+
             subnet_info = get_next_lan_subnet()
             order_id = 'KTR-' + uuid.uuid4().hex[:8].upper()
             license_key = 'LIC-' + secrets.token_hex(16).upper()
+
+            if not router_name:
+                router_name = generate_router_name(license_key)
+            if mac_spoof and not mac_address:
+                mac_address = generate_random_mac()
 
             new_order = Order(
                 order_id=order_id,
@@ -821,6 +511,11 @@ def order():
                 ul_limit=ul_limit,
                 pppoe_enabled=pppoe_enabled,
                 voucher_enabled=voucher_enabled,
+                router_name=router_name,
+                mac_spoof=mac_spoof,
+                mac_address=mac_address,
+                sleep_mode=sleep_mode,
+                client_limit=client_limit,
                 status='pending',
                 created_at=datetime.utcnow()
             )
@@ -828,8 +523,8 @@ def order():
             db.session.commit()
             return redirect(url_for('pay', order_id=order_id))
 
-        preselect = request.args.get('pack', 'standard')
-        options_html = '<option value="">-- Sélectionnez votre modèle --</option>'
+        preselect = request.args.get('pack', 'warp')
+        options_html = '<option value="">-- Sélectionnez votre routeur --</option>'
         for key, info in MIKROTIK_MODELS.items():
             options_html += f'<option value="{key}">{info["name"]}</option>'
         options_html += '<option value="other">Autre / Modèle non listé</option>'
@@ -840,59 +535,131 @@ def order():
 
         body = f"""
 <section class="py-5">
-    <div class="container" style="max-width:850px">
-        <h2 class="section-title text-center mb-4"><i class="fas fa-shopping-cart text-success me-2"></i>Commande</h2>
-        <form class="order-form" method="POST" action="/order">
-            <div class="mb-3"><label class="form-label">Nom complet du client</label><input type="text" name="client_name" class="form-control" required placeholder="Ex: Jean Luc"></div>
-            <div class="mb-3"><label class="form-label"><i class="fab fa-whatsapp text-success"></i> Numéro WhatsApp</label><input type="text" name="whatsapp" class="form-control" placeholder="+261 34 XX XXX XX" required></div>
-            <div class="mb-4">
-                <label class="form-label">Type de Pack</label>
-                <div class="row g-3">
-                    <div class="col-md-4"><input type="radio" name="plan_type" value="standard" id="p1" class="pack-radio" {c1}><label class="pack-label" for="p1"><h6>Pack Essentiel</h6><div class="price">30 000 Ar</div></label></div>
-                    <div class="col-md-4"><input type="radio" name="plan_type" value="warp" id="p2" class="pack-radio" {c2}><label class="pack-label" for="p2"><h6>Pack Sécurité VPN</h6><div class="price">50 000 Ar</div></label></div>
-                    <div class="col-md-4"><input type="radio" name="plan_type" value="hotspot" id="p3" class="pack-radio" {c3}><label class="pack-label" for="p3"><h6>Pack Business</h6><div class="price">80 000 Ar</div></label></div>
+    <div class="container" style="max-width:880px">
+        <div class="form-card">
+            <h2 class="fw-bold mb-2 text-center" style="color:#001e3c"><i class="fas fa-sliders-h me-2" style="color:var(--neon-blue)"></i>Générateur de Configuration MikroTik</h2>
+            <p class="text-muted text-center mb-4">Personnalisez les paramètres pour générer un script 100% adapté à votre routeur</p>
+            
+            <form method="POST" action="/order">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nom complet du client</label>
+                        <input type="text" name="client_name" class="form-control" required placeholder="Ex: Jean Eric">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="fab fa-whatsapp text-success me-1"></i>Numéro WhatsApp (pour notification)</label>
+                        <input type="text" name="whatsapp" class="form-control" required placeholder="+261 34 XX XXX XX">
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3"><label class="form-label">Modèle de routeur MikroTik</label><select name="mikrotik_model" class="form-select" id="modelSelect" required>{options_html}</select></div>
-            <div class="mb-3" id="otherModelDiv" style="display:none"><label class="form-label">Indiquez la référence exacte</label><input type="text" name="other_model" class="form-control" placeholder="Ex: RB1100AHx4"></div>
-            <div class="row g-3 mb-3">
-                <div class="col-md-6"><label class="form-label">SSID (Nom Wi-Fi)</label><input type="text" name="ssid" class="form-control" value="KETRIKA-WiFi"></div>
-                <div class="col-md-6"><label class="form-label">Clé de sécurité Wi-Fi (min 8 car.)</label><input type="text" name="wifi_password" class="form-control" minlength="8" value="ketrika2024"></div>
-            </div>
-            <div class="row g-3 mb-3">
-                <div class="col-md-6"><label class="form-label">Interface WAN</label><input type="text" name="wan_interface" class="form-control" value="ether1"></div>
-                <div class="col-md-6"><label class="form-label">IP LAN &amp; DHCP</label><input type="text" class="form-control" value="Génération d'IP unique active" disabled></div>
-            </div>
-            <div class="row g-3 mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">Valeur du TTL</label>
-                    <select name="ttl_value" class="form-select">
-                        <option value="64" selected>64 (Masquage)</option>
-                        <option value="65">65</option>
-                        <option value="128">128</option>
-                        <option value="0">Désactivé</option>
-                    </select>
+
+                <div class="mb-4">
+                    <label class="form-label">Formule choisie</label>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <input type="radio" name="plan_type" value="standard" id="p1" class="pack-radio" {c1}>
+                            <label class="pack-label" for="p1"><h6>Pack Essentiel</h6><div class="price-tag">30 000 Ar</div></label>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="radio" name="plan_type" value="warp" id="p2" class="pack-radio" {c2}>
+                            <label class="pack-label" for="p2"><h6>Pack Sécurité VPN</h6><div class="price-tag">50 000 Ar</div></label>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="radio" name="plan_type" value="hotspot" id="p3" class="pack-radio" {c3}>
+                            <label class="pack-label" for="p3"><h6>Pack Hotspot Pro</h6><div class="price-tag">80 000 Ar</div></label>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Limite Download</label>
-                    <select name="dl_limit" class="form-select">
-                        <option value="0">Illimité</option><option value="5M">5 Mbps</option><option value="10M">10 Mbps</option><option value="20M">20 Mbps</option><option value="50M">50 Mbps</option>
-                    </select>
+
+                <div class="mb-3">
+                    <label class="form-label">Modèle MikroTik</label>
+                    <select name="mikrotik_model" class="form-select" id="modelSelect" required>{options_html}</select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Limite Upload</label>
-                    <select name="ul_limit" class="form-select">
-                        <option value="0">Illimité</option><option value="2M">2 Mbps</option><option value="5M">5 Mbps</option><option value="10M">10 Mbps</option><option value="20M">20 Mbps</option>
-                    </select>
+                <div class="mb-3" id="otherModelDiv" style="display:none">
+                    <label class="form-label">Indiquez la référence exacte de votre routeur</label>
+                    <input type="text" name="other_model" class="form-control" placeholder="Ex: RB1100AHx4">
                 </div>
-            </div>
-            <div id="hotspotOptions" style="display:none;background:#f0f7ff;padding:20px;border-radius:12px" class="mb-3">
-                <h6 class="fw-bold text-primary"><i class="fas fa-wifi me-1"></i> Options Business Hotspot</h6>
-                <div class="form-check mb-2"><input type="checkbox" name="pppoe_enabled" class="form-check-input" id="pppoeCheck" value="1"><label class="form-check-label" for="pppoeCheck">Activer serveur PPPoE</label></div>
-                <div class="form-check"><input type="checkbox" name="voucher_enabled" class="form-check-input" id="voucherCheck" value="1" checked><label class="form-check-label" for="voucherCheck">Générer 10 codes d'accès Wi-Fi</label></div>
-            </div>
-            <button type="submit" class="btn btn-cta w-100"><i class="fas fa-check me-2"></i>Valider la configuration</button>
-        </form>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nom du réseau Wi-Fi (SSID)</label>
+                        <input type="text" name="ssid" class="form-control" value="KETRIKA-WiFi">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Mot de passe Wi-Fi (min. 8 caractères)</label>
+                        <input type="text" name="wifi_password" class="form-control" minlength="8" value="ketrika2024">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Interface WAN (Câble FAI / Starlink)</label>
+                        <input type="text" name="wan_interface" class="form-control" value="ether1">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Masquage TTL (Anti-Partage FAI)</label>
+                        <select name="ttl_value" class="form-select">
+                            <option value="64" selected>64 (Recommandé standard / Starlink)</option>
+                            <option value="65">65 (Opérateurs 4G spécifiques)</option>
+                            <option value="128">128 (Windows direct)</option>
+                            <option value="0">Désactivé</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- OPTIONS AVANCÉES -->
+                <div class="advanced-box">
+                    <div class="advanced-title"><i class="fas fa-shield-alt"></i> Options Avancées d'Ingénierie Réseau</div>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom personnalisé du routeur (Identity)</label>
+                            <input type="text" name="router_name" class="form-control" placeholder="Ex: HOME-ROUTER (Laisser vide pour auto)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mode Veille Nocturne Wi-Fi (Économie &amp; Sécurité)</label>
+                            <select name="sleep_mode" class="form-select">
+                                <option value="off" selected>Désactivé (Wi-Fi 24h/24)</option>
+                                <option value="00-06">Éteindre le Wi-Fi de 00h00 à 06h00</option>
+                                <option value="01-05">Éteindre le Wi-Fi de 01h00 à 05h00</option>
+                                <option value="23-07">Éteindre le Wi-Fi de 23h00 à 07h00</option>
+                                <option value="02-06">Éteindre le Wi-Fi de 02h00 à 06h00</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Limite par client individuel (QoS PCQ)</label>
+                            <select name="client_limit" class="form-select">
+                                <option value="0" selected>Illimité par appareil</option>
+                                <option value="2M">2 Mbps max par appareil</option>
+                                <option value="5M">5 Mbps max par appareil</option>
+                                <option value="10M">10 Mbps max par appareil</option>
+                                <option value="20M">20 Mbps max par appareil</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center pt-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="mac_spoof" value="1" id="macCheck" checked>
+                                <label class="form-check-label fw-bold" for="macCheck">
+                                    Changement d'adresse MAC WAN automatique (Anti-détection FAI)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="hotspotOptions" style="display:none;background:#f0f7ff;padding:20px;border-radius:14px;border:1px solid #cce5ff" class="mb-4">
+                    <h6 class="fw-bold text-primary mb-2"><i class="fas fa-wifi me-1"></i> Paramètres du Portail Captif Hotspot</h6>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="voucher_enabled" class="form-check-input" id="vcCheck" value="1" checked>
+                        <label class="form-check-label fw-bold" for="vcCheck">Générer 10 tickets/vouchers d'accès Wi-Fi automatiquement</label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-cta-form"><i class="fas fa-check-circle me-2"></i>Valider et passer au paiement</button>
+            </form>
+        </div>
     </div>
 </section>
 """
@@ -900,27 +667,27 @@ def order():
 <script>
 document.querySelectorAll('input[name=plan_type]').forEach(function(r){
     r.addEventListener('change',function(){
-        document.getElementById('hotspotOptions').style.display=this.value==='hotspot'?'block':'none';
+        document.getElementById('hotspotOptions').style.display = (this.value==='hotspot') ? 'block' : 'none';
     });
 });
 document.getElementById('modelSelect').addEventListener('change',function(){
-    document.getElementById('otherModelDiv').style.display=this.value==='other'?'block':'none';
+    document.getElementById('otherModelDiv').style.display = (this.value==='other') ? 'block' : 'none';
 });
 (function(){
-    var s=document.querySelector('input[name=plan_type]:checked');
-    if(s&&s.value==='hotspot')document.getElementById('hotspotOptions').style.display='block';
+    var s = document.querySelector('input[name=plan_type]:checked');
+    if(s && s.value==='hotspot') document.getElementById('hotspotOptions').style.display='block';
 })();
 </script>
 """
-        return render_page(body, title="Commander", extra_script=js)
+        return render_page(body, title="Configurer mon MikroTik", extra_script=js)
     except HTTPException as e:
         raise e
     except Exception as e:
         traceback.print_exc()
-        return f"<h1>Erreur formulaire</h1><pre>{e}</pre>", 500
+        return f"<h1>Erreur</h1><pre>{e}</pre>", 500
 
 
-# ===================== PAIEMENTS =====================
+# ===================== PAIEMENT =====================
 @app.route('/pay/<order_id>', methods=['GET', 'POST'])
 def pay(order_id):
     try:
@@ -947,67 +714,74 @@ def pay(order_id):
             body = f"""
 <section class="py-5">
     <div class="container text-center" style="max-width:650px">
-        <div class="order-form">
-            <div class="text-success mb-3" style="font-size: 5rem;"><i class="fas fa-check-circle"></i></div>
-            <h3 class="fw-bold">Preuve reçue !</h3>
-            <p class="text-muted fs-5">Votre paiement est en cours de vérification.</p>
+        <div class="form-card">
+            <div style="font-size: 5rem; color: #00cc6a;" class="mb-3"><i class="fas fa-check-circle"></i></div>
+            <h3 class="fw-bold">Capture d'écran reçue !</h3>
+            <p class="text-muted fs-5">Votre paiement est en cours de validation par notre équipe technique.</p>
             <hr>
             <div class="alert alert-info text-start">
-                <h6 class="fw-bold"><i class="fas fa-clock me-2"></i>Prochaines étapes :</h6>
-                <ol class="mb-0">
-                    <li>Notre équipe vérifie votre paiement (max 10 minutes)</li>
-                    <li>Saisissez votre ID de commande <strong>{order_id}</strong> pour voir le script dès validation.</li>
-                </ol>
+                <h6 class="fw-bold"><i class="fas fa-info-circle me-1"></i>Comment récupérer votre script ?</h6>
+                <p class="mb-0 small">Dès validation (délai : ~10 minutes), rendez-vous dans le menu <strong>"Ma Licence"</strong> et saisissez votre référence : <strong>{order_id}</strong>.</p>
             </div>
-            <p class="mt-3"><strong>Référence de commande :</strong> <code>{order_id}</code></p>
             <div class="d-grid gap-2 mt-4">
-                <a href="/my-license" class="btn btn-success text-white rounded-pill py-3"><i class="fas fa-key me-2"></i>Accéder à "Ma Licence"</a>
+                <a href="/my-license" class="btn btn-hero-primary"><i class="fas fa-key me-2"></i>Accéder à "Ma Licence"</a>
                 <a href="/" class="btn btn-outline-secondary rounded-pill">Retour à l'accueil</a>
             </div>
         </div>
     </div>
 </section>
 """
-            return render_page(body, title="Preuve reçue")
+            return render_page(body, title="Paiement Transmis")
 
         plan = safe_get(order_obj, 'plan_type', 'standard')
-        price_map = {'standard': ('30 000 Ar', 'Pack Essentiel'), 'warp': ('50 000 Ar', 'Pack Sécurité VPN'), 'hotspot': ('80 000 Ar', 'Pack Business')}
+        price_map = {'standard': ('30 000 Ar', 'Pack Essentiel'), 'warp': ('50 000 Ar', 'Pack Sécurité VPN'), 'hotspot': ('80 000 Ar', 'Pack Business Hotspot')}
         price, name = price_map.get(plan, ('30 000 Ar', 'Pack Essentiel'))
 
         body = f"""
 <section class="py-5">
-    <div class="container" style="max-width:700px">
-        <div class="order-form">
-            <h3 class="text-center fw-bold mb-4"><i class="fas fa-mobile text-success me-2"></i>Instructions de Paiement</h3>
-            <div class="summary-box mb-4">
-                <p class="mb-1"><strong>Référence :</strong> {safe_get(order_obj, 'order_id')}</p>
-                <p class="mb-1"><strong>Formule :</strong> {name}</p>
-                <p class="mb-0"><strong>Montant :</strong> <span class="fw-bold text-success fs-4">{price}</span></p>
-            </div>
-            <div class="alert alert-warning">
-                <h6 class="fw-bold mb-3"><i class="fas fa-mobile-alt me-2"></i>Envoyez <strong>{price}</strong> sur un de ces numéros :</h6>
-                <div class="p-3 mb-2 rounded" style="background:white;border-left:4px solid #28a745">
-                    <strong>MVola / WhatsApp :</strong><br>
-                    <span style="font-size:1.3rem;letter-spacing:2px;font-weight:700;color:#28a745">{MVOLA_NUMBER}</span>
-                </div>
-                <div class="p-3 mb-2 rounded" style="background:white;border-left:4px solid #ff6b1a">
-                    <strong>Orange Money :</strong><br>
-                    <span style="font-size:1.3rem;letter-spacing:2px;font-weight:700;color:#ff6b1a">{ORANGE_NUMBER}</span>
-                </div>
-                <div class="text-center mt-3">
-                    <i class="fas fa-user-check me-1"></i>Au nom de <strong>{PAYMENT_NAME}</strong>
+    <div class="container" style="max-width:720px">
+        <div class="form-card">
+            <h3 class="text-center fw-bold mb-4" style="color:#001e3c"><i class="fas fa-mobile-alt me-2" style="color:var(--cyber-green)"></i>Finalisation du Paiement</h3>
+            
+            <div class="summary-box-pro mb-4">
+                <div class="row">
+                    <div class="col-6"><strong>Référence :</strong> {safe_get(order_obj, 'order_id')}</div>
+                    <div class="col-6 text-end"><strong>Formule :</strong> {name}</div>
+                    <div class="col-12 mt-2 pt-2 border-top"><strong>Montant à payer :</strong> <span class="fs-4 fw-bold text-success">{price}</span></div>
                 </div>
             </div>
+
+            <div class="alert alert-warning p-3 mb-4">
+                <h6 class="fw-bold mb-3"><i class="fas fa-wallet me-2"></i>Envoyez exactement <strong>{price}</strong> :</h6>
+                <div class="p-3 mb-2 rounded bg-white border-start border-4 border-success">
+                    <span class="text-muted small">MVola :</span><br>
+                    <strong class="fs-5" style="color:#00cc6a;letter-spacing:1px">{MVOLA_NUMBER}</strong>
+                </div>
+                <div class="p-3 mb-2 rounded bg-white border-start border-4 border-warning">
+                    <span class="text-muted small">Orange Money :</span><br>
+                    <strong class="fs-5" style="color:#ff6b1a;letter-spacing:1px">{ORANGE_NUMBER}</strong>
+                </div>
+                <div class="text-center mt-3 small">
+                    <i class="fas fa-user-check me-1"></i>Titulaire du compte : <strong>{PAYMENT_NAME}</strong>
+                </div>
+            </div>
+
             <form method="POST" action="/pay/{order_id}" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label fw-bold">Capture d'écran de la preuve</label><input type="file" name="payment_proof" class="form-control" accept="image/*" required></div>
-                <div class="mb-3"><label class="form-label fw-bold">Rappel de votre numéro WhatsApp</label><input type="text" name="whatsapp_confirm" class="form-control" value="{safe_get(order_obj, 'whatsapp_number')}" required></div>
-                <button type="submit" class="btn btn-cta w-100">Transmettre la preuve</button>
+                <div class="mb-3">
+                    <label class="form-label">Capture d'écran de la preuve de transfert</label>
+                    <input type="file" name="payment_proof" class="form-control" accept="image/*" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirmez votre numéro WhatsApp</label>
+                    <input type="text" name="whatsapp_confirm" class="form-control" value="{safe_get(order_obj, 'whatsapp_number')}" required>
+                </div>
+                <button type="submit" class="btn-cta-form"><i class="fas fa-upload me-2"></i>Transmettre la capture d'écran</button>
             </form>
         </div>
     </div>
 </section>
 """
-        return render_page(body, title="Paiement")
+        return render_page(body, title="Instructions de Paiement")
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -1015,13 +789,64 @@ def pay(order_id):
         return f"<h1>Erreur paiement</h1><pre>{e}</pre>", 500
 
 
-# ===================== SCRIPT & LICENCE =====================
+# ===================== MA LICENCE =====================
+@app.route('/my-license', methods=['GET', 'POST'])
+def my_license():
+    try:
+        error = ""
+        saved_key = ""
+        if request.method == 'POST':
+            raw_key = request.form.get('license_key') or ''
+            key = raw_key.strip().upper().replace(' ', '').replace('\t', '').replace('\n', '')
+            saved_key = key
+            
+            if not key:
+                error = '<div class="alert alert-warning mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Veuillez saisir votre référence ou clé.</div>'
+            else:
+                order_obj = Order.query.filter(
+                    (db.func.upper(Order.license_key) == key) | 
+                    (db.func.upper(Order.order_id) == key)
+                ).first()
+                
+                if order_obj:
+                    return redirect(url_for('license_page', key=order_obj.license_key))
+                else:
+                    error = f'''<div class="alert alert-danger mt-3">
+                        <i class="fas fa-times-circle me-2"></i><strong>Référence introuvable.</strong><br>
+                        <small>Vérifiez votre référence de commande (ex: <code>{saved_key}</code>) ou contactez le support.</small>
+                    </div>'''
+
+        body = f"""
+<section class="py-5">
+    <div class="container" style="max-width: 760px">
+        <div class="license-hero mb-4">
+            <div style="font-size: 3.5rem; color: var(--cyber-cyan);" class="mb-2"><i class="fas fa-key"></i></div>
+            <h2>Accès Configuration &amp; Téléchargements</h2>
+            <p class="text-white-50 mb-4">Saisissez votre référence de commande (<code>KTR-...</code>) ou votre clé de licence (<code>LIC-...</code>)</p>
+            
+            <form method="POST">
+                <input type="text" name="license_key" class="form-control license-input mb-3" placeholder="KTR-XXXXXXXX ou LIC-XXXXXXXX" value="{saved_key}" required autocomplete="off">
+                <button type="submit" class="btn btn-hero-primary"><i class="fas fa-unlock me-2"></i>Afficher mon script MikroTik</button>
+            </form>
+            {error}
+        </div>
+    </div>
+</section>
+"""
+        return render_page(body, title="Espace Licence")
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        return f"<h1>Erreur</h1><pre>{e}</pre>", 500
+
+
+# ===================== SCRIPT & GUIDE =====================
 @app.route('/license/<key>')
 def license_page(key):
     try:
         order_obj = Order.query.filter_by(license_key=key).first()
         if not order_obj:
-            # Tente de chercher par ID de commande au cas où
             order_obj = Order.query.filter_by(order_id=key).first()
             if not order_obj:
                 abort(404)
@@ -1031,59 +856,77 @@ def license_page(key):
             body = f"""
 <section class="py-5 text-center">
     <div class="container" style="max-width: 650px">
-        <div class="order-form">
-            <div style="font-size: 4rem; color: #ffc107;" class="mb-3"><i class="fas fa-clock"></i></div>
-            <h4 class="fw-bold">Configuration en attente</h4>
-            <p class="text-muted">La commande <code>{ref}</code> n'est pas encore activée.</p>
-            <div class="alert alert-info mt-4 text-start">
-                <strong>Que faire ?</strong>
-                <ul class="mb-0">
-                    <li>Veuillez patienter pendant la validation de votre preuve (max 10 minutes).</li>
-                    <li>Dès que l'administrateur valide, votre script apparaîtra ici instantanément.</li>
-                </ul>
+        <div class="form-card">
+            <div style="font-size: 4.5rem; color: #ffc107;" class="mb-3"><i class="fas fa-clock"></i></div>
+            <h4 class="fw-bold">Activation en cours</h4>
+            <p class="text-muted">Votre commande <code>{ref}</code> est en cours de validation par notre administrateur.</p>
+            <div class="alert alert-info mt-4 text-start small">
+                <strong>Délai moyen :</strong> moins de 10 minutes après envoi de la capture de paiement. Rafraîchissez cette page dans quelques instants.
             </div>
-            <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="btn btn-success text-white rounded-pill px-4 mt-3">
-                <i class="fab fa-whatsapp me-2"></i>Contacter JEAN ERIC
+            <a href="https://wa.me/261{WHATSAPP_NUMBER}" target="_blank" class="btn btn-success rounded-pill px-4 mt-2">
+                <i class="fab fa-whatsapp me-2"></i>Contacter le support
             </a>
         </div>
     </div>
 </section>
 """
-            return render_page(body, title="Licence en attente")
+            return render_page(body, title="Validation en cours")
 
-        from warp_api import generate_script
         script = generate_script(order_obj)
         esc_script = script.replace('<', '&lt;').replace('>', '&gt;')
+        plan = safe_get(order_obj, 'plan_type')
+
+        secret_guide_btn = ""
+        if plan in ['warp', 'hotspot']:
+            secret_guide_btn = f"""
+            <div class="guide-secret-box text-start mt-4">
+                <h5><i class="fas fa-user-secret me-2"></i>Guide Exclusif : Contournement Starlink &amp; FAI</h5>
+                <p class="small text-white-50 mb-3">Téléchargez le dossier technique expliquant le fonctionnement du masquage TTL, du MSS Clamping et les réglages optimaux.</p>
+                <a href="/download-guide/{safe_get(order_obj, 'license_key')}" class="btn-download-secret">
+                    <i class="fas fa-file-download me-2"></i>Télécharger le Guide Secret (.txt)
+                </a>
+            </div>
+            """
 
         body = f"""
 <section class="py-5">
-    <div class="container" style="max-width: 900px">
-        <div class="order-form">
+    <div class="container" style="max-width: 920px">
+        <div class="form-card">
             <div class="text-center mb-4">
-                <div style="font-size: 3rem; color: #28a745;"><i class="fas fa-check-circle"></i></div>
-                <h4 class="fw-bold">Configuration Activée !</h4>
+                <div style="font-size: 3rem; color: var(--cyber-green);"><i class="fas fa-check-circle"></i></div>
+                <h3 class="fw-bold" style="color:#001e3c">Configuration Prête &amp; Active</h3>
                 <span class="badge bg-success py-2 px-3">{safe_get(order_obj, 'license_key')}</span>
             </div>
-            <div class="summary-box mb-4">
-                <p class="mb-1"><strong>Client :</strong> {safe_get(order_obj, 'client_name')}</p>
-                <p class="mb-1"><strong>Modèle :</strong> {safe_get(order_obj, 'mikrotik_model')}</p>
-                <p class="mb-1"><strong>SSID WiFi :</strong> {safe_get(order_obj, 'ssid')}</p>
-                <p class="mb-0"><strong>IP LAN :</strong> {safe_get(order_obj, 'lan_gateway')}</p>
+
+            <div class="summary-box-pro mb-4">
+                <div class="row small">
+                    <div class="col-md-4"><strong>Client :</strong> {safe_get(order_obj, 'client_name')}</div>
+                    <div class="col-md-4"><strong>Routeur :</strong> {safe_get(order_obj, 'mikrotik_model')}</div>
+                    <div class="col-md-4"><strong>Wi-Fi SSID :</strong> {safe_get(order_obj, 'ssid')}</div>
+                </div>
             </div>
-            <h6 class="fw-bold">Votre Script de Configuration RouterOS v7 :</h6>
-            <div class="script-area" id="scrText">{esc_script}</div>
-            <div class="row g-3 mt-3">
-                <div class="col-6"><button class="btn btn-success w-100 text-white" id="cpBtn" onclick="cp()"><i class="fas fa-copy me-2"></i>Copier le script</button></div>
-                <div class="col-6"><a href="/download/{safe_get(order_obj, 'license_key')}" class="btn btn-outline-primary w-100"><i class="fas fa-download me-2"></i>Télécharger (.rsc)</a></div>
+
+            <h6 class="fw-bold mb-2">Script de Configuration RouterOS v7 :</h6>
+            <div class="script-area mb-3" id="scrText">{esc_script}</div>
+
+            <div class="row g-3">
+                <div class="col-6">
+                    <button class="btn btn-hero-primary w-100" id="cpBtn" onclick="cp()"><i class="fas fa-copy me-2"></i>Copier le script</button>
+                </div>
+                <div class="col-6">
+                    <a href="/download/{safe_get(order_obj, 'license_key')}" class="btn btn-outline-primary w-100 py-3 rounded-pill fw-bold"><i class="fas fa-download me-2"></i>Télécharger (.rsc)</a>
+                </div>
             </div>
-            <div class="alert alert-info mt-4">
-                <h6 class="fw-bold"><i class="fas fa-book me-1"></i>Procédure d'installation :</h6>
-                <ol class="mb-0">
-                    <li>Ouvrez <strong>Winbox</strong> et connectez-vous à votre routeur</li>
-                    <li>Ouvrez le menu <strong>New Terminal</strong></li>
-                    <li>Cliquez sur <strong>"Copier le script"</strong> ci-dessus</li>
-                    <li>Collez (Ctrl+V ou clic droit → Paste) dans le terminal</li>
-                    <li>Le routeur applique la configuration puis redémarre tout seul</li>
+
+            {secret_guide_btn}
+
+            <div class="alert alert-info mt-4 small">
+                <h6 class="fw-bold"><i class="fas fa-terminal me-1"></i>Procédure d'injection dans Winbox :</h6>
+                <ol class="mb-0 ps-3">
+                    <li>Ouvrez <strong>Winbox</strong> et connectez-vous à votre MikroTik.</li>
+                    <li>Cliquez sur <strong>New Terminal</strong> dans le menu de gauche.</li>
+                    <li>Cliquez sur <strong>"Copier le script"</strong> ci-dessus puis faites <strong>Ctrl+V</strong> (ou clic droit &rarr; Paste) dans le terminal.</li>
+                    <li>Le routeur applique tous les réglages et redémarre automatiquement.</li>
                 </ol>
             </div>
         </div>
@@ -1093,21 +936,21 @@ def license_page(key):
         js = """
 <script>
 function cp(){
-    var t=document.getElementById('scrText').innerText;
+    var t = document.getElementById('scrText').innerText;
     navigator.clipboard.writeText(t).then(function(){
-        var b=document.getElementById('cpBtn');
-        b.innerHTML='<i class="fas fa-check me-2"></i>Script copié !';
-        setTimeout(function(){ b.innerHTML='<i class="fas fa-copy me-2"></i>Copier le script'; }, 2000);
+        var b = document.getElementById('cpBtn');
+        b.innerHTML = '<i class="fas fa-check me-2"></i>Script copié !';
+        setTimeout(function(){ b.innerHTML = '<i class="fas fa-copy me-2"></i>Copier le script'; }, 2000);
     });
 }
 </script>
 """
-        return render_page(body, title="Ma Licence Active", extra_script=js)
+        return render_page(body, title="Script de Configuration", extra_script=js)
     except HTTPException as e:
         raise e
     except Exception as e:
         traceback.print_exc()
-        return f"<h1>Erreur licence</h1><pre>{e}</pre>", 500
+        return f"<h1>Erreur</h1><pre>{e}</pre>", 500
 
 
 @app.route('/download/<key>')
@@ -1118,11 +961,9 @@ def download_script(key):
             order_obj = Order.query.filter_by(order_id=key).first()
             if not order_obj:
                 abort(404)
-                
         if safe_get(order_obj, 'status') != 'active':
             abort(403)
 
-        from warp_api import generate_script
         script = generate_script(order_obj)
         fname = f"ketrika_{key[:10]}.rsc"
         fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
@@ -1135,7 +976,32 @@ def download_script(key):
         return str(e), 500
 
 
-# ===================== SÉCURITÉ ADMIN =====================
+@app.route('/download-guide/<key>')
+def download_guide(key):
+    try:
+        order_obj = Order.query.filter_by(license_key=key).first()
+        if not order_obj:
+            order_obj = Order.query.filter_by(order_id=key).first()
+            if not order_obj:
+                abort(404)
+        if safe_get(order_obj, 'status') != 'active':
+            abort(403)
+
+        guide_txt = generate_secret_guide(order_obj)
+        fname = f"GUIDE_SECRET_KETRIKA_{key[:8]}.txt"
+        
+        return Response(
+            guide_txt,
+            mimetype="text/plain",
+            headers={"Content-disposition": f"attachment; filename={fname}"}
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        return str(e), 500
+
+
+# ===================== ADMIN =====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     try:
@@ -1146,16 +1012,16 @@ def admin_login():
             if request.form.get('password') == ADMIN_PASSWORD:
                 session['admin_logged'] = True
                 return redirect(url_for('admin_dashboard'))
-            err = '<div class="alert alert-danger">Mot de passe invalide</div>'
+            err = '<div class="alert alert-danger">Mot de passe incorrect</div>'
 
         body = f"""
 <div class="d-flex align-items-center justify-content-center" style="min-height:75vh">
-    <div class="order-form text-center" style="max-width:400px; width:100%;">
-        <h3>Administration</h3>
+    <div class="form-card text-center" style="max-width:400px; width:100%;">
+        <h3 class="fw-bold mb-3">Espace Administrateur</h3>
         {err}
         <form method="POST">
-            <input type="password" name="password" class="form-control mb-3 text-center" placeholder="Clé Secrète" required>
-            <button class="btn btn-success w-100 text-white">Se connecter</button>
+            <input type="password" name="password" class="form-control mb-3 text-center" placeholder="Mot de passe" required>
+            <button class="btn btn-hero-primary w-100">Se connecter</button>
         </form>
     </div>
 </div>
@@ -1186,8 +1052,8 @@ def admin_dashboard():
             if stat == 'pending':
                 badg = '<span class="status-badge status-pending">En attente</span>'
                 act = f"""
-                <form method="POST" action="/admin/validate/{o.order_id}" style="display:inline"><button class="btn btn-sm btn-success text-white"><i class="fas fa-check"></i></button></form>
-                <form method="POST" action="/admin/reject/{o.order_id}" style="display:inline"><button class="btn btn-sm btn-danger"><i class="fas fa-times"></i></button></form>
+                <form method="POST" action="/admin/validate/{o.order_id}" style="display:inline"><button class="btn btn-sm btn-success text-white" title="Valider"><i class="fas fa-check"></i></button></form>
+                <form method="POST" action="/admin/reject/{o.order_id}" style="display:inline"><button class="btn btn-sm btn-danger" title="Refuser"><i class="fas fa-times"></i></button></form>
                 """
             elif stat == 'active':
                 badg = '<span class="status-badge status-active">Validé</span>'
@@ -1202,33 +1068,33 @@ def admin_dashboard():
 
             rows += f"""
 <tr>
-    <td><small><strong>{safe_get(o, 'order_id')}</strong></small></td>
+    <td><strong>{safe_get(o, 'order_id')}</strong></td>
     <td>{safe_get(o, 'client_name')}</td>
-    <td><a href="https://wa.me/{safe_get(o, 'whatsapp_number').replace(' ','')}" target="_blank">{safe_get(o, 'whatsapp_number')}</a></td>
+    <td><a href="https://wa.me/{safe_get(o, 'whatsapp_number').replace(' ','').replace('+','')}" target="_blank">{safe_get(o, 'whatsapp_number')}</a></td>
     <td>{p_type.upper()}</td>
-    <td><small class="text-muted">{safe_get(o, 'license_key', '')[:20]}...</small></td>
+    <td><small class="text-muted">{safe_get(o, 'license_key', '')[:16]}...</small></td>
     <td>{proof_btn}</td>
     <td>{badg}</td>
     <td>{act}</td>
 </tr>
 """
         if not rows:
-            rows = '<tr><td colspan="8" class="text-center text-muted py-4">Aucune commande</td></tr>'
+            rows = '<tr><td colspan="8" class="text-center text-muted py-4">Aucune commande enregistrée</td></tr>'
 
         body = f"""
 <div class="bg-dark py-3 mb-4">
     <div class="container d-flex justify-content-between align-items-center">
-        <h5 class="text-white mb-0">CONSOLE KETRIKA ADMIN</h5>
-        <a href="/admin/logout" class="btn btn-sm btn-outline-light">Déconnexion</a>
+        <h5 class="text-white mb-0"><i class="fas fa-shield-alt me-2" style="color:var(--cyber-green)"></i>PANEL KETRIKA ADMIN</h5>
+        <a href="/admin/logout" class="btn btn-sm btn-outline-light rounded-pill">Déconnexion</a>
     </div>
 </div>
 <section class="container pb-5">
     <div class="row g-3 mb-4 text-center">
-        <div class="col-4"><div class="stat-card"><h5>Total</h5><div class="number">{total}</div></div></div>
-        <div class="col-4"><div class="stat-card"><h5>En attente</h5><div class="number text-warning">{pending}</div></div></div>
-        <div class="col-4"><div class="stat-card"><h5>Actifs</h5><div class="number text-success">{active}</div></div></div>
+        <div class="col-4"><div class="form-card py-3"><h5>Total</h5><div class="fs-2 fw-bold">{total}</div></div></div>
+        <div class="col-4"><div class="form-card py-3"><h5>En attente</h5><div class="fs-2 fw-bold text-warning">{pending}</div></div></div>
+        <div class="col-4"><div class="form-card py-3"><h5>Actifs</h5><div class="fs-2 fw-bold text-success">{active}</div></div></div>
     </div>
-    <div class="card shadow-sm border-0 rounded-4">
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table mb-0 align-middle">
@@ -1290,12 +1156,6 @@ def admin_logout():
 @app.route('/health')
 def health():
     return {"status": "healthy"}, 200
-
-
-def secure_filename(filename):
-    for c in ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', ' ']:
-        filename = filename.replace(c, '_')
-    return filename
 
 
 if __name__ == '__main__':
