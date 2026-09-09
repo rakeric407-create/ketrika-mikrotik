@@ -1,30 +1,7 @@
-Voici l'architecture technique exacte du mode **Hotspot Furtif (Invisible pour le FAI)** et le fichier **`warp_api.py`** corrigé.
-
----
-
-### 🛡️ Comment notre script rend le Hotspot 100% INVISIBLE pour le FAI :
-
-1. **Isolation totale du trafic non authentifié** : 
-   Quand un client se connecte au Wi-Fi, ses requêtes locales vers le portail captif (`192.168.10.1` / `wifi.ketrika.mg`) sont traitées **100% en local**. Aucun paquet DNS ou HTTP ne fuite sur l'interface WAN du FAI.
-2. **Tunnel chiffré exclusif pour les clients connectés (`dst-address-type=!local`)** :
-   Dès qu'un client tape son ticket/voucher, **100% de son trafic internet est aspiré dans le tunnel WireGuard chiffré**. Pour votre FAI, il ne voit **qu'un seul flux chiffré UDP provenant d'un seul appareil**.
-3. **Masquage TTL & Usurpation MAC totale** :
-   - Le FAI voit une adresse MAC grand public (Apple/Intel) au lieu d'un routeur MikroTik.
-   - Tous les paquets sortants (qu'il y ait 1 client ou 50 clients connectés) ont le même TTL fixe (64).
-4. **Zéro fuite DNS (Anti-DNS Leak)** :
-   Toutes les requêtes DNS des utilisateurs du Hotspot sont interceptées et chiffrées via DoH / Cloudflare, empêchant le FAI d'analyser les sites visités.
-
----
-
-### 📄 FICHIER COMPLET : `warp_api.py`
-
-Remplacez l'intégralité de **`warp_api.py`** sur GitHub par ce code :
-
-```python
 #!/usr/bin/env python3
 """
-KETRIKA MIKROTIK - Moteur de génération de scripts RouterOS v7
-Version Hotspot Furtif (Totalement Invisible pour le FAI) + Anti-Déconnexion
+KETRIKA MIKROTIK - API Cloudflare WARP et Générateur de Scripts RouterOS v7
+Version de Production Ultra-Stable (Zéro Semicolon & Zéro Échappement)
 """
 
 import os
@@ -33,7 +10,9 @@ import string
 import base64
 import time
 import hashlib
+import requests
 
+# Clé publique Cloudflare WARP officielle
 CF_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
 
 
@@ -46,38 +25,74 @@ def safe_get(obj, key, default=''):
 
 
 def curve25519_scalarmult(scalar):
+    """Calcul de clé publique Curve25519 pure-Python (Zéro dépendance)"""
     P = 2**255 - 19
-    def dec(s): return int.from_bytes(s, 'little')
-    def enc(u): return (u % P).to_bytes(32, 'little')
-    def inv(x): return pow(x, P - 2, P)
+    
+    def dec(s):
+        return int.from_bytes(s, 'little')
+        
+    def enc(u):
+        return (u % P).to_bytes(32, 'little')
+        
+    def inv(x):
+        return pow(x, P - 2, P)
+
     k = bytearray(scalar)
     k[0] &= 248
     k[31] &= 127
     k[31] |= 64
+
     u = 9
-    x_1, x_2, z_2, x_3, z_3, swap = u, 1, 0, u, 1, 0
+    x_1 = u
+    x_2 = 1
+    z_2 = 0
+    x_3 = u
+    z_3 = 1
+    swap = 0
     k_int = dec(k)
+
     for t in range(254, -1, -1):
         k_t = (k_int >> t) & 1
         swap ^= k_t
-        d = swap * (x_2 ^ x_3); x_2 ^= d; x_3 ^= d
-        d = swap * (z_2 ^ z_3); z_2 ^= d; z_3 ^= d
+        
+        # Swaps conditionnels sans point-virgule
+        dummy = swap * (x_2 ^ x_3)
+        x_2 ^= dummy
+        x_3 ^= dummy
+        
+        dummy = swap * (z_2 ^ z_3)
+        z_2 ^= dummy
+        z_3 ^= dummy
+        
         swap = k_t
-        A = (x_2 + z_2) % P; AA = (A * A) % P
-        B = (x_2 - z_2) % P; BB = (B * B) % P
+        
+        A = (x_2 + z_2) % P
+        AA = (A * A) % P
+        B = (x_2 - z_2) % P
+        BB = (B * B) % P
         E = (AA - BB) % P
-        C = (x_3 + z_3) % P; D = (x_3 - z_3) % P
-        DA = (D * A) % P; CB = (C * B) % P
+        C = (x_3 + z_3) % P
+        D = (x_3 - z_3) % P
+        DA = (D * A) % P
+        CB = (C * B) % P
         x_3 = pow(DA + CB, 2, P)
         z_3 = (x_1 * pow(DA - CB, 2, P)) % P
         x_2 = (AA * BB) % P
         z_2 = (E * (AA + 121665 * E)) % P
-    d = swap * (x_2 ^ x_3); x_2 ^= d; x_3 ^= d
-    d = swap * (z_2 ^ z_3); z_2 ^= d; z_3 ^= d
+
+    dummy = swap * (x_2 ^ x_3)
+    x_2 ^= dummy
+    x_3 ^= dummy
+    
+    dummy = swap * (z_2 ^ z_3)
+    z_2 ^= dummy
+    z_3 ^= dummy
+
     return enc((x_2 * inv(z_2)) % P)
 
 
 def generate_wireguard_keys():
+    """Génère un couple de clés WireGuard valide"""
     priv = os.urandom(32)
     pub = curve25519_scalarmult(priv)
     return {
@@ -87,12 +102,14 @@ def generate_wireguard_keys():
 
 
 def register_warp(public_key):
+    """Enregistre le client auprès de l'API Cloudflare WARP"""
     try:
-        import requests
         url = "https://api.cloudflareclient.com/v0a2158/reg"
         headers = {"Content-Type": "application/json", "User-Agent": "okhttp/3.12.1"}
         payload = {
-            "key": public_key, "install_id": "", "fcm_token": "",
+            "key": public_key,
+            "install_id": "",
+            "fcm_token": "",
             "tos": time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
             "model": "MikroTik",
             "serial_number": hashlib.md5(public_key.encode()).hexdigest()[:16],
@@ -111,9 +128,7 @@ def register_warp(public_key):
 
 
 def generate_script(order):
-    """
-    Générateur de scripts RouterOS v7 avec Hotspot Furtif et Routing Mangle Isolé.
-    """
+    """Générateur de scripts RouterOS v7 sans coupure ni bootloop"""
     plan = safe_get(order, 'plan_type', 'standard')
     model = safe_get(order, 'mikrotik_model', 'hap_ac2')
     ssid = safe_get(order, 'ssid', 'KETRIKA-WiFi')
@@ -134,10 +149,13 @@ def generate_script(order):
     sleep_mode = safe_get(order, 'sleep_mode', 'off')
     client_limit = safe_get(order, 'client_limit', '0')
 
+    # Import dynamique sécurisé au runtime pour éviter l'ImportError
     from database import get_model_info, generate_random_mac, generate_router_name
+    
     info = get_model_info(model)
     wifi_type = info.get('wifi_type', 'none')
     wifi_iface = info.get('wifi_iface', None)
+    eth_ports = info.get('eth_ports', 5)
 
     if not router_name:
         router_name = generate_router_name(lic)
@@ -280,16 +298,11 @@ def generate_script(order):
     if plan in ['warp', 'hotspot']:
         p.append("")
         p.append("# ============================================================")
-        p.append("# --- TUNNEL VPN WIREGUARD FURTIF ---")
+        p.append("# --- TUNNEL VPN WIREGUARD SELECTIONNE ---")
         p.append("# ============================================================")
-        p.append('/interface wireguard add name=wg-secure mtu=1280 listen-port=0 \\')
-        p.append('  private-key="' + keys['private_key'] + '" comment="WARP-KETRIKA"')
+        p.append('/interface wireguard add name=wg-secure mtu=1280 listen-port=0 comment="WARP-KETRIKA" private-key="' + keys['private_key'] + '"')
         p.append('/ip address add address=' + warp_ip + '/32 interface=wg-secure')
-        p.append('/interface wireguard peers add interface=wg-secure \\')
-        p.append('  public-key="' + CF_PUBLIC_KEY + '" \\')
-        p.append('  endpoint-address=' + endpoint_ip + ' \\')
-        p.append('  endpoint-port=' + str(endpoint_port) + ' \\')
-        p.append('  allowed-address=0.0.0.0/0 persistent-keepalive=25')
+        p.append('/interface wireguard peers add interface=wg-secure public-key="' + CF_PUBLIC_KEY + '" endpoint-address=' + endpoint_ip + ' endpoint-port=' + str(endpoint_port) + ' allowed-address=0.0.0.0/0 persistent-keepalive=25')
         p.append("")
         p.append("# --- Table de Routage Dédiée v7 ---")
         p.append('/routing table add name=via-secure fib')
@@ -298,23 +311,15 @@ def generate_script(order):
         p.append("# --- Mangle Policy Routing (Furtivité Maximale) ---")
         
         if plan == 'hotspot':
-            # ROUTAGE VPN UNIQUEMENT POUR LES CLIENTS DU HOTSPOT AUTHENTIFIÉS
-            # L'exclusion 'dst-address-type=!local' permet au portail captif local de s'ouvrir instantanément !
-            p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' \\')
-            p.append('  hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure \\')
-            p.append('  passthrough=yes comment="Stealth-Hotspot-Auth-To-VPN"')
+            p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Stealth-Hotspot-Auth-To-VPN"')
         else:
-            # ROUTAGE VPN POUR TOUT LE LAN
-            p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' \\')
-            p.append('  dst-address-type=!local action=mark-routing new-routing-mark=via-secure \\')
-            p.append('  passthrough=yes comment="Route-LAN-To-VPN"')
+            p.append('/ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + net + ' dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="Route-LAN-To-VPN"')
             
         p.append("")
         p.append("# --- NAT Masquerade VPN & Anti-Fuite DNS ---")
         p.append('/ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade')
         
         if plan == 'hotspot':
-            # Redirection DNS pour les utilisateurs authentifiés
             p.append('/ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
             p.append('/ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect')
         else:
@@ -323,8 +328,7 @@ def generate_script(order):
             
         p.append("")
         p.append("# --- MSS Clamping Anti-DPI ---")
-        p.append('/ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn \\')
-        p.append('  action=change-mss new-mss=1280 passthrough=yes')
+        p.append('/ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes')
 
     # ================================================================
     # PHASE 6 : HOTSPOT PORTAIL CAPTIF (PACK 80K)
@@ -335,11 +339,8 @@ def generate_script(order):
         p.append("# --- PORTAIL CAPTIF HOTSPOT WIFI ZONE (100% INVISIBLE FAI) ---")
         p.append("# ============================================================")
         p.append('/ip dns static add name=wifi.ketrika.mg address=' + gw)
-        p.append('/ip hotspot profile add name=ketrika-hs hotspot-address=' + gw + ' \\')
-        p.append('  dns-name=wifi.ketrika.mg login-by=http-pap,cookie \\')
-        p.append('  http-cookie-lifetime=1d use-radius=no html-directory=hotspot')
-        p.append('/ip hotspot add name=hotspot-ketrika interface=bridge1 \\')
-        p.append('  profile=ketrika-hs address-pool=pool-lan disabled=no')
+        p.append('/ip hotspot profile add name=ketrika-hs hotspot-address=' + gw + ' dns-name=wifi.ketrika.mg login-by=http-pap,cookie http-cookie-lifetime=1d use-radius=no html-directory=hotspot')
+        p.append('/ip hotspot add name=hotspot-ketrika interface=bridge1 profile=ketrika-hs address-pool=pool-lan disabled=no')
         p.append("")
         p.append("# --- Profils Utilisateurs ---")
         p.append('/ip hotspot user profile add name="1heure" rate-limit="2M/5M" session-timeout=1h shared-users=1')
@@ -366,7 +367,7 @@ def generate_script(order):
 
     if str(ttl) != '0':
         p.append("")
-        p.append("# --- Masquage TTL Global (Anti-Partage FAI) ---")
+        p.append("# --- Masquage TTL Uniforme ---")
         p.append('/ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes comment="TTL-Mask-Global"')
         p.append('/ip firewall mangle add chain=prerouting action=change-ttl new-ttl=set:' + ttl + ' passthrough=yes comment="TTL-Mask-Global"')
 
@@ -386,11 +387,11 @@ def generate_script(order):
         p.append('/queue simple add name="QoS-PerClient" target=' + net + ' queue=pcq-ul/pcq-dl')
 
     # ================================================================
-    # PHASE 8 : USURPATION MAC WAN & NOM ROUTEUR
+    # PHASE 8 : MAC SPOOFING & IDENTITY
     # ================================================================
     if mac_spoof and mac_address:
         p.append("")
-        p.append("# --- Usurpation MAC WAN (Le FAI ne voit qu'un PC standard) ---")
+        p.append("# --- Usurpation MAC WAN ---")
         p.append(':do { /interface ethernet set ' + wan + ' mac-address=' + mac_address + ' } on-error={}')
 
     p.append("")
@@ -412,15 +413,11 @@ def generate_script(order):
         start_t, end_t = sleep_ranges.get(sleep_mode, ('00:00:00', '06:00:00'))
 
         if wifi_type == 'ax':
-            p.append('/system scheduler add name="ketrika-sleep-off" start-time=' + start_t + ' \\')
-            p.append('  interval=1d on-event="/interface wifi set [find] disabled=yes"')
-            p.append('/system scheduler add name="ketrika-sleep-on" start-time=' + end_t + ' \\')
-            p.append('  interval=1d on-event="/interface wifi set [find] disabled=no"')
+            p.append('/system scheduler add name="ketrika-sleep-off" start-time=' + start_t + ' interval=1d on-event="/interface wifi set [find] disabled=yes"')
+            p.append('/system scheduler add name="ketrika-sleep-on" start-time=' + end_t + ' interval=1d on-event="/interface wifi set [find] disabled=no"')
         elif wifi_type in ['ac', 'n']:
-            p.append('/system scheduler add name="ketrika-sleep-off" start-time=' + start_t + ' \\')
-            p.append('  interval=1d on-event="/interface wireless set [find] disabled=yes"')
-            p.append('/system scheduler add name="ketrika-sleep-on" start-time=' + end_t + ' \\')
-            p.append('  interval=1d on-event="/interface wireless set [find] disabled=no"')
+            p.append('/system scheduler add name="ketrika-sleep-off" start-time=' + start_t + ' interval=1d on-event="/interface wireless set [find] disabled=yes"')
+            p.append('/system scheduler add name="ketrika-sleep-on" start-time=' + end_t + ' interval=1d on-event="/interface wireless set [find] disabled=no"')
 
     # ================================================================
     # PHASE 10 : FIREWALL & REDÉMARRAGE AUTOMATIQUE
@@ -436,8 +433,7 @@ def generate_script(order):
     p.append("# ============================================================")
     p.append("# --- REDÉMARRAGE AUTOMATIQUE PROPRE ---")
     p.append("# ============================================================")
-    p.append('/system scheduler add name="ketrika-reboot-once" interval=0s \\')
-    p.append('  on-event=":delay 2s; /system scheduler remove [find name=ketrika-reboot-once]; /system reboot"')
+    p.append('/system scheduler add name="ketrika-reboot-once" interval=0s on-event=":delay 2s; /system scheduler remove [find name=ketrika-reboot-once]; /system reboot"')
     p.append(':delay 1s')
     p.append('/system scheduler set [find name=ketrika-reboot-once] start-time=[/system clock get time]')
     p.append("")
@@ -504,4 +500,3 @@ les opérateurs FAI analysent trois facteurs principaux :
 (c) 2026 KETRIKA MIKROTIK - Tous droits réservés.
 """
     return guide
-```
