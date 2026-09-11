@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
 ============================================================
-KETRIKA MIKROTIK - MOTEUR ROUTEROS v7 (VERSION ULTIME 100%)
-Compatible RouterOS 7.x (7.22+) / CHR / hAP ax / hAP ac / Lite
-Execution Ligne par Ligne - Zero Erreur - Zero Deconnexion
+KETRIKA MIKROTIK - MOTEUR DE CONFIGURATION ROUTEROS v7
+Plateforme de Génie Réseau - Version Finale Certifiée
 ============================================================
 """
 
@@ -15,6 +14,7 @@ import time
 import hashlib
 import requests
 
+# Clé publique officielle du serveur Cloudflare WARP
 CF_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
 
 WARP_ENDPOINTS = [
@@ -26,6 +26,7 @@ WARP_ENDPOINTS = [
 
 
 def safe_get(obj, key, default=""):
+    """Récupère en toute sécurité les attributs de l'objet Order de la BDD."""
     try:
         val = getattr(obj, key, default)
         return val if val is not None else default
@@ -34,6 +35,7 @@ def safe_get(obj, key, default=""):
 
 
 def ros_escape(value):
+    """Échappe les caractères sensibles pour RouterOS."""
     value = str(value)
     value = value.replace("\\", "\\\\")
     value = value.replace('"', '\\"')
@@ -41,6 +43,7 @@ def ros_escape(value):
 
 
 def curve25519_scalarmult(scalar):
+    """Calcul X25519 RFC 7748 en Pur Python (Zéro dépendance externe)."""
     P = 2**255 - 19
 
     def dec(data):
@@ -101,6 +104,7 @@ def curve25519_scalarmult(scalar):
 
 
 def generate_wireguard_keys():
+    """Génère la vraie paire de clés privée/publique WireGuard."""
     private_key = os.urandom(32)
     public_key = curve25519_scalarmult(private_key)
     return {
@@ -110,6 +114,7 @@ def generate_wireguard_keys():
 
 
 def register_warp(public_key):
+    """Enregistre le compte auprès de l'API Cloudflare WARP officielle."""
     try:
         url = "https://api.cloudflareclient.com/v0a2158/reg"
         headers = {
@@ -128,18 +133,25 @@ def register_warp(public_key):
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         if response.status_code not in (200, 201):
             return {"success": False, "ipv4": ""}
+
         data = response.json()
         ipv4 = data.get("config", {}).get("interface", {}).get("addresses", {}).get("v4", "")
         if "/" in str(ipv4):
             ipv4 = str(ipv4).split("/")[0]
+
         if not ipv4:
             return {"success": False, "ipv4": ""}
+
         return {"success": True, "ipv4": ipv4}
     except Exception:
         return {"success": False, "ipv4": ""}
 
 
 def generate_script(order):
+    """
+    Génère le script RouterOS v7 certifié sans coupure Winbox.
+    Compatible avec les objets SQLAlchemy du projet KETRIKA.
+    """
     plan = safe_get(order, "plan_type", "standard")
     model = safe_get(order, "mikrotik_model", "hap_ac2")
     ssid = safe_get(order, "ssid", "KETRIKA-WiFi")
@@ -176,7 +188,7 @@ def generate_script(order):
     p = []
 
     # ============================================================
-    # 1. EN-TÊTE & PROTECTION WINBOX
+    # 1. EN-TÊTE & PROTECTION WINBOX (PRIORITÉ ABSOLUE)
     # ============================================================
     p.append(':put " "')
     p.append(':put ">>> [1/8] Securisation des acces Winbox..."')
@@ -184,7 +196,7 @@ def generate_script(order):
     p.append(':do { /ip firewall filter add chain=input protocol=tcp dst-port=22 action=accept comment="KETRIKA-SSH" } on-error={}')
 
     # ============================================================
-    # 2. CRÉATION DU BRIDGE LAN & ATTACHEMENT DES PORTS
+    # 2. CRÉATION DU BRIDGE LAN & PORTS PHYSIQUES SANS COUPURE
     # ============================================================
     p.append(':put ">>> [2/8] Configuration Bridge LAN et Ports..."')
     p.append(':do { /interface bridge add name=bridge1 comment="LAN-KETRIKA" } on-error={}')
@@ -196,7 +208,7 @@ def generate_script(order):
     p.append(':do { /interface bridge port add bridge=bridge1 interface=ether5 } on-error={}')
 
     # ============================================================
-    # 3. IP LAN & POOL & SERVEUR DHCP & DNS
+    # 3. IP LAN & SERVEUR DHCP & DNS CLOUDFLARE
     # ============================================================
     p.append(':put ">>> [3/8] Attribution IP LAN et Serveur DHCP..."')
     p.append(':do { /ip address add address=' + ros_escape(gw) + '/24 interface=bridge1 comment="Passerelle-LAN" } on-error={}')
@@ -210,7 +222,7 @@ def generate_script(order):
     p.append(':do { /ip dns set use-doh-server=https://cloudflare-dns.com/dns-query } on-error={}')
 
     # ============================================================
-    # 4. WAN INTERNET & MAC SPOOF
+    # 4. INTERNET WAN & USURPATION ADRESSE MAC
     # ============================================================
     p.append(':put ">>> [4/8] Configuration WAN Internet..."')
     if mac_spoof and mac_address:
@@ -219,7 +231,7 @@ def generate_script(order):
     p.append(':do { /ip dhcp-client add interface=' + ros_escape(wan) + ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN-Internet" } on-error={}')
 
     # ============================================================
-    # 5. ACTIVATION DU WI-FI (AX + LEGACY AC/N)
+    # 5. ACTIVATION DU WI-FI (AX Wi-Fi 6 + Wi-Fi AC/N Legacy)
     # ============================================================
     p.append(':put ">>> [5/8] Configuration Wi-Fi..."')
     if plan == "hotspot":
@@ -239,7 +251,7 @@ def generate_script(order):
     p.append(':do { /interface bridge port add bridge=bridge1 interface=wlan2 } on-error={}')
 
     # ============================================================
-    # 6. WIREGUARD CLOUDFLARE WARP
+    # 6. WIREGUARD CLOUDFLARE WARP (PLAN 2 ET PLAN 3)
     # ============================================================
     if plan in ("warp", "hotspot"):
         p.append(':put ">>> [6/8] Activation WireGuard Cloudflare WARP..."')
@@ -254,7 +266,7 @@ def generate_script(order):
             p.append(':do { /ip route remove [find routing-table=via-secure] } on-error={}')
             p.append(':do { /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure } on-error={}')
 
-            # Protection Winbox et LAN dans Mangle
+            # Protection Winbox et réseau local contre la déviation dans le VPN
             p.append(':do { /ip firewall mangle remove [find comment~"WINBOX-NO-WG" or comment~"LAN-NO-WG" or comment~"KETRIKA"] } on-error={}')
             p.append(':do { /ip firewall mangle add chain=prerouting dst-port=8291 protocol=tcp action=accept comment="WINBOX-NO-WG" } on-error={}')
             p.append(':do { /ip firewall mangle add chain=prerouting dst-address=192.168.0.0/16 action=accept comment="LAN-NO-WG" } on-error={}')
@@ -272,9 +284,10 @@ def generate_script(order):
             p.append(':do { /ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes comment="KETRIKA-MSS" } on-error={}')
 
     # ============================================================
-    # 7. HOTSPOT (Plan 3)
+    # 7. PORTAIL CAPTIF HOTSPOT (PLAN 3 SEULEMENT)
     # ============================================================
     if plan == "hotspot":
+        p.append(':put ">>> [7/8] Configuration Portail Captif Hotspot..."')
         p.append(':do { /ip dns static add name=wifi.ketrika.mg address=' + ros_escape(gw) + ' } on-error={}')
         p.append(':do { /ip hotspot profile add name=ketrika-hs hotspot-address=' + ros_escape(gw) + ' dns-name=wifi.ketrika.mg login-by=http-pap,cookie http-cookie-lifetime=1d use-radius=no html-directory=hotspot } on-error={}')
         p.append(':do { /ip hotspot add name=hotspot-ketrika interface=bridge1 profile=ketrika-hs address-pool=pool-lan disabled=no } on-error={}')
@@ -284,9 +297,9 @@ def generate_script(order):
             p.append(':do { /ip hotspot user add name="' + vc + '" password="' + vc + '" profile="1jour" comment="Ticket-KETRIKA" } on-error={}')
 
     # ============================================================
-    # 8. NAT & ANTI-TTL & IDENTITY & FIREWALL FINAL
+    # 8. BYPASS FAI (ANTI-TTL) & QoS & IDENTITÉ & FIREWALL FINAL
     # ============================================================
-    p.append(':put ">>> [7/8] Anti-TTL FAI, NAT et Securite..."')
+    p.append(':put ">>> [8/8] Masquage TTL FAI, QoS, Securite Finale..."')
     p.append(':do { /ip firewall nat add chain=srcnat out-interface=' + ros_escape(wan) + ' action=masquerade comment="KETRIKA-NAT" } on-error={}')
     if str(ttl) != "0":
         p.append(':do { /ip firewall mangle add chain=postrouting action=change-ttl new-ttl=set:' + str(ttl) + ' passthrough=yes comment="KETRIKA-TTL" } on-error={}')
@@ -299,6 +312,7 @@ def generate_script(order):
 
     p.append(':do { /system identity set name="' + ros_escape(router_name) + '" } on-error={}')
 
+    # Firewall final
     p.append(':do { /ip firewall filter remove [find comment~"KETRIKA-FW"] } on-error={}')
     p.append(':do { /ip firewall filter add chain=input connection-state=established,related action=accept comment="KETRIKA-FW" } on-error={}')
     p.append(':do { /ip firewall filter add chain=input connection-state=invalid action=drop comment="KETRIKA-FW" } on-error={}')
