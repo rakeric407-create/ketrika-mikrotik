@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ============================================================
-KETRIKA MIKROTIK - MOTEUR ROUTEROS v7 (VERSION INDUSTRIELLE)
+KETRIKA MIKROTIK - MOTEUR ROUTEROS v7 (ZERO-FLAP ZERO-DECONNEXION)
 Compatible RouterOS 7.x (7.22+) / CHR / hAP ax / hAP ac / Lite
-Désactivation FastTrack + Fix MAC Bridge + Zero Coupure
+Conservation du Bridge d'Usine - Zéro Coupure Physique
 ============================================================
 """
 
@@ -179,51 +179,38 @@ def generate_script(order):
     p = []
 
     # ============================================================
-    # 1. DÉSACTIVATION FASTTRACK (CRITIQUE POUR WIREGUARD & TTL)
+    # 1. DÉSACTIVATION FASTTRACK & SÉCURISATION WINBOX
     # ============================================================
-    p.append(':do { /ip firewall filter disable [find action=fasttrack-connection] } on-error={}')
     p.append(':do { /ip firewall filter remove [find action=fasttrack-connection] } on-error={}')
-
-    # ============================================================
-    # 2. ACCÈS WINBOX ET MAC-SERVER ILLIMITÉS
-    # ============================================================
     p.append(':do { /tool mac-server set allowed-interface-list=all } on-error={}')
     p.append(':do { /tool mac-server mac-winbox set allowed-interface-list=all } on-error={}')
     p.append(':do { /ip firewall filter add chain=input protocol=tcp dst-port=8291 action=accept comment="KETRIKA-WINBOX" } on-error={}')
     p.append(':do { /ip firewall filter add chain=input protocol=tcp dst-port=22 action=accept comment="KETRIKA-SSH" } on-error={}')
 
     # ============================================================
-    # 3. CRÉATION DU BRIDGE AVEC MAC FIXE (ANTI-FLAP)
+    # 2. BRIDGE LAN (CONSERVATION DU BRIDGE D'USINE - ZÉRO FLAP)
     # ============================================================
-    p.append(':if ([:len [/interface bridge find name=bridge1]] = 0) do={ :if ([:len [/interface bridge find name=bridge]] > 0) do={ /interface bridge set [find name=bridge] name=bridge1 } else={ /interface bridge add name=bridge1 comment="LAN-KETRIKA" } }')
-    # Verrouille l'adresse MAC du bridge sur ether2 pour ne plus JAMAIS avoir de micro-coupure
-    p.append(':do { :local m [/interface ethernet get [find default-name=ether2] mac-address]; /interface bridge set [find name=bridge1] admin-mac=$m auto-mac=no } on-error={}')
-    p.append(':do { /interface list member add list=LAN interface=bridge1 } on-error={}')
-    
-    # Bascule douce de tous les ports
-    p.append(':do { /interface bridge port set [find bridge!="bridge1"] bridge=bridge1 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=ether2 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=ether3 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=ether4 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=ether5 } on-error={}')
+    # On utilise 'bridge' sans changer sa MAC ni son nom pour ne jamais couper le câble
+    p.append(':if ([:len [/interface bridge find name=bridge]] = 0) do={ /interface bridge add name=bridge comment="LAN-KETRIKA" }')
+    # On n'ajoute que les ports qui manqueraient (sans toucher aux ports déjà connectés)
+    p.append(':foreach p in=[/interface ethernet find] do={ :local ifn [/interface ethernet get $p name]; :if ($ifn != "' + ros_escape(wan) + '") do={ :if ([:len [/interface bridge port find interface=$ifn]] = 0) do={ :do { /interface bridge port add bridge=bridge interface=$ifn } on-error={} } } }')
 
     # ============================================================
-    # 4. IP LAN (DOUBLE-IP DE SECOURS ACTIVE)
+    # 3. IP LAN & SERVEUR DHCP (DOUBLE-IP SANS COUPURE)
     # ============================================================
-    p.append(':do { /ip address add address=' + ros_escape(gw) + '/24 interface=bridge1 comment="Passerelle-LAN" } on-error={}')
-    p.append(':do { /ip address add address=192.168.88.1/24 interface=bridge1 comment="IP-Secours-Winbox" } on-error={}')
+    p.append(':do { /ip address add address=' + ros_escape(gw) + '/24 interface=bridge comment="Passerelle-LAN" } on-error={}')
+    p.append(':do { /ip address add address=192.168.88.1/24 interface=bridge comment="IP-Secours-Winbox" } on-error={}')
 
-    # DHCP Server & DNS
     p.append(':do { /ip pool remove [find name=pool-lan] } on-error={}')
     p.append(':do { /ip pool add name=pool-lan ranges=' + ros_escape(pool) + ' } on-error={}')
     p.append(':do { /ip dhcp-server remove [find name=dhcp-lan] } on-error={}')
-    p.append(':do { /ip dhcp-server add name=dhcp-lan interface=bridge1 address-pool=pool-lan lease-time=1d disabled=no } on-error={}')
+    p.append(':do { /ip dhcp-server add name=dhcp-lan interface=bridge address-pool=pool-lan lease-time=1d disabled=no } on-error={}')
     p.append(':do { /ip dhcp-server network remove [find address="' + ros_escape(net) + '"] } on-error={}')
     p.append(':do { /ip dhcp-server network add address=' + ros_escape(net) + ' gateway=' + ros_escape(gw) + ' dns-server=' + ros_escape(gw) + ' } on-error={}')
     p.append(':do { /ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8 } on-error={}')
 
     # ============================================================
-    # 5. WAN INTERNET & MAC SPOOF
+    # 4. WAN INTERNET & MAC SPOOF
     # ============================================================
     if mac_spoof and mac_address:
         p.append(':do { /interface ethernet set [find default-name=' + ros_escape(wan) + '] mac-address="' + ros_escape(mac_address) + '" } on-error={}')
@@ -231,7 +218,7 @@ def generate_script(order):
     p.append(':do { /ip dhcp-client add interface=' + ros_escape(wan) + ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN-Internet" } on-error={}')
 
     # ============================================================
-    # 6. ACTIVATION WI-FI
+    # 5. ACTIVATION DU WI-FI (AX + LEGACY AC/N SANS FLAP)
     # ============================================================
     if plan == "hotspot":
         p.append(':do { /interface wifi set [find] configuration.mode=ap configuration.ssid="' + ros_escape(ssid) + '" security.authentication-types="" disabled=no } on-error={}')
@@ -244,13 +231,11 @@ def generate_script(order):
 
     p.append(':do { /interface wifi enable [find] } on-error={}')
     p.append(':do { /interface wireless enable [find] } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=wifi1 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=wifi2 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=wlan1 } on-error={}')
-    p.append(':do { /interface bridge port add bridge=bridge1 interface=wlan2 } on-error={}')
+    p.append(':foreach w in=[/interface wifi find] do={ :local wn [/interface wifi get $w name]; :if ([:len [/interface bridge port find interface=$wn]] = 0) do={ :do { /interface bridge port add bridge=bridge interface=$wn } on-error={} } }')
+    p.append(':foreach w in=[/interface wireless find] do={ :local wn [/interface wireless get $w name]; :if ([:len [/interface bridge port find interface=$wn]] = 0) do={ :do { /interface bridge port add bridge=bridge interface=$wn } on-error={} } }')
 
     # ============================================================
-    # 7. WIREGUARD CLOUDFLARE WARP (PLAN 2 ET 3)
+    # 6. WIREGUARD CLOUDFLARE WARP (PLAN 2 ET 3)
     # ============================================================
     if plan in ("warp", "hotspot"):
         if warp_ip:
@@ -264,38 +249,38 @@ def generate_script(order):
             p.append(':do { /ip route remove [find routing-table=via-secure] } on-error={}')
             p.append(':do { /ip route add dst-address=0.0.0.0/0 gateway=wg-secure routing-table=via-secure } on-error={}')
 
-            # RÈGLES DE MANGLE AVEC EXCLUSION STRICTE POUR NE JAMAIS BLOQUER WINBOX OU LE LAN
-            p.append(':do { /ip firewall mangle remove [find comment~"WINBOX-NO-WG" or comment~"LAN-NO-WG" or comment~"KETRIKA"] } on-error={}')
-            p.append(':do { /ip firewall mangle add chain=prerouting dst-port=8291 protocol=tcp action=accept comment="WINBOX-NO-WG" } on-error={}')
+            # MANGLE : EXCLUSION STRICTE POUR NE JAMAIS DÉVIER WINBOX DANS LE VPN
+            p.append(':do { /ip firewall mangle remove [find comment~"WINBOX" or comment~"LAN-NO-WG" or comment~"KETRIKA"] } on-error={}')
+            p.append(':do { /ip firewall mangle add chain=prerouting dst-port=8291 protocol=tcp action=accept comment="WINBOX-BYPASS" } on-error={}')
             p.append(':do { /ip firewall mangle add chain=prerouting dst-address=192.168.0.0/16 action=accept comment="LAN-NO-WG" } on-error={}')
             p.append(':do { /ip firewall mangle add chain=prerouting dst-address=10.0.0.0/8 action=accept comment="LAN-NO-WG" } on-error={}')
 
             if plan == "hotspot":
-                p.append(':do { /ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + ros_escape(net) + ' hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="KETRIKA-HS-WG" } on-error={}')
-                p.append(':do { /ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect comment="KETRIKA-DNS-HS" } on-error={}')
-                p.append(':do { /ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 hotspot=auth action=redirect comment="KETRIKA-DNS-HS" } on-error={}')
+                p.append(':do { /ip firewall mangle add chain=prerouting in-interface=bridge src-address=' + ros_escape(net) + ' hotspot=auth dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="KETRIKA-HS-WG" } on-error={}')
+                p.append(':do { /ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge hotspot=auth action=redirect comment="KETRIKA-DNS-HS" } on-error={}')
+                p.append(':do { /ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge hotspot=auth action=redirect comment="KETRIKA-DNS-HS" } on-error={}')
             else:
-                p.append(':do { /ip firewall mangle add chain=prerouting in-interface=bridge1 src-address=' + ros_escape(net) + ' dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="KETRIKA-LAN-To-WG" } on-error={}')
-                p.append(':do { /ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge1 action=redirect comment="KETRIKA-DNS" } on-error={}')
-                p.append(':do { /ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge1 action=redirect comment="KETRIKA-DNS" } on-error={}')
+                p.append(':do { /ip firewall mangle add chain=prerouting in-interface=bridge src-address=' + ros_escape(net) + ' dst-address-type=!local action=mark-routing new-routing-mark=via-secure passthrough=yes comment="KETRIKA-LAN-To-WG" } on-error={}')
+                p.append(':do { /ip firewall nat add chain=dstnat protocol=udp dst-port=53 in-interface=bridge action=redirect comment="KETRIKA-DNS" } on-error={}')
+                p.append(':do { /ip firewall nat add chain=dstnat protocol=tcp dst-port=53 in-interface=bridge action=redirect comment="KETRIKA-DNS" } on-error={}')
 
             p.append(':do { /ip firewall nat add chain=srcnat out-interface=wg-secure action=masquerade comment="KETRIKA-WARP-NAT" } on-error={}')
             p.append(':do { /ip firewall mangle add chain=forward out-interface=wg-secure protocol=tcp tcp-flags=syn action=change-mss new-mss=1280 passthrough=yes comment="KETRIKA-MSS" } on-error={}')
 
     # ============================================================
-    # 8. HOTSPOT (PLAN 3)
+    # 7. PORTAIL CAPTIF HOTSPOT (PLAN 3)
     # ============================================================
     if plan == "hotspot":
         p.append(':do { /ip dns static add name=wifi.ketrika.mg address=' + ros_escape(gw) + ' } on-error={}')
         p.append(':do { /ip hotspot profile add name=ketrika-hs hotspot-address=' + ros_escape(gw) + ' dns-name=wifi.ketrika.mg login-by=http-pap,cookie http-cookie-lifetime=1d use-radius=no html-directory=hotspot } on-error={}')
-        p.append(':do { /ip hotspot add name=hotspot-ketrika interface=bridge1 profile=ketrika-hs address-pool=pool-lan disabled=no } on-error={}')
+        p.append(':do { /ip hotspot add name=hotspot-ketrika interface=bridge profile=ketrika-hs address-pool=pool-lan disabled=no } on-error={}')
         p.append(':do { /ip hotspot user profile add name="1jour" rate-limit="5M/10M" session-timeout=1d shared-users=2 } on-error={}')
         for _ in range(10):
             vc = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
             p.append(':do { /ip hotspot user add name="' + vc + '" password="' + vc + '" profile="1jour" comment="Ticket-KETRIKA" } on-error={}')
 
     # ============================================================
-    # 9. NAT & ANTI-TTL & QoS & IDENTITY
+    # 8. BYPASS FAI (ANTI-TTL) & QoS & IDENTITÉ & NAT
     # ============================================================
     p.append(':do { /ip firewall nat add chain=srcnat out-interface=' + ros_escape(wan) + ' action=masquerade comment="KETRIKA-NAT" } on-error={}')
     if str(ttl) != "0":
@@ -310,13 +295,13 @@ def generate_script(order):
     p.append(':do { /system identity set name="' + ros_escape(router_name) + '" } on-error={}')
 
     # ============================================================
-    # 10. FIREWALL FINAL (AVEC PROTECTION INPUT TOTALE)
+    # 9. FIREWALL FINAL
     # ============================================================
     p.append(':do { /ip firewall filter remove [find comment~"KETRIKA-FW"] } on-error={}')
     p.append(':do { /ip firewall filter add chain=input connection-state=established,related action=accept comment="KETRIKA-FW" } on-error={}')
     p.append(':do { /ip firewall filter add chain=input connection-state=invalid action=drop comment="KETRIKA-FW" } on-error={}')
     p.append(':do { /ip firewall filter add chain=input protocol=icmp action=accept comment="KETRIKA-FW" } on-error={}')
-    p.append(':do { /ip firewall filter add chain=input in-interface=bridge1 action=accept comment="KETRIKA-FW" } on-error={}')
+    p.append(':do { /ip firewall filter add chain=input in-interface=bridge action=accept comment="KETRIKA-FW" } on-error={}')
     p.append(':do { /ip firewall filter add chain=input in-interface=' + ros_escape(wan) + ' action=drop comment="KETRIKA-FW" } on-error={}')
 
     # ============================================================
@@ -331,8 +316,7 @@ def generate_script(order):
     p.append(':put "##                   S U C C E S                           ##"')
     p.append(':put "##                                                           ##"')
     p.append(':put "###############################################################"')
-    p.append(':put "  [OK] FastTrack desactive (WireGuard 100% stable)"')
-    p.append(':put "  [OK] Bridge LAN et Ports : VERROUILLES SANS COUPURE"')
+    p.append(':put "  [OK] Bridge LAN et Ports : 100% STABLES SANS FLAP"')
     p.append(':put "  [OK] Passerelle LAN IP : ' + ros_escape(gw) + '"')
     p.append(':put "  [OK] IP de Secours Winbox : 192.168.88.1 (Active)"')
     p.append(':put "  [OK] Wi-Fi SSID : ' + ros_escape(ssid) + '"')
@@ -368,8 +352,8 @@ INSTALLATION
 1. Connectez-vous au MikroTik avec WinBox.
 2. Ouvrez New Terminal.
 3. Collez le script complet.
-4. L'installation est instantanée et sans déconnexion.
-5. Vérifiez le Wi-Fi et la navigation Internet.
+4. L'installation se deroule d'un seul trait sans deconnexion.
+5. Verifiez le Wi-Fi et la connexion Internet.
 
 ================================================================================
 SUPPORT : KETRIKA MIKROTIK - Madagascar
